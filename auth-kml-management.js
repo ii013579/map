@@ -204,29 +204,32 @@ document.addEventListener('DOMContentLoaded', () => {
             usersData.forEach(user => {
                 const uid = user.id;
                 const emailName = user.email ? user.email.split('@')[0] : 'N/A';
-    
                 const userCard = document.createElement('div');
                 userCard.className = 'user-card';
                 userCard.dataset.nickname = user.name || 'N/A';
                 userCard.dataset.uid = uid;
-    
+            
                 userCard.innerHTML = `
-                    <div class="user-email">${emailName}</div>
-                    <div class="user-nickname">${user.name || 'N/A'}</div>
-                    <div class="user-role-controls">
-                        <select id="role-select-${uid}" data-uid="${uid}" data-original-value="${user.role}" class="user-role-select">
-                            <option value="unapproved" ${user.role === 'unapproved' ? 'selected' : ''}>未審核</option>
-                            <option value="user" ${user.role === 'user' ? 'selected' : ''}>一般用戶</option>
-                            <option value="editor" ${user.role === 'editor' ? 'selected' : ''}>編輯者</option>
-                            <option value="owner" ${user.role === 'owner' ? 'selected' : ''} ${window.currentUserRole !== 'owner' ? 'disabled' : ''}>擁有者</option>
-                        </select>
+                    <div class="user-card-row-1">
+                        <span class="user-email">Email: ${emailName}</span>
+                        <span class="user-nickname">暱稱: ${user.name || 'N/A'}</span>
                     </div>
-                    <div class="user-actions">
-                        <button class="change-role-btn" data-uid="${uid}" disabled>變更</button>
-                        <button class="delete-user-btn action-buttons delete-btn" data-uid="${uid}">刪除</button>
+                    <div class="user-card-row-2">
+                        <div class="user-role-controls">
+                            <label for="role-select-${uid}">角色:</label>
+                            <select id="role-select-${uid}" data-uid="${uid}" data-original-value="${user.role}" class="user-role-select">
+                                <option value="unapproved" ${user.role === 'unapproved' ? 'selected' : ''}>${getRoleDisplayName('unapproved')}</option>
+                                <option value="user" ${user.role === 'user' ? 'selected' : ''}>${getRoleDisplayName('user')}</option>
+                                <option value="editor" ${user.role === 'editor' ? 'selected' : ''}>${getRoleDisplayName('editor')}</option>
+                                <option value="owner" ${user.role === 'owner' ? 'selected' : ''} ${window.currentUserRole !== 'owner' ? 'disabled' : ''}>${getRoleDisplayName('owner')}</option>
+                            </select>
+                        </div>
+                        <div class="user-actions">
+                            <button class="change-role-btn" data-uid="${uid}" disabled>變更</button>
+                            <button class="delete-user-btn action-buttons delete-btn" data-uid="${uid}">刪除</button>
+                        </div>
                     </div>
                 `;
-    
                 userListDiv.appendChild(userCard);
             });
     
