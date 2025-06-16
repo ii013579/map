@@ -677,12 +677,10 @@ body {
 }
 
 /* 變更按鈕樣式 */
-.user-card-row-2 .change-role-btn {
+.user-actions .change-role-btn {
     padding: 6px 10px;
     font-size: 14px;
-    width: auto;
-    flex-shrink: 0;
-    background-color: #007bff; /* 藍色 */
+    background-color: #007bff;
     color: white;
     border: none;
     border-radius: 8px;
@@ -690,21 +688,57 @@ body {
     font-weight: 600;
     transition: background-color 0.2s, transform 0.2s;
 }
-.user-card-row-2 .change-role-btn:hover {
-    background-color: #0056b3; /* 懸停時顏色加深 */
+.user-actions .change-role-btn:hover {
+    background-color: #0056b3;
     transform: translateY(-1px);
 }
-.user-card-row-2 .change-role-btn:disabled {
+.user-actions .change-role-btn:disabled {
     background-color: #cccccc;
     cursor: not-allowed;
     transform: none;
 }
+
+.user-actions .delete-user-btn {
+    padding: 6px 10px;
+    font-size: 14px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+}
+.user-actions .delete-user-btn:hover {
+    background-color: #a71d2a;
+}
+
 /* 刪除按鈕樣式 (保持紅色) */
 .user-card-row-2 .delete-user-btn {
     padding: 6px 10px;
     font-size: 14px;
     width: auto;
     flex-shrink: 0;
+}
+
+/* 標題點擊排序箭頭樣式 */
+.user-list-header .sortable {
+    cursor: pointer;
+    position: relative;
+}
+
+.user-list-header .sortable.sort-asc::after {
+    content: ' ▲';
+    font-size: 0.8em;
+    position: absolute;
+    right: 4px;
+}
+
+.user-list-header .sortable.sort-desc::after {
+    content: ' ▼';
+    font-size: 0.8em;
+    position: absolute;
+    right: 4px;
 }
 
 /* 註冊碼模態框計時器樣式 */
