@@ -832,10 +832,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 事件監聽器：重新整理用戶列表 (Owner Only)
     refreshUsersBtn.addEventListener('click', () => {
-        if (window.currentUserRole === 'owner') {
-            refreshUserList();
+        if (window.currentUserRole !== 'owner') {
+            showMessage('權限不足', '只有管理員才能查看或編輯使用者列表。');
+            return;
+        }
+    
+        const isVisible = userListDiv.style.display !== 'none';
+    
+        if (isVisible) {
+            userListDiv.style.display = 'none';
         } else {
-            showMessage('權限不足', '只有管理員才能重新整理用戶列表。');
+            userListDiv.style.display = 'block';
+            refreshUserList();
         }
     });
-});
