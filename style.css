@@ -620,6 +620,26 @@ body {
     font-size: 14px;
 }
 
+/* 使用者列表標題列 */
+.user-list-header {
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1.5fr 2fr;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 2px solid #ccc;
+    background-color: #f0f0f0;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+/*設定寬度*/
+.header-item {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 6px;
+}
+
 /* 每一筆使用者資料 */
 .user-card {
     display: grid;
