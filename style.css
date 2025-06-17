@@ -615,27 +615,13 @@ body {
     }
 }
 
-/* 使用者管理標題列樣式 */
-.user-list-header {
-    display: grid;
-    grid-template-columns: 2fr 1.5fr 1.5fr 2fr;
-    font-weight: bold;
-    padding: 10px 12px;
-    background-color: #f5f5f5;
-    border-bottom: 1px solid #ccc;
-    border-radius: 8px 8px 0 0;
-    font-size: 14px;
-}
-
 /* 列表容器 */
 #userList {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
     font-size: 14px;
 }
 
 /* 每一筆使用者資料 */
+.user-list-header {
 .user-card {
     display: grid;
     grid-template-columns: 2fr 1.5fr 1.5fr 2fr;
