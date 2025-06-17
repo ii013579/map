@@ -167,8 +167,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 輔助函數：顯示用戶管理列表
     const refreshUserList = async () => {
-        userListDiv.innerHTML = '';
-    
+    const cards = userListDiv.querySelectorAll('.user-card');
+    cards.forEach(card => card.remove());    
+
         try {
             const usersRef = db.collection('users');
             const snapshot = await usersRef.get();
