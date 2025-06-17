@@ -288,61 +288,59 @@ document.addEventListener('DOMContentLoaded', () => {
                         showMessage('錯誤', `刪除失敗: ${error.message}`);
                     }
                 });
-            });
-    
-            // ✅ 排序邏輯（加在 refreshUserList 最後）
-            let currentSortKey = 'role';
-            let sortAsc = true;
-    
-            document.querySelectorAll('.user-list-header .sortable').forEach(header => {
-                header.addEventListener('click', () => {
-                    const key = header.dataset.key;
-    
-                    if (currentSortKey === key) {
-                        sortAsc = !sortAsc;
-                    } else {
-                        currentSortKey = key;
-                        sortAsc = true;
-                    }
-    
-                    sortUserList(currentSortKey, sortAsc);
-                    updateSortIndicators();
-                });
-            });
-    
-            function sortUserList(key, asc = true) {
-                const cards = Array.from(document.querySelectorAll('#userList .user-card'));
-                const container = document.getElementById('userList');
-    
-                const sorted = cards.sort((a, b) => {
-                    const getValue = (el) => {
-                        if (key === 'email') return el.querySelector('.user-email')?.textContent?.toLowerCase() || '';
-                        if (key === 'nickname') return el.querySelector('.user-nickname')?.textContent?.toLowerCase() || '';
-                        if (key === 'role') return el.querySelector('.user-role-select')?.value || '';
-                        return '';
-                    };
-                    const aVal = getValue(a);
-                    const bVal = getValue(b);
-                    return asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-                });
-    
-                sorted.forEach(card => container.appendChild(card));
-            }
-    
-            function updateSortIndicators() {
-                document.querySelectorAll('.user-list-header .sortable').forEach(header => {
-                    header.classList.remove('sort-asc', 'sort-desc');
-                    if (header.dataset.key === currentSortKey) {
-                        header.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
-                    }
-                });
-            }
-    
+            });   
         } catch (error) {
             userListDiv.innerHTML = `<p style="color: red;">載入用戶列表失敗: ${error.message}</p>`;
             console.error("載入用戶列表時出錯:", error);
         }
-    };
+        // ✅ 排序邏輯（加在 refreshUserList 最後）
+        let currentSortKey = 'role';
+        let sortAsc = true;
+   
+        document.querySelectorAll('.user-list-header .sortable').forEach(header => {
+            header.addEventListener('click', () => {
+                const key = header.dataset.key;
+   
+                if (currentSortKey === key) {
+                    sortAsc = !sortAsc;
+                } else {
+                    currentSortKey = key;
+                    sortAsc = true;
+                }
+   
+                sortUserList(currentSortKey, sortAsc);
+                updateSortIndicators();
+            });
+        });
+   
+        function sortUserList(key, asc = true) {
+            const cards = Array.from(document.querySelectorAll('#userList .user-card'));
+            const container = document.getElementById('userList');
+   
+            const sorted = cards.sort((a, b) => {
+                const getValue = (el) => {
+                    if (key === 'email') return el.querySelector('.user-email')?.textContent?.toLowerCase() || '';
+                    if (key === 'nickname') return el.querySelector('.user-nickname')?.textContent?.toLowerCase() || '';
+                    if (key === 'role') return el.querySelector('.user-role-select')?.value || '';
+                    return '';
+                };
+                const aVal = getValue(a);
+                const bVal = getValue(b);
+                return asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            });
+   
+            sorted.forEach(card => container.appendChild(card));
+        }
+   
+        function updateSortIndicators() {
+            document.querySelectorAll('.user-list-header .sortable').forEach(header => {
+                header.classList.remove('sort-asc', 'sort-desc');
+                if (header.dataset.key === currentSortKey) {
+                    header.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
+                }
+            });
+        }
+     };
 
     // Firestore 實時監聽器
     auth.onAuthStateChanged(async (user) => {
