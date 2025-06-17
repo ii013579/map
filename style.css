@@ -629,14 +629,11 @@ body {
 
 /* 列表容器 */
 #userList {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
     font-size: 14px;
 }
 
 /* 每一筆使用者資料 */
-.user-card {
+.user-card:not(:last-child) {
     display: grid;
     grid-template-columns: 2fr 1.5fr 1.5fr 2fr;
     align-items: center;
