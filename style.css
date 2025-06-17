@@ -621,7 +621,6 @@ body {
 }
 
 /* 每一筆使用者資料 */
-.user-list-header,
 .user-card {
     display: grid;
     grid-template-columns: 2fr 1.5fr 1.5fr 2fr;
