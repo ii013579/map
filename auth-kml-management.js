@@ -841,3 +841,4 @@ document.addEventListener('DOMContentLoaded', () => {
             refreshUserList();
         }
     });
+});
