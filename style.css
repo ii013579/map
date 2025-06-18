@@ -679,20 +679,27 @@ body {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* ✅ 改成 nowrap，避免按鈕掉到下一行 */
+}
+
+/* 變更與刪除按鈕：統一寬度 */
+.user-actions .change-role-btn,
+.user-actions .delete-user-btn {
+    width: 80px;         /* ✅ 統一寬度 */
+    flex-shrink: 0;      /* ✅ 避免被壓縮 */
+    padding: 6px 10px;
+    font-size: 14px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
 }
 
 /* 變更按鈕樣式 */
 .user-actions .change-role-btn {
-    padding: 6px 10px;
-    font-size: 14px;
     background-color: #007bff;
     color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: background-color 0.2s, transform 0.2s;
 }
 .user-actions .change-role-btn:hover {
     background-color: #0056b3;
@@ -704,26 +711,18 @@ body {
     transform: none;
 }
 
+/* 刪除按鈕樣式 */
 .user-actions .delete-user-btn {
-    padding: 6px 10px;
-    font-size: 14px;
     background-color: #dc3545;
     color: white;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s, transform 0.2s;
 }
 .user-actions .delete-user-btn:hover {
     background-color: #a71d2a;
 }
 
-/* 刪除按鈕樣式 (保持紅色) */
+/* 如果有 user-card-row-2，也套用統一寬度 */
 .user-card-row-2 .delete-user-btn {
-    padding: 6px 10px;
-    font-size: 14px;
-    width: auto;
+    width: 80px;
     flex-shrink: 0;
 }
 
