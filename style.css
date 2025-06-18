@@ -752,3 +752,26 @@ body {
     font-weight: bold;
     color: #007bff;
 }
+
+/* 優化渲染 */
+@media (max-width: 768px) {
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    transition: none !important;
+  }
+
+  *:hover {
+    transform: none !important;
+    background-color: inherit !important;
+    box-shadow: none !important;
+  }
+
+  #userList {
+    max-height: 60vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
