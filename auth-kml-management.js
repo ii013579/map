@@ -166,10 +166,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 輔助函數：顯示用戶管理列表
-    const refreshUserList = async () => {
-    const cards = userListDiv.querySelectorAll('.user-card');
-    cards.forEach(card => card.remove());    
+// ✅ 完整版：分批渲染使用者卡片 + 點欄位排序
 
+    const refreshUserList = async () => {
+        const cards = userListDiv.querySelectorAll('.user-card');
+        cards.forEach(card => card.remove());
+    
         try {
             const usersRef = db.collection('users');
             const snapshot = await usersRef.get();
@@ -188,111 +190,175 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
     
-            // 預設先依角色排序
-            const roleOrder = {
-                'unapproved': 1,
-                'user': 2,
-                'editor': 3,
-                'owner': 4
-            };
+            // ✅ 預設依角色排序（在渲染前）
+            const roleOrder = { 'unapproved': 1, 'user': 2, 'editor': 3, 'owner': 4 };
             usersData.sort((a, b) => {
                 const roleA = roleOrder[a.role] || 99;
                 const roleB = roleOrder[b.role] || 99;
                 return roleA - roleB;
             });
     
-            // 建立 user-card 元素
-            usersData.forEach(user => {
-                const uid = user.id;
-                const emailName = user.email ? user.email.split('@')[0] : 'N/A';
-                const userCard = document.createElement('div');
-                userCard.className = 'user-card';
-                userCard.dataset.nickname = user.name || 'N/A';
-                userCard.dataset.uid = uid;
-            
-            userCard.innerHTML = `
-                <div class="user-email">${emailName}</div>
-                <div class="user-nickname">${user.name || 'N/A'}</div>
-                <div class="user-role-controls">
-                    <select id="role-select-${uid}" data-uid="${uid}" data-original-value="${user.role}" class="user-role-select">
-                        <option value="unapproved" ${user.role === 'unapproved' ? 'selected' : ''}>未審核</option>
-                        <option value="user" ${user.role === 'user' ? 'selected' : ''}>一般用戶</option>
-                        <option value="editor" ${user.role === 'editor' ? 'selected' : ''}>編輯者</option>
-                        <option value="owner" ${user.role === 'owner' ? 'selected' : ''} ${window.currentUserRole !== 'owner' ? 'disabled' : ''}>擁有者</option>
-                    </select>
-                </div>
-                <div class="user-actions">
-                    <button class="change-role-btn" data-uid="${uid}" disabled>變更</button>
-                    <button class="delete-user-btn action-buttons delete-btn" data-uid="${uid}">刪除</button>
-                </div>
-            `;
-                userListDiv.appendChild(userCard);
-            });
+            // ✅ 分批渲染
+            const BATCH_SIZE = 15;
+            let currentIndex = 0;
     
-            // 綁定角色下拉選單與變更按鈕事件
-            userListDiv.querySelectorAll('.user-role-select').forEach(select => {
-                const changeButton = select.closest('.user-card').querySelector('.change-role-btn');
-                select.addEventListener('change', () => {
-                    changeButton.disabled = (select.value === select.dataset.originalValue);
+            const renderBatch = () => {
+                const batch = usersData.slice(currentIndex, currentIndex + BATCH_SIZE);
+                batch.forEach(user => {
+                    const uid = user.id;
+                    const emailName = user.email ? user.email.split('@')[0] : 'N/A';
+    
+                    const userCard = document.createElement('div');
+                    userCard.className = 'user-card';
+                    userCard.dataset.nickname = user.name || 'N/A';
+                    userCard.dataset.uid = uid;
+    
+                    userCard.innerHTML = `
+                        <div class="user-email">${emailName}</div>
+                        <div class="user-nickname">${user.name || 'N/A'}</div>
+                        <div class="user-role-controls">
+                            <select id="role-select-${uid}" data-uid="${uid}" data-original-value="${user.role}" class="user-role-select">
+                                <option value="unapproved" ${user.role === 'unapproved' ? 'selected' : ''}>未審核</option>
+                                <option value="user" ${user.role === 'user' ? 'selected' : ''}>一般用戶</option>
+                                <option value="editor" ${user.role === 'editor' ? 'selected' : ''}>編輯者</option>
+                                <option value="owner" ${user.role === 'owner' ? 'selected' : ''} ${window.currentUserRole !== 'owner' ? 'disabled' : ''}>擁有者</option>
+                            </select>
+                        </div>
+                        <div class="user-actions">
+                            <button class="change-role-btn" data-uid="${uid}" disabled>變更</button>
+                            <button class="delete-user-btn action-buttons delete-btn" data-uid="${uid}">刪除</button>
+                        </div>
+                    `;
+                    userListDiv.appendChild(userCard);
                 });
     
-                changeButton.addEventListener('click', async () => {
-                    const userCard = changeButton.closest('.user-card');
-                    const uidToUpdate = userCard.dataset.uid;
-                    const nicknameToUpdate = userCard.dataset.nickname;
-                    const newRole = select.value;
+                bindUserCardEvents();
+                currentIndex += BATCH_SIZE;
     
-                    const confirmUpdate = await showConfirmationModal(
-                        '確認變更角色',
-                        `確定要將用戶 ${nicknameToUpdate} (${uidToUpdate.substring(0,6)}...) 的角色變更為 ${getRoleDisplayName(newRole)} 嗎？`
-                    );
+                if (currentIndex < usersData.length) {
+                    requestAnimationFrame(renderBatch);
+                } else {
+                    enableHeaderSort(); // ✅ 全部渲染完再啟用排序功能
+                }
+            };
     
-                    if (!confirmUpdate) {
-                        select.value = select.dataset.originalValue;
-                        changeButton.disabled = true;
-                        return;
-                    }
-    
-                    try {
-                        await db.collection('users').doc(uidToUpdate).update({ role: newRole });
-                        showMessage('成功', `用戶 ${nicknameToUpdate} 的角色已更新為 ${getRoleDisplayName(newRole)}。`);
-                        select.dataset.originalValue = newRole;
-                        changeButton.disabled = true;
-                    } catch (error) {
-                        showMessage('錯誤', `更新角色失敗: ${error.message}`);
-                        select.value = select.dataset.originalValue;
-                        changeButton.disabled = true;
-                    }
-                });
-            });
-    
-            // 綁定刪除按鈕事件
-            userListDiv.querySelectorAll('.delete-user-btn').forEach(button => {
-                button.addEventListener('click', async () => {
-                    const userCard = button.closest('.user-card');
-                    const uidToDelete = userCard.dataset.uid;
-                    const nicknameToDelete = userCard.dataset.nickname;
-    
-                    const confirmDelete = await showConfirmationModal(
-                        '確認刪除用戶',
-                        `確定要刪除用戶 ${nicknameToDelete} (${uidToDelete.substring(0,6)}...) 嗎？此操作不可逆！`
-                    );
-    
-                    if (!confirmDelete) return;
-    
-                    try {
-                        await db.collection('users').doc(uidToDelete).delete();
-                        showMessage('成功', `用戶 ${nicknameToDelete} 已刪除。`);
-                        userCard.remove(); // ✅ 不重整，直接從畫面移除
-                    } catch (error) {
-                        showMessage('錯誤', `刪除失敗: ${error.message}`);
-                    }
-                });
-            });   
+            renderBatch();
         } catch (error) {
             userListDiv.innerHTML = `<p style="color: red;">載入用戶列表失敗: ${error.message}</p>`;
             console.error("載入用戶列表時出錯:", error);
         }
+    };
+    
+    function bindUserCardEvents() {
+        userListDiv.querySelectorAll('.user-role-select').forEach(select => {
+            const changeButton = select.closest('.user-card').querySelector('.change-role-btn');
+            select.addEventListener('change', () => {
+                changeButton.disabled = (select.value === select.dataset.originalValue);
+            });
+    
+            changeButton.addEventListener('click', async () => {
+                const userCard = changeButton.closest('.user-card');
+                const uidToUpdate = userCard.dataset.uid;
+                const nicknameToUpdate = userCard.dataset.nickname;
+                const newRole = select.value;
+    
+                const confirmUpdate = await showConfirmationModal(
+                    '確認變更角色',
+                    `確定要將用戶 ${nicknameToUpdate} (${uidToUpdate.substring(0,6)}.) 的角色變更為 ${getRoleDisplayName(newRole)} 嗎？`
+                );
+    
+                if (!confirmUpdate) {
+                    select.value = select.dataset.originalValue;
+                    changeButton.disabled = true;
+                    return;
+                }
+    
+                try {
+                    await db.collection('users').doc(uidToUpdate).update({ role: newRole });
+                    showMessage('成功', `用戶 ${nicknameToUpdate} 的角色已更新為 ${getRoleDisplayName(newRole)}。`);
+                    select.dataset.originalValue = newRole;
+                    changeButton.disabled = true;
+                } catch (error) {
+                    showMessage('錯誤', `更新角色失敗: ${error.message}`);
+                    select.value = select.dataset.originalValue;
+                    changeButton.disabled = true;
+                }
+            });
+        });
+    
+        userListDiv.querySelectorAll('.delete-user-btn').forEach(button => {
+            button.addEventListener('click', async () => {
+                const userCard = button.closest('.user-card');
+                const uidToDelete = userCard.dataset.uid;
+                const nicknameToDelete = userCard.dataset.nickname;
+    
+                const confirmDelete = await showConfirmationModal(
+                    '確認刪除用戶',
+                    `確定要刪除用戶 ${nicknameToDelete} (${uidToDelete.substring(0,6)}.) 嗎？此操作不可逆！`
+                );
+    
+                if (!confirmDelete) return;
+    
+                try {
+                    await db.collection('users').doc(uidToDelete).delete();
+                    showMessage('成功', `用戶 ${nicknameToDelete} 已刪除。`);
+                    userCard.remove();
+                } catch (error) {
+                    showMessage('錯誤', `刪除失敗: ${error.message}`);
+                }
+            });
+        });
+    }
+    
+    function enableHeaderSort() {
+        let currentSortKey = 'role';
+        let sortAsc = true;
+    
+        document.querySelectorAll('.user-list-header .sortable').forEach(header => {
+            header.addEventListener('click', () => {
+                const key = header.dataset.key;
+    
+                if (currentSortKey === key) {
+                    sortAsc = !sortAsc;
+                } else {
+                    currentSortKey = key;
+                    sortAsc = true;
+                }
+    
+                sortUserList(currentSortKey, sortAsc);
+                updateSortIndicators();
+            });
+        });
+    
+        function sortUserList(key, asc = true) {
+            const cards = Array.from(document.querySelectorAll('#userList .user-card'));
+            const container = document.getElementById('userList');
+    
+            const sorted = cards.sort((a, b) => {
+                const getValue = (el) => {
+                    if (key === 'email') return el.querySelector('.user-email')?.textContent?.toLowerCase() || '';
+                    if (key === 'nickname') return el.querySelector('.user-nickname')?.textContent?.toLowerCase() || '';
+                    if (key === 'role') return el.querySelector('.user-role-select')?.value || '';
+                    return '';
+                };
+                const aVal = getValue(a);
+                const bVal = getValue(b);
+                return asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            });
+    
+            sorted.forEach(card => container.appendChild(card));
+        }
+    
+        function updateSortIndicators() {
+            document.querySelectorAll('.user-list-header .sortable').forEach(header => {
+                header.classList.remove('sort-asc', 'sort-desc');
+                if (header.dataset.key === currentSortKey) {
+                    header.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
+                }
+            });
+        }
+    }
+        
         // ✅ 排序邏輯（加在 refreshUserList 最後）
         let currentSortKey = 'role';
         let sortAsc = true;
