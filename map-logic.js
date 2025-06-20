@@ -251,7 +251,15 @@ document.addEventListener('DOMContentLoaded', () => {
             window.clearAllKmlLayers();
             return;
         }
-
+    
+        // ✅ 解決未縮放直接搜尋造成地圖破圖問題
+        setTimeout(() => {
+            if (map && map._loaded) {
+                map.invalidateSize();
+                map.setZoom(map.getZoom());
+            }
+        }, 50);
+    
         // 移除現有 KML 圖層和所有標記 (包括導航按鈕)
         window.clearAllKmlLayers();
 
