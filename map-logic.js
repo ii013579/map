@@ -243,14 +243,70 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    /*建立觀察器*/
+    function waitForMapVisible(callback) {
+      const mapElement = document.getElementById('map');
+      if (!mapElement) return;
+    
+      const observer = new IntersectionObserver((entries, observerInstance) => {
+        const entry = entries[0];
+        if (entry && entry.isIntersecting) {
+          observerInstance.unobserve(mapElement);
+          callback(); // ✅ 地圖出現在畫面後才執行
+        }
+      }, {
+        root: null,
+        threshold: 0.1,
+      });
+    
+      observer.observe(mapElement);
+    }
+    
     // 全局函數：從 Firestore 載入 KML 圖層 (保留原版 logic，僅為了讓 auth-kml-management.js 找到)
     // 實際的 KML features 處理會透過 window.addMarkers 完成
-    window.loadKmlLayerFromFirestore = async function(kmlId) {
-        if (!kmlId) {
-            console.log("未提供 KML ID，不載入。");
-            window.clearAllKmlLayers();
-            return;
+    window.loadKmlLayerFromFirestore = function(kmlId) {
+      waitForMapVisible(() => {
+        internalLoadKmlLayer(kmlId);
+      });
+    }
+    async function internalLoadKmlLayer(kmlId) {
+      if (!kmlId) {
+        console.log("未提供 KML ID，不載入。");
+        window.clearAllKmlLayers();
+        return;
+      }
+    
+      // 解決第一次搜尋破圖問題
+      setTimeout(() => {
+        if (map && map._loaded) {
+          map.invalidateSize();
+          map.setZoom(map.getZoom());
         }
+      }, 50);
+    
+      window.clearAllKmlLayers();
+    
+      try {
+        const kmlDoc = await db.collection('kml_files').doc(kmlId).get();
+        if (!kmlDoc.exists) {
+          console.error(`KML 文件 ${kmlId} 不存在`);
+          return;
+        }
+    
+        const geoJson = kmlDoc.data().geojson;
+        const loadedFeatures = L.geoJSON(geoJson, {
+          onEachFeature: onEachKmlFeature,
+          pointToLayer: kmlPointToLayer,
+          style: kmlLayerStyle,
+        }).addTo(map);
+    
+        window.allKmlFeatures = loadedFeatures;
+        map.fitBounds(loadedFeatures.getBounds());
+        window.addMarkers(loadedFeatures);
+      } catch (err) {
+        console.error(`無法載入 KML：`, err);
+      }
+    }
     
         // ✅ 解決未縮放直接搜尋造成地圖破圖問題
         setTimeout(() => {
