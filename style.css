@@ -314,6 +314,8 @@ body {
   overflow: hidden;
   margin: 15px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  height: 100vh;
+  width: 100%;
 }
 
 /* Leaflet 控制項容器樣式 */
