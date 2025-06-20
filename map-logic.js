@@ -11,7 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初始化地圖
     map = L.map('map', { zoomControl: false }).setView([23.6, 120.9], 8); // 台灣中心經緯度，禁用預設縮放控制
     setTimeout(() => {
-      map.invalidateSize();
+      if (map && map.invalidateSize) {
+        map.invalidateSize();
+      }
     }, 300);
 
     // 定義基本圖層
