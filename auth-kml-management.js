@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const getRoleDisplayName = (role) => {
         switch (role) {
             case 'unapproved': return '未審核';
-            case 'user': return '一般用戶';
+            case 'user': return '一般戶';
             case 'editor': return '編輯者';
             case 'owner': return '擁有者';
             default: return role;
