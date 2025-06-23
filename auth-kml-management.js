@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const getRoleDisplayName = (role) => {
         switch (role) {
             case 'unapproved': return '未審核';
-            case 'user': return '一般用戶';
+            case 'user': return '一般';
             case 'editor': return '編輯者';
             case 'owner': return '擁有者';
             default: return role;
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="user-role-controls">
                     <select id="role-select-${uid}" data-uid="${uid}" data-original-value="${user.role}" class="user-role-select">
                         <option value="unapproved" ${user.role === 'unapproved' ? 'selected' : ''}>未審核</option>
-                        <option value="user" ${user.role === 'user' ? 'selected' : ''}>一般用戶</option>
+                        <option value="user" ${user.role === 'user' ? 'selected' : ''}>一般</option>
                         <option value="editor" ${user.role === 'editor' ? 'selected' : ''}>編輯者</option>
                         <option value="owner" ${user.role === 'owner' ? 'selected' : ''} ${window.currentUserRole !== 'owner' ? 'disabled' : ''}>擁有者</option>
                     </select>
