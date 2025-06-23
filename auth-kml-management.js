@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const getRoleDisplayName = (role) => {
         switch (role) {
             case 'unapproved': return '未審核';
-            case 'user': return '一般戶';
+            case 'user': return '一般用戶';
             case 'editor': return '編輯者';
             case 'owner': return '擁有者';
             default: return role;
@@ -166,8 +166,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 輔助函數：顯示用戶管理列表
-// ✅ 完整版：分批渲染使用者卡片 + 點欄位排序
-
     const refreshUserList = async () => {
         const cards = userListDiv.querySelectorAll('.user-card');
         cards.forEach(card => card.remove());
@@ -190,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
     
-            // ✅ 預設依角色排序（在渲染前）
+            // 預設依角色排序
             const roleOrder = { 'unapproved': 1, 'user': 2, 'editor': 3, 'owner': 4 };
             usersData.sort((a, b) => {
                 const roleA = roleOrder[a.role] || 99;
@@ -198,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return roleA - roleB;
             });
     
-            // ✅ 分批渲染
+            // 分批渲染
             const BATCH_SIZE = 15;
             let currentIndex = 0;
     
@@ -232,13 +230,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     userListDiv.appendChild(userCard);
                 });
     
-                bindUserCardEvents();
+                bindUserCardEvents(); // 將事件綁定抽成獨立函式
                 currentIndex += BATCH_SIZE;
     
                 if (currentIndex < usersData.length) {
-                    requestAnimationFrame(renderBatch);
-                } else {
-                    enableHeaderSort(); // ✅ 全部渲染完再啟用排序功能
+                    requestAnimationFrame(renderBatch); // 非同步渲染下一批
                 }
             };
     
@@ -247,8 +243,8 @@ document.addEventListener('DOMContentLoaded', () => {
             userListDiv.innerHTML = `<p style="color: red;">載入用戶列表失敗: ${error.message}</p>`;
             console.error("載入用戶列表時出錯:", error);
         }
-    };
-    
+    };    
+    // 綁定角色下拉選單與變更按鈕事件
     function bindUserCardEvents() {
         userListDiv.querySelectorAll('.user-role-select').forEach(select => {
             const changeButton = select.closest('.user-card').querySelector('.change-role-btn');
@@ -310,55 +306,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    function enableHeaderSort() {
-        let currentSortKey = 'role';
-        let sortAsc = true;
-    
-        document.querySelectorAll('.user-list-header .sortable').forEach(header => {
-            header.addEventListener('click', () => {
-                const key = header.dataset.key;
-    
-                if (currentSortKey === key) {
-                    sortAsc = !sortAsc;
-                } else {
-                    currentSortKey = key;
-                    sortAsc = true;
-                }
-    
-                sortUserList(currentSortKey, sortAsc);
-                updateSortIndicators();
-            });
-        });
-    
-        function sortUserList(key, asc = true) {
-            const cards = Array.from(document.querySelectorAll('#userList .user-card'));
-            const container = document.getElementById('userList');
-    
-            const sorted = cards.sort((a, b) => {
-                const getValue = (el) => {
-                    if (key === 'email') return el.querySelector('.user-email')?.textContent?.toLowerCase() || '';
-                    if (key === 'nickname') return el.querySelector('.user-nickname')?.textContent?.toLowerCase() || '';
-                    if (key === 'role') return el.querySelector('.user-role-select')?.value || '';
-                    return '';
-                };
-                const aVal = getValue(a);
-                const bVal = getValue(b);
-                return asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-            });
-    
-            sorted.forEach(card => container.appendChild(card));
-        }
-    
-        function updateSortIndicators() {
-            document.querySelectorAll('.user-list-header .sortable').forEach(header => {
-                header.classList.remove('sort-asc', 'sort-desc');
-                if (header.dataset.key === currentSortKey) {
-                    header.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
-                }
-            });
-        }
-    }
-        
         // ✅ 排序邏輯（加在 refreshUserList 最後）
         let currentSortKey = 'role';
         let sortAsc = true;
