@@ -687,7 +687,7 @@ body {
 /* 變更與刪除按鈕：統一寬度 */
 .user-actions .change-role-btn,
 .user-actions .delete-user-btn {
-    width: 80px;         /* ✅ 統一寬度 */
+    width: 20px;         /* ✅ 統一寬度 */
     flex-shrink: 0;      /* ✅ 避免被壓縮 */
     padding: 6px 10px;
     font-size: 14px;
