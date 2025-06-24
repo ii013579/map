@@ -88,25 +88,44 @@ async function internalLoadKmlLayer(kmlId) {
     window.clearAllKmlLayers();
     return;
   }
+
   setTimeout(() => {
     if (map && map._loaded) {
       map.invalidateSize();
       map.setZoom(map.getZoom());
     }
   }, 50);
+
   window.clearAllKmlLayers();
+
   try {
-    const kmlDoc = await db.collection('kml_files').doc(kmlId).get();
+    const docRef = db
+      .collection('artifacts').doc(appId)
+      .collection('public').doc('data')
+      .collection('kmlLayers').doc(kmlId);
+    const kmlDoc = await docRef.get();
+
     if (!kmlDoc.exists) {
-      console.error(`KML 文件 ${kmlId} 不存在`);
+      console.error(`KML 圖層 ${kmlId} 不存在`);
       return;
     }
-    const geoJson = kmlDoc.data().geojson;
-    const loadedFeatures = geoJson?.features ?? [];
+
+    const featuresRef = docRef.collection('features');
+    const querySnapshot = await featuresRef.get();
+
+    const loadedFeatures = [];
+    querySnapshot.forEach(doc => {
+      const feature = doc.data();
+      if (feature.geometry && feature.properties) {
+        loadedFeatures.push(feature);
+      }
+    });
+
     window.allKmlFeatures = loadedFeatures;
     window.addMarkers(loadedFeatures);
+
   } catch (err) {
-    console.error(`無法載入 KML：`, err);
+    console.error(`無法載入 KML Features：`, err);
   }
 }
 
