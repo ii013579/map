@@ -29,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
   markerCluster.addTo(map);
   navButtons.addTo(map);
 
-  // 鍵盤與螢幕變化修正
   document.querySelectorAll('input[type="search"], input[type="text"]').forEach(input => {
     input.addEventListener('focus', () => {
       setTimeout(() => {
@@ -42,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 300);
     });
   });
+
   window.addEventListener('resize', () => {
     if (map && map.invalidateSize) {
       setTimeout(() => map.invalidateSize(), 100);
@@ -88,16 +88,13 @@ async function internalLoadKmlLayer(kmlId) {
     window.clearAllKmlLayers();
     return;
   }
-
   setTimeout(() => {
     if (map && map._loaded) {
       map.invalidateSize();
       map.setZoom(map.getZoom());
     }
   }, 50);
-
   window.clearAllKmlLayers();
-
   try {
     const docRef = db
       .collection('artifacts').doc(appId)
@@ -133,42 +130,32 @@ window.addMarkers = function(features) {
   markerCluster.clearLayers();
   if (!features || !features.length) return;
 
-  const batchSize = 100;
-  let index = 0;
-  function addNextBatch() {
-    const slice = features.slice(index, index + batchSize);
-    for (const f of slice) {
-      const coords = f.geometry?.coordinates;
-      const name = f.properties?.name || '未命名';
-      if (!coords) continue;
-      if (f.geometry.type === 'Point') {
-        const [lng, lat] = coords;
-        const dot = L.marker([lat, lng], {
-          icon: L.divIcon({ className: 'custom-dot-icon', iconSize: [18, 18], iconAnchor: [9, 9] })
-        });
-        const label = L.marker([lat, lng + 0.00015], {
-          icon: L.divIcon({
-            className: 'marker-label', html: `<span>${name}</span>`, iconSize: [null, null], iconAnchor: [0, 0]
-          }),
-          interactive: false
-        });
-        dot.on('click', () => window.createNavButton([lat, lng], name));
-        markerCluster.addLayer(dot);
-        markerCluster.addLayer(label);
-      }
+  features.forEach(f => {
+    const coords = f.geometry?.coordinates;
+    const name = f.properties?.name || '未命名';
+    if (!coords) return;
+    if (f.geometry.type === 'Point') {
+      const [lng, lat] = coords;
+      const dot = L.marker([lat, lng], {
+        icon: L.divIcon({ className: 'custom-dot-icon', iconSize: [18, 18], iconAnchor: [9, 9] })
+      });
+      const label = L.marker([lat, lng + 0.00015], {
+        icon: L.divIcon({
+          className: 'marker-label', html: `<span>${name}</span>`, iconSize: [null, null], iconAnchor: [0, 0]
+        }),
+        interactive: false
+      });
+      dot.on('click', () => window.createNavButton([lat, lng], name));
+      markerCluster.addLayer(dot);
+      markerCluster.addLayer(label);
     }
-    index += batchSize;
-    if (index < features.length) {
-      setTimeout(addNextBatch, 50);
-    } else {
-      setTimeout(() => {
-        if (map && markerCluster.getBounds().isValid()) {
-          map.fitBounds(markerCluster.getBounds());
-        }
-      }, 100);
+  });
+
+  setTimeout(() => {
+    if (map && markerCluster.getBounds().isValid()) {
+      map.fitBounds(markerCluster.getBounds());
     }
-  }
-  addNextBatch();
+  }, 300);
 };
 
 window.createNavButton = function(latlng, name) {
