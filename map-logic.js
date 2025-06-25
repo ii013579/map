@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     maxZoom: 22,
     minZoom: 5
   }).setView([23.6, 120.9], 8);
+  
   const baseLayers = {
     'Google 街道圖': L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
       attribution: 'Google Maps'
@@ -140,27 +141,31 @@ window.addMarkers = function(features) {
       const dot = L.marker([lat, lng], {
         icon: L.divIcon({ className: 'custom-dot-icon', iconSize: [18, 18], iconAnchor: [9, 9] })
       });
-    const jitter = (Math.random() - 0.5) * 0.00025;
-    
-    const label = L.marker([lat, lng + 0.00025 + jitter], {
-      icon: L.divIcon({
-        className: 'marker-label',
-        html: `<span>${name}</span>`,
-        iconSize: [null, null],
-        iconAnchor: [0, 0]
-      }),
-      interactive: false
-    });
-    dot.on('click', () => {
-      window.createNavButton([lat, lng], name);
-    
-      // 清除所有其他 label 的 active 顏色
-      document.querySelectorAll('.marker-label span').forEach(el => el.classList.remove('label-active'));
-    
-      // 加上 active 樣式
-      const target = document.getElementById(labelId);
-      if (target) target.classList.add('label-active');
-    });
+
+      const jitter = (Math.random() - 0.5) * 0.00025;
+      const label = L.marker([lat, lng + 0.00025 + jitter], {
+        icon: L.divIcon({
+          className: 'marker-label',
+          html: `<span>${name}</span>`,
+          iconSize: [null, null],
+          iconAnchor: [0, 0]
+        }),
+        interactive: false
+      });
+
+      dot.on('click', () => {
+        window.createNavButton([lat, lng], name);
+        document.querySelectorAll('.marker-label span').forEach(el => el.classList.remove('label-active'));
+        const target = document.getElementById(`label-${lat}-${lng}`);
+        if (target) target.classList.add('label-active');
+      });
+
+      markerCluster.addLayer(dot);
+      markerCluster.addLayer(label);
+    }
+  });
+
+  // ✅ 注意：這個 setTimeout 應該放在 forEach 之後
   setTimeout(() => {
     if (map && markerCluster.getBounds().isValid()) {
       map.fitBounds(markerCluster.getBounds());
