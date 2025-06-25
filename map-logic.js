@@ -161,7 +161,6 @@ window.addMarkers = function(features) {
 
         markers.addLayer(dot);
         markers.addLayer(label);
-      });
     
       setTimeout(() => {
         if (map && markers.getBounds().isValid()) {
