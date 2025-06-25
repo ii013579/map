@@ -1,14 +1,17 @@
 let map;
-let markers = L.featureGroup();
-let navButtons = L.featureGroup();
+let markers = L.featureGroup();     // 所有點位與標籤
+let navButtons = L.featureGroup();  // 點擊圖徵後的導航按鈕
+window.allKmlFeatures = [];
 
 document.addEventListener('DOMContentLoaded', () => {
+  // 初始化地圖
   map = L.map('map', {
     zoomControl: false,
     maxZoom: 22,
     minZoom: 5
-  }).setView([23.6, 120.9], 8);
-  
+  }).setView([23.6, 120.9], 8); // 台灣中心
+
+  // 加入底圖
   const baseLayers = {
     'Google 街道圖': L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
       attribution: 'Google Maps'
@@ -24,13 +27,18 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   };
 
+  // 預設底圖
   baseLayers['Google 街道圖'].addTo(map);
+
+  // 加入圖層選單與縮放控制
+  L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
   L.control.zoom({ position: 'topright' }).addTo(map);
 
+  // ✅ 加入點位與導航圖層
   markers.addTo(map);
   navButtons.addTo(map);
-});
 
+  // ✅ 修正手機搜尋框點開或 resize 後地圖破圖問題
   document.querySelectorAll('input[type="search"], input[type="text"]').forEach(input => {
     input.addEventListener('focus', () => {
       setTimeout(() => {
@@ -44,12 +52,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // ✅ 裝置橫向旋轉 / 手動縮放也重新調整地圖
   window.addEventListener('resize', () => {
     if (map && map.invalidateSize) {
       setTimeout(() => map.invalidateSize(), 100);
     }
   });
 
+  // 點擊地圖時清除搜尋與導航
   map.on('click', () => {
     const searchResults = document.getElementById('searchResults');
     const searchContainer = document.getElementById('searchContainer');
@@ -162,7 +172,7 @@ window.addMarkers = function(features) {
 
         markers.addLayer(dot);
         markers.addLayer(label);
-    
+          
       setTimeout(() => {
         if (map && markers.getBounds().isValid()) {
           map.fitBounds(markers.getBounds());
