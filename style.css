@@ -288,6 +288,7 @@ body {
   padding: 10px;
   box-sizing: border-box;
 }
+
 .result-item { 
   padding: 10px 12px;
   border: 1px solid #e0e0e0;
@@ -349,7 +350,7 @@ body {
   background: none !important;
   color: rgba(0, 0, 0, 0.88);
   font-weight: 700;
-  font-size: 26px;
+  font-size: 13px;
   text-shadow:
     -1.5px -1.5px 0 #fff,
     1.5px -1.5px 0 #fff,
@@ -397,8 +398,8 @@ body {
     background-color: #e74c3c; /* 紅點 */
     border: 2px solid white;
     border-radius: 50%;
-    width: 18px;
-    height: 18px;
+    width: 9px;
+    height: 9px;
     pointer-events: auto;
     display: block;
     margin-left: -9px;
