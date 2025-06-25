@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   markers.addTo(map);
   navButtons.addTo(map);
+});
 
   document.querySelectorAll('input[type="search"], input[type="text"]').forEach(input => {
     input.addEventListener('focus', () => {
