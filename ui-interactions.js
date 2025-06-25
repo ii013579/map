@@ -66,7 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             item.title = name;
                             item.addEventListener('click', () => {
                                 const originalLatLng = L.latLng(lat, lon);
-                                map.setView(originalLatLng, 16);
+                                const safeZoom = Math.min(22, map.getMaxZoom()); // ✅ 預防 tile 不存在
+                                map.setView(originalLatLng, safeZoom);
                                 window.createNavButton(originalLatLng, name);
                                 searchResults.style.display = 'none';
                                 searchBox.value = '';
