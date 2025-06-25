@@ -1,7 +1,6 @@
 let map;
-let markerCluster = L.markerClusterGroup();
+let markers = L.featureGroup();
 let navButtons = L.featureGroup();
-window.allKmlFeatures = [];
 
 document.addEventListener('DOMContentLoaded', () => {
   map = L.map('map', {
@@ -28,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   baseLayers['Google 街道圖'].addTo(map);
   L.control.zoom({ position: 'topright' }).addTo(map);
 
-  markerCluster.addTo(map);
+  markers.addTo(map);
   navButtons.addTo(map);
 
   document.querySelectorAll('input[type="search"], input[type="text"]').forEach(input => {
@@ -129,7 +128,7 @@ async function internalLoadKmlLayer(kmlId) {
 }
 
 window.addMarkers = function(features) {
-  markerCluster.clearLayers();
+  markers.clearLayers();
   if (!features || !features.length) return;
 
   features.forEach(f => {
@@ -160,19 +159,16 @@ window.addMarkers = function(features) {
         if (target) target.classList.add('label-active');
       });
 
-      markerCluster.addLayer(dot);
-      markerCluster.addLayer(label);
-    }
-  });
-
-  // ✅ 注意：這個 setTimeout 應該放在 forEach 之後
-  setTimeout(() => {
-    if (map && markerCluster.getBounds().isValid()) {
-      map.fitBounds(markerCluster.getBounds());
-    }
-  }, 300);
-};
-
+        markers.addLayer(dot);
+        markers.addLayer(label);
+      });
+    
+      setTimeout(() => {
+        if (map && markers.getBounds().isValid()) {
+          map.fitBounds(markers.getBounds());
+        }
+      }, 300);
+    };
 window.createNavButton = function(latlng, name) {
   navButtons.clearLayers();
   const url = `https://www.google.com/maps/search/?api=1&query=${latlng[0]},${latlng[1]}`;
