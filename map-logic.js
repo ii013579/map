@@ -168,8 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 自定義圓點圖標
                 const dotIcon = L.divIcon({
                     className: 'custom-dot-icon',
-                    iconSize: [9, 9],
-                    iconAnchor: [4.5, 4.5]
+                    iconSize: [16, 16],
+                    iconAnchor: [9, 9]
                 });
                 layer = L.marker(latlng, {
                     icon: dotIcon,
