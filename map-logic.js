@@ -5,11 +5,10 @@ window.allKmlFeatures = [];
 
 document.addEventListener('DOMContentLoaded', () => {
   map = L.map('map', {
-    zoomControl: false
-    maxZoom: 22
+    zoomControl: false,
+    maxZoom: 22,
     minZoom: 5
   }).setView([23.6, 120.9], 8);
-
   const baseLayers = {
     'Google 街道圖': L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
       attribution: 'Google Maps'
