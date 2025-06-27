@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (f.geometry.type === 'Point') {
                 const [lon, lat] = coordinates;
                 const latlng = L.latLng(lat, lon);
-                const labelLatLng = L.latLng(lat -0.00015, lon +0.00025);
+                const labelLatLng = L.latLng(lat +0.00015, lon +0.00025);
 
                 // 自定義圓點圖標
                 const dotIcon = L.divIcon({
