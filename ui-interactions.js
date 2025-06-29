@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     noResult.className = 'result-item';
                     noResult.textContent = '沒有找到結果';
                     // 讓「沒有找到結果」訊息橫跨三欄
-                    noResult.style.gridColumn = 'span 3';
+                    noResult.style.gridColumn = 'span 2';
                     searchResults.appendChild(noResult);
                 } else {
                     results.forEach(f => {
