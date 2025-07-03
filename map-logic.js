@@ -334,8 +334,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const buttonIcon = L.divIcon({
             className: 'nav-button-icon',
             html: buttonHtml,
-            iconSize: [50, 50],
-            iconAnchor: [25, 25]
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
         });
 
         const navMarker = L.marker(latlng, {
