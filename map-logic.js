@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this._userLocationMarker = L.marker(e.latlng, {
                 icon: L.divIcon({
                     className: 'user-location-dot',
-                    iconSize: [15, 15],
+                    iconSize: [16, 16],
                     iconAnchor: [8, 8]
                 })
             }).addTo(map);
@@ -141,93 +141,106 @@ document.addEventListener('DOMContentLoaded', () => {
     navButtons.addTo(map);
 
     // 全局函數：添加標記到地圖 (現在支援 Point, LineString, Polygon)
-    window.addMarkers = function(featuresToDisplay) {
-        markers.clearLayers(); // 清除現有標記
-
-        if (!featuresToDisplay || featuresToDisplay.length === 0) {
-            console.log("沒有 features 可顯示。");
-            window.showMessage('載入警示', 'KML 圖層載入完成但未發現有效地圖元素。');
-            return;
+    window.addMarkers = function (featuresToDisplay) {
+      markers.clearLayers(); // 清除現有標記
+    
+      if (!featuresToDisplay || featuresToDisplay.length === 0) {
+        console.log("沒有 features 可顯示。");
+        window.showMessage('載入警示', 'KML 圖層載入完成但未發現有效地圖元素。');
+        return;
+      }
+    
+      console.log(`正在將 ${featuresToDisplay.length} 個 features 添加到地圖。`);
+    
+      featuresToDisplay.forEach(f => {
+        const name = f.properties.name || '未命名';
+        const coordinates = f.geometry.coordinates;
+        let layer;
+    
+        if (!coordinates) {
+          console.warn(`跳過缺少座標的 feature: ${name} (類型: ${f.geometry.type || '未知'})`);
+          return;
         }
-        console.log(`正在將 ${featuresToDisplay.length} 個 features 添加到地圖。`);
-        featuresToDisplay.forEach(f => {
-            const name = f.properties.name || '未命名';
-            const coordinates = f.geometry.coordinates;
-            let layer;
-
-            if (!coordinates) {
-                console.warn(`跳過缺少座標的 feature: ${name} (類型: ${f.geometry.type || '未知'})`);
-                return;
-            }
-
-            if (f.geometry.type === 'Point') {
-                const [lon, lat] = coordinates;
-                const latlng = L.latLng(lat, lon);
-                const labelLatLng = L.latLng(lat +0.00013, lon +0.00025);
-
-                // 自定義圓點圖標
-                const dotIcon = L.divIcon({
-                    className: 'custom-dot-icon',
-                    iconSize: [16, 16],
-                    iconAnchor: [9, 9]
-                });
-                layer = L.marker(latlng, {
-                    icon: dotIcon,
-                    interactive: true
-                });
-
-                // 永久顯示的文字標籤
-                const label = L.marker(labelLatLng, {
-                    icon: L.divIcon({
-                        className: 'marker-label',
-                        html: `<span>${name}</span>`,
-                        iconSize: [null, null],
-                        iconAnchor: [0, 0],
-                    }),
-                    interactive: false
-                });
-
-                // 點擊圓點標記時創建導航按鈕
-                layer.on('click', (e) => {
-                    L.DomEvent.stopPropagation(e);
-                    window.createNavButton(latlng, name);
-                });
-
-                markers.addLayer(layer);
-                markers.addLayer(label); // 為點添加標籤
-                console.log(`添加 Point: ${name} (Lat: ${latlng.lat}, Lng: ${latlng.lng})`);
-
-            } else if (f.geometry.type === 'LineString') {
-                // 將 [lon, lat] 陣列轉換為 L.LatLng 陣列以用於 LineString
-                const latlngs = coordinates.map(coord => L.latLng(coord[1], coord[0]));
-                layer = L.polyline(latlngs, {
-                    color: '#1a73e8', // 藍色
-                    weight: 4,
-                    opacity: 0.7
-                });
-                layer.bindPopup(`<b>${name}</b>`); // 為線添加彈出視窗顯示名稱
-                markers.addLayer(layer);
-                console.log(`添加 LineString: ${name} (${coordinates.length} 點)`);
-
-            } else if (f.geometry.type === 'Polygon') {
-                // 對於 Polygon，座標是 [ [[lon,lat],[lon,lat],...]] 用於外環
-                // 並且可能包含內環。L.polygon 期望一個 LatLng 陣列的陣列。
-                const latlngs = coordinates[0].map(coord => L.latLng(coord[1], coord[0]));
-                layer = L.polygon(latlngs, {
-                    color: '#1a73e8', // 藍色邊框
-                    fillColor: '#6dd5ed', // 淺藍色填充
-                    fillOpacity: 0.3,
-                    weight: 2
-                });
-                layer.bindPopup(`<b>${name}</b>`); // 為多邊形添加彈出視窗顯示名稱
-                markers.addLayer(layer);
-                console.log(`添加 Polygon: ${name} (${coordinates[0].length} 點)`);
-
-            } else {
-                console.warn(`跳過不支援的幾何類型: ${f.geometry.type} (名稱: ${name})`);
-            }
-        });
-
+    
+        if (f.geometry.type === 'Point') {
+          const [lon, lat] = coordinates;
+          const latlng = L.latLng(lat, lon);
+          const labelLatLng = L.latLng(lat, lon + 0.00025);
+    
+          const labelId = `label-${lat}-${lon}`.replace(/\./g, '_');
+    
+          // 自定義圓點圖標
+          const dotIcon = L.divIcon({
+            className: 'custom-dot-icon',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8] // ✅ 正中心
+          });
+    
+          const dot = L.marker(latlng, {
+            icon: dotIcon,
+            interactive: true
+          });
+    
+          // 永久顯示的文字標籤
+          const label = L.marker(labelLatLng, {
+            icon: L.divIcon({
+              className: 'marker-label',
+              html: `<span id="${labelId}">${name}</span>`,
+              iconSize: [null, null],
+              iconAnchor: ['50%', '0%'],
+            }),
+            interactive: false
+          });
+    
+          // ✅ 點擊 dot，讓該 label 加上高亮 class
+          dot.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+    
+            // 清除所有高亮
+            document.querySelectorAll('.marker-label span').forEach(el => {
+              el.classList.remove('label-active');
+            });
+    
+            // 加上當前 label 的高亮樣式
+            const target = document.getElementById(labelId);
+            if (target) target.classList.add('label-active');
+    
+            // 顯示導航按鈕
+            window.createNavButton(latlng, name);
+          });
+    
+          markers.addLayer(dot);
+          markers.addLayer(label); // 為點添加標籤
+          console.log(`添加 Point: ${name} (Lat: ${latlng.lat}, Lng: ${latlng.lng})`);
+    
+        } else if (f.geometry.type === 'LineString') {
+          const latlngs = coordinates.map(coord => L.latLng(coord[1], coord[0]));
+          layer = L.polyline(latlngs, {
+            color: '#1a73e8',
+            weight: 4,
+            opacity: 0.7
+          });
+          layer.bindPopup(`<b>${name}</b>`);
+          markers.addLayer(layer);
+          console.log(`添加 LineString: ${name} (${coordinates.length} 點)`);
+    
+        } else if (f.geometry.type === 'Polygon') {
+          const latlngs = coordinates[0].map(coord => L.latLng(coord[1], coord[0]));
+          layer = L.polygon(latlngs, {
+            color: '#1a73e8',
+            fillColor: '#6dd5ed',
+            fillOpacity: 0.3,
+            weight: 2
+          });
+          layer.bindPopup(`<b>${name}</b>`);
+          markers.addLayer(layer);
+          console.log(`添加 Polygon: ${name} (${coordinates[0].length} 點)`);
+    
+        } else {
+          console.warn(`跳過不支援的幾何類型: ${f.geometry.type} (名稱: ${name})`);
+        }
+      });
+    };
         // 調整地圖視角以包含所有添加的標記和幾何圖形
         if (markers.getLayers().length > 0 && markers.getBounds().isValid()) {
             map.fitBounds(markers.getBounds());
