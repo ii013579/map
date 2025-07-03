@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (f.geometry.type === 'Point') {
           const [lon, lat] = coordinates;
           const latlng = L.latLng(lat, lon);
-          const labelLatLng = L.latLng(lat + 0.00005 , lon + 0.00015);
+          const labelLatLng = L.latLng(lat, lon + 0.00025);
     
           const labelId = `label-${lat}-${lon}`.replace(/\./g, '_');
     
@@ -240,6 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
           console.warn(`跳過不支援的幾何類型: ${f.geometry.type} (名稱: ${name})`);
         }
       });
+    
         // 調整地圖視角以包含所有添加的標記和幾何圖形
         if (markers.getLayers().length > 0 && markers.getBounds().isValid()) {
             map.fitBounds(markers.getBounds());
@@ -334,8 +335,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const buttonIcon = L.divIcon({
             className: 'nav-button-icon',
             html: buttonHtml,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
+            iconSize: [50, 50],
+            iconAnchor: [25, 25]
         });
 
         const navMarker = L.marker(latlng, {

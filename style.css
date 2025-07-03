@@ -765,6 +765,9 @@ body {
 .label-active {
   color: #007bff;
   font-weight: bold;
+  font-size: 1.8em;     /* 放大字體（約兩倍） */
+  z-index: 9999;        /* 確保在最上層 */
+  position: relative;   /* 讓 z-index 生效 */
 }
 
 /* 註冊碼模態框計時器樣式 */
