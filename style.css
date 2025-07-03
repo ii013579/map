@@ -362,6 +362,7 @@ body {
   pointer-events: none;
   white-space: nowrap;
   display: block;
+  z-index: 900;
 }
 
 /* 導航按鈕圖標容器樣式 */
