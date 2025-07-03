@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (f.geometry.type === 'Point') {
           const [lon, lat] = coordinates;
           const latlng = L.latLng(lat, lon);
-          const labelLatLng = L.latLng(lat, lon + 0.00025);
+          const labelLatLng = L.latLng(lat -0.00005, lon + 0.00010);
     
           const labelId = `label-${lat}-${lon}`.replace(/\./g, '_');
     
