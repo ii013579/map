@@ -762,6 +762,7 @@ body {
     right: 4px;
 }
 
+/* 點擊dot變藍字 */
 .label-active {
   color: #007bff;
   font-weight: bold;
