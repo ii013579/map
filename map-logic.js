@@ -240,8 +240,6 @@ document.addEventListener('DOMContentLoaded', () => {
           console.warn(`跳過不支援的幾何類型: ${f.geometry.type} (名稱: ${name})`);
         }
       });
-    };
-    
         // 調整地圖視角以包含所有添加的標記和幾何圖形
         if (markers.getLayers().length > 0 && markers.getBounds().isValid()) {
             map.fitBounds(markers.getBounds());
