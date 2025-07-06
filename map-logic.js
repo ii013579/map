@@ -165,52 +165,51 @@ document.addEventListener('DOMContentLoaded', () => {
         if (f.geometry.type === 'Point') {
           const [lon, lat] = coordinates;
           const latlng = L.latLng(lat, lon);
-          const labelLatLng = L.latLng(lat -0.00005, lon + 0.00010);
-    
+          const labelLatLng = L.latLng(lat - 0.00005, lon + 0.00010);
+        
           const labelId = `label-${lat}-${lon}`.replace(/\./g, '_');
-    
-          // 自定義圓點圖標
+        
           const dotIcon = L.divIcon({
             className: 'custom-dot-icon',
             iconSize: [16, 16],
-            iconAnchor: [8, 8] // ✅ 正中心
+            iconAnchor: [8, 8]
           });
-    
+        
           const dot = L.marker(latlng, {
             icon: dotIcon,
             interactive: true
           });
-    
-          // 永久顯示的文字標籤
+        
           const label = L.marker(labelLatLng, {
             icon: L.divIcon({
               className: 'marker-label',
               html: `<span id="${labelId}">${name}</span>`,
               iconSize: [null, null],
-              iconAnchor: ['50%', '0%'],
+              iconAnchor: ['50%', '0%']
             }),
             interactive: false
           });
-    
-          // ✅ 點擊 dot，讓該 label 加上高亮 class
+        
           dot.on('click', (e) => {
             L.DomEvent.stopPropagation(e);
-    
-            // 清除所有高亮
-            document.querySelectorAll('.marker-label span').forEach(el => {
-              el.classList.remove('label-active');
-            });
-    
-            // 加上當前 label 的高亮樣式
+        
+            // 清除所有高亮文字
+            document.querySelectorAll('.marker-label span').forEach(el =>
+              el.classList.remove('label-active')
+            );
+        
+            // 套用高亮到當前 label
             const target = document.getElementById(labelId);
-            if (target) target.classList.add('label-active');
-    
+            if (target) {
+              target.classList.add('label-active');
+            }
+        
             // 顯示導航按鈕
             window.createNavButton(latlng, name);
           });
-    
+        
           markers.addLayer(dot);
-          markers.addLayer(label); // 為點添加標籤
+          markers.addLayer(label);
           console.log(`添加 Point: ${name} (Lat: ${latlng.lat}, Lng: ${latlng.lng})`);
     
         } else if (f.geometry.type === 'LineString') {
@@ -346,6 +345,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         console.log(`已為 ${name} 在 ${latlng.lat}, ${latlng.lng} 創建導航按鈕。`);
     };
+
+    // 搜尋結果高亮
+    item.addEventListener('click', () => {
+      const latlng = L.latLng(lat, lon);
+      map.setView(latlng, 18);
+    
+      // 清除所有高亮
+      document.querySelectorAll('.marker-label span').forEach(el =>
+        el.classList.remove('label-active')
+      );
+    
+      const labelId = `label-${lat}-${lon}`.replace(/\./g, '_');
+      const target = document.getElementById(labelId);
+      if (target) target.classList.add('label-active');
+    
+      window.createNavButton(latlng, name);
+      searchResults.style.display = 'none';
+      searchBox.value = '';
+      searchContainer.classList.remove('search-active');
+    });
 
     // 處理地圖點擊事件，隱藏搜尋結果和導航按鈕
     map.on('click', () => {

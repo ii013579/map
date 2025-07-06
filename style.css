@@ -328,8 +328,6 @@ body {
   overflow: hidden;
   margin: 15px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  height: 100vh;
-  width: 100%;
 }
 
 /* Leaflet 控制項容器樣式 */
@@ -362,7 +360,16 @@ body {
   pointer-events: none;
   white-space: nowrap;
   display: block;
-  z-index: 900;
+  z-index: 500;
+  position: relative;
+}
+
+.marker-label span.label-active {
+  color: #007bff;
+  font-weight: bold;
+  font-size: 1.8em;
+  z-index: 9999;
+  position: relative;
 }
 
 /* 導航按鈕圖標容器樣式 */
@@ -376,7 +383,7 @@ body {
     justify-content: center;
     align-items: center;
     transform: translate(-50%, -100%); /* 稍微向上移動，避免遮擋地標 */
-    z-index: 999; /* 確保在標籤之上 */
+    z-index: 300;
 }
 
 /* 導航按鈕實際內容 (圖片) 樣式 */
