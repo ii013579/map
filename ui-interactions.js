@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     noResult.className = 'result-item';
                     noResult.textContent = '沒有找到結果';
                     // 讓「沒有找到結果」訊息橫跨三欄
-                    noResult.style.gridColumn = 'span 2';
+                    noResult.style.gridColumn = 'span 3';
                     searchResults.appendChild(noResult);
                 } else {
                     results.forEach(f => {
@@ -68,14 +68,25 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const originalLatLng = L.latLng(lat, lon);
                                 const safeZoom = Math.min(22, map.getMaxZoom()); // ✅ 預防 tile 不存在
                                 map.setView(originalLatLng, safeZoom);
+                            
+                                // ✅ 清除所有 label 高亮
+                                document.querySelectorAll('.marker-label span').forEach(el =>
+                                    el.classList.remove('label-active')
+                                );
+                            
+                                // ✅ 尋找對應 label 並高亮
+                                const labelId = `label-${lat}-${lon}`.replace(/\./g, '_');
+                                const target = document.getElementById(labelId);
+                                if (target) {
+                                    target.classList.add('label-active');
+                                }
+                            
                                 window.createNavButton(originalLatLng, name);
                                 searchResults.style.display = 'none';
                                 searchBox.value = '';
-                                // 當搜尋結果隱藏時，移除 searchContainer 的活躍狀態類別
                                 searchContainer.classList.remove('search-active');
-                                console.log(`點擊搜尋結果: ${name}，縮放至地圖。`);
-                            });
-                            searchResults.appendChild(item);
+                                console.log(`點擊搜尋結果: ${name}，縮放至地圖並高亮 label。`);
+                            });                            searchResults.appendChild(item);
                         } else {
                             console.warn("跳過非 Point 類型或無座標的 feature 進行搜尋:", f);
                         }
