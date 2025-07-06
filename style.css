@@ -364,6 +364,11 @@ body {
   position: relative;
 }
 
+.marker-label span {
+  display: inline-block;
+  transform: translateX(10px); /* 微調向右 */
+}
+
 .marker-label span.label-active {
   color: #007bff;
   font-weight: bold;
