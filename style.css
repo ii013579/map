@@ -366,12 +366,12 @@ body {
 
 .marker-label span {
   display: inline-block;
-  transform: translate(10px, -8px); /* 向右 10px，向上 8px */
   white-space: nowrap;
-  background: white; /* 若要避免被底圖干擾 */
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-weight: 500;
+  padding: 2px 6px;
+  font-weight: 600;
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .marker-label span.label-active {

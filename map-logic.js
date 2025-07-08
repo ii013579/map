@@ -182,8 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 icon: L.divIcon({
                   className: 'marker-label',
                   html: `<span id="${labelId}">${name}</span>`,
-                  iconSize: [null, null],
-                  iconAnchor: ['50%', '100%']
+                  iconSize: [100, 20],
+                  iconAnchor: [0, 10]
                 }),
                 interactive: false
               });
