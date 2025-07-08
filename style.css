@@ -366,14 +366,12 @@ body {
 
 .marker-label span {
   display: inline-block;
-  white-space: nowrap;
-  font-weight: 500;
-  background-color: transparent;
-  padding: 0;
+  transform: translate(10px, -6px);
   font-size: 13px;
-  transform: none;
-  box-shadow: none;
-  line-height: 1;
+  font-weight: 500;
+  background: white;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 .marker-label span.label-active {

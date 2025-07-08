@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 icon: L.divIcon({
                     className: 'user-location-dot',
                     iconSize: [16, 16],
-                    iconAnchor: [8, 8]
+                    iconAnchor: [0, -10]
                 })
             }).addTo(map);
 
@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (f.geometry.type === 'Point') {
               const [lon, lat] = coordinates;
               const latlng = L.latLng(lat, lon);
-              const labelLatLng = L.latLng(lat, lon + 0.00015);
+              const labelLatLng = latlng;
             
               const labelId = `label-${lat}-${lon}`.replace(/\./g, '_');
             
