@@ -346,14 +346,14 @@ body {
 /* 地標文字標籤樣式 */
 .marker-label span {
   display: inline-block;
-  transform: translate(10px, -6px); /* 貼近右上方 */
-  font-size: 15px;
+  transform: translate(10px, -6px);
+  font-size: 13px;
   font-weight: 500;
   color: #333;
-  border-radius: 4px;
   white-space: nowrap;
   pointer-events: none;
   z-index: 500;
+  position: relative;
   background: none;
 }
 
@@ -362,7 +362,12 @@ body {
   color: #007bff;
   font-weight: bold;
   font-size: 18px;
-  z-index: 9999;
+  background: white;
+  padding: 3px 6px;
+  border-radius: 6px;
+  box-shadow: 0 0 3px rgba(0,0,0,0.2);
+  z-index: 9999 !important;
+  position: relative;
 }
 
 /* 導航按鈕圖標容器樣式 */

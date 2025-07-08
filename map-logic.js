@@ -191,9 +191,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 L.DomEvent.stopPropagation(e);
             
                 // 清除所有高亮文字
-                document.querySelectorAll('.marker-label span').forEach(el =>
-                  el.classList.remove('label-active')
-                );
+                document.querySelectorAll('.marker-label span.label-active').forEach(el => {
+                  el.classList.remove('label-active');
+                });
             
                 // 套用高亮到當前 label
                 const target = document.getElementById(labelId);
@@ -346,18 +346,25 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`已為 ${name} 在 ${latlng.lat}, ${latlng.lng} 創建導航按鈕。`);
     };
 
-    // 處理地圖點擊事件，隱藏搜尋結果和導航按鈕
+    // 處理地圖點擊事件，隱藏搜尋結果和導航按鈕與取消標籤高亮
     map.on('click', () => {
-        const searchResults = document.getElementById('searchResults');
-        const searchContainer = document.getElementById('searchContainer'); // 獲取搜尋容器
-        if (searchResults) {
-            searchResults.style.display = 'none';
-            searchContainer.classList.remove('search-active'); // 移除活躍狀態類別
-        }
-        const searchBox = document.getElementById('searchBox');
-        if (searchBox) {
-            searchBox.value = '';
-        }
-        navButtons.clearLayers();
+      const searchResults = document.getElementById('searchResults');
+      const searchContainer = document.getElementById('searchContainer');
+      if (searchResults) {
+        searchResults.style.display = 'none';
+        searchContainer.classList.remove('search-active');
+      }
+      const searchBox = document.getElementById('searchBox');
+      if (searchBox) {
+        searchBox.value = '';
+      }
+    
+      // 取消所有藍色高亮標籤
+      document.querySelectorAll('.marker-label span.label-active').forEach(el => {
+        el.classList.remove('label-active');
+      });
+    
+      // 清除導航按鈕
+      navButtons.clearLayers();
     });
 });
