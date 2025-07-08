@@ -361,7 +361,7 @@ body {
 .marker-label span.label-active {
   color: #007bff;
   font-weight: bold;
-  font-size: 1.25em;
+  font-size: 20px;
   z-index: 9999;
 }
 
