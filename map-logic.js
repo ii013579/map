@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   className: 'marker-label',
                   html: `<span id="${labelId}">${name}</span>`,
                   iconSize: [null, null],
-                  iconAnchor: [0, 0]
+                  iconAnchor: ['50%', '100%']
                 }),
                 interactive: false
               });
