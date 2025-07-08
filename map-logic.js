@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
         navButtons.clearLayers();
 
         // 使用通用的 Google Maps 查詢 URL，現代手機會自動識別並提供開啟地圖應用的選項。
-        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}@${latlng.lat},${latlng.lng}`;
+        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)} (${latlng.lat.toFixed(6)},${latlng.lng.toFixed(6)})`;
 
 
         const buttonHtml = `
