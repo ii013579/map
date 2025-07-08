@@ -179,15 +179,14 @@ document.addEventListener('DOMContentLoaded', () => {
               });
             
               const label = L.marker(labelLatLng, {
-                icon: L.divIcon({
-                  className: 'marker-label',
-                  html: `<span id="${labelId}">${name}</span>`,
-                  iconSize: [100, 20],
-                  iconAnchor: [0, 10]
-                }),
-                interactive: false
-              });
-            
+               icon: L.divIcon({
+                 className: 'marker-label',
+                 html: `<span id="${labelId}">${name}</span>`,
+                 iconSize: [null, null]
+               }),
+               interactive: false
+             });            
+             
               dot.on('click', (e) => {
                 L.DomEvent.stopPropagation(e);
             
