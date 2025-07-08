@@ -356,7 +356,6 @@ body {
     1.5px 1.5px 0 #fff,
     0 0 5px rgba(0,0,0,0.1);
   padding: 0;
-  transform: translate(-50%, -50%);
   pointer-events: none;
   white-space: nowrap;
   display: block;
