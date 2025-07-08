@@ -347,9 +347,8 @@ body {
 .marker-label span {
   display: inline-block;
   transform: translate(10px, -6px); /* 貼近右上方 */
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 500;
-  background: white;
   color: #333;
   border-radius: 4px;
   white-space: nowrap;
