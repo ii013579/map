@@ -9,7 +9,11 @@ window.allKmlFeatures = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     // 初始化地圖
-    map = L.map('map', { zoomControl: false }).setView([23.6, 120.9], 8); // 台灣中心經緯度，禁用預設縮放控制
+    map = L.map('map', {
+      zoomControl: true,
+      maxZoom: 27,
+      minZoom: 5
+    }).setView([23.6, 120.9], 8);
 
     // 定義基本圖層
     const baseLayers = {
@@ -323,7 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
         navButtons.clearLayers();
 
         // 使用通用的 Google Maps 查詢 URL，現代手機會自動識別並提供開啟地圖應用的選項。
-        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${latlng.lat},${latlng.lng}`;
+        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}@${latlng.lat},${latlng.lng}`;
 
 
         const buttonHtml = `
