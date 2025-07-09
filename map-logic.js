@@ -353,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const navMarker = L.marker(latlng, {
             icon: buttonIcon,
-            zIndexOffset: -500,
+            zIndexOffset: 1000,
             interactive: true
         }).addTo(navButtons);
 
