@@ -381,7 +381,7 @@ body {
     justify-content: center;
     align-items: center;
     transform: translate(-50%, -100%); /* 稍微向上移動，避免遮擋地標 */
-    z-index: 300;
+    z-index: 900;
 }
 
 /* 導航按鈕實際內容 (圖片) 樣式 */
