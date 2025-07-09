@@ -11,23 +11,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初始化地圖
     map = L.map('map', {
       zoomControl: true,
-      maxZoom: 27,
+      maxZoom: 25,
       minZoom: 5
     }).setView([23.6, 120.9], 8);
 
     // 定義基本圖層
     const baseLayers = {
         'Google 街道圖': L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-            attribution: 'Google Maps'
+            attribution: 'Google Maps',
+            maxZoom: 25,
+            maxNativeZoom: 20
         }),
         'Google 衛星圖': L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-            attribution: 'Google Maps'
+            attribution: 'Google Maps',
+            maxZoom: 25,
+            maxNativeZoom: 20
+
         }),
         'Google 地形圖': L.tileLayer('https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
-            attribution: 'Google Maps'
+            attribution: 'Google Maps',
+            maxZoom: 25,
+            maxNativeZoom: 20
         }),
         'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 25,
+            maxNativeZoom: 20
         })
     };
 
