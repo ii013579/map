@@ -353,7 +353,7 @@ body {
   color: #333;
   white-space: nowrap;
   pointer-events: none;
-  z-index: 500;
+  z-index: 100;
   position: relative;
   background: none;
 }
@@ -367,9 +367,9 @@ body {
   padding: 3px 6px;
   border-radius: 6px;
   box-shadow: 0 0 3px rgba(0,0,0,0.2);
-  z-index: 9999 !important;
+  z-index: 999;
   position: relative;
-  transform: translateX(6px);
+  transform: translateX(10px);
 }
 
 /* 導航按鈕圖標容器樣式 */
