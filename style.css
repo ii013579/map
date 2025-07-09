@@ -407,12 +407,12 @@ body {
     background-color: #e74c3c; /* 紅點 */
     border: 2px solid white;
     border-radius: 50%;
-    width: 9px;
-    height: 9px;
+    width: 7px;
+    height: 7px;
     pointer-events: auto;
     display: block;
-    margin-left: -9px;
-    margin-top: -9px;
+    margin-left: -7px;
+    margin-top: -7px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
