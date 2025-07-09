@@ -349,6 +349,7 @@ body {
   transform: translate(10px, -6px);
   font-size: 13px;
   font-weight: 500;
+  font-weight: bold;
   color: #333;
   white-space: nowrap;
   pointer-events: none;
