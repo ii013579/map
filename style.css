@@ -368,6 +368,7 @@ body {
   box-shadow: 0 0 3px rgba(0,0,0,0.2);
   z-index: 9999 !important;
   position: relative;
+  transform: translateX(6px);
 }
 
 /* 導航按鈕圖標容器樣式 */
@@ -380,8 +381,8 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
+    z-index: 1001;
     transform: translate(-50%, -100%); /* 稍微向上移動，避免遮擋地標 */
-    z-index: 900;
 }
 
 /* 導航按鈕實際內容 (圖片) 樣式 */
@@ -412,7 +413,6 @@ body {
     margin-left: -9px;
     margin-top: -9px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    z-index: 500;
 }
 
 /* 訊息框和註冊模態框樣式 */
