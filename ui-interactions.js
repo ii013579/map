@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             item.title = name;
                             item.addEventListener('click', () => {
                                 const originalLatLng = L.latLng(lat, lon);
-                                map.setView(originalLatLng, 16);
+                                map.setView(originalLatLng, 18);
                             
                                 // ✅ 清除所有 label 高亮
                                 document.querySelectorAll('.marker-label span').forEach(el =>
