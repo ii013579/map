@@ -266,7 +266,6 @@ body {
 
 /* 搜尋結果彈出框樣式 */
 #searchResults {
-  position: absolute;
   top: 100%; /* 相對於父容器 (searchContainer) 的底部 */
   left: 0; /* 相對於父容器的左側 */
   width: 100%; /* 與父容器同寬 */
@@ -341,6 +340,7 @@ body {
     /* 調整位置，確保不與搜尋結果重疊 */
     left: 15px; /* 預設的左邊距 */
     top: 15px; /* 預設的上邊距 */
+    position: relative;
     z-index: 900 !important; /* 確保在搜尋結果之下，避免遮擋 */
 }
 
@@ -568,8 +568,8 @@ body {
 
 /* 自定義定位按鈕樣式 */
 .leaflet-control-locate-me {
-	  position: relative;
-	  z-index: 1200;
+    position: relative;
+    z-index: 1200;
     background-color: #fff;
     border-radius: 4px;
     box-shadow: 0 1px 5px rgba(0,0,0,0.65);
