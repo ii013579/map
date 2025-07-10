@@ -262,7 +262,6 @@ body {
   background: transparent;
   box-sizing: border-box;
   height: 44px;
-  font-size: 16px;
 }
 
 /* 搜尋結果彈出框樣式 */
@@ -288,9 +287,6 @@ body {
   gap: 8px; /* 項目間距 */
   padding: 10px;
   box-sizing: border-box;
-  position: relative;
-  z-index: 10000;
-
 }
 
 .result-item { 
