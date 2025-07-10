@@ -568,6 +568,8 @@ body {
 
 /* 自定義定位按鈕樣式 */
 .leaflet-control-locate-me {
+	  position: relative;
+	  z-index: 1200;
     background-color: #fff;
     border-radius: 4px;
     box-shadow: 0 1px 5px rgba(0,0,0,0.65);
@@ -596,6 +598,8 @@ body {
 }
 
 .leaflet-control-layers {
+	  position: relative;
+	  z-index: 1200;
     width: 30px;
     height: 30px;
     background-color: #fff;
