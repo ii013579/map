@@ -282,7 +282,7 @@ body {
   box-shadow: 0 6px 16px rgba(0,0,0,0.18);
   font-size: 15px;
   display: none; /* 預設隱藏 */
-  z-index: 1100; /* 確保在最上層 */
+  z-index: 2000; /* 確保在最上層 */
   grid-template-columns: repeat(3, 1fr); /* 固定為三欄 */
   gap: 8px; /* 項目間距 */
   padding: 10px;
@@ -340,7 +340,7 @@ body {
     /* 調整位置，確保不與搜尋結果重疊 */
     left: 15px; /* 預設的左邊距 */
     top: 15px; /* 預設的上邊距 */
-    z-index: 900; /* 確保在搜尋結果之下，避免遮擋 */
+    z-index: 900 !important; /* 確保在搜尋結果之下，避免遮擋 */
 }
 
 /* 地標文字標籤樣式 */
@@ -491,7 +491,6 @@ body {
     flex: 1;
     max-width: 120px;
 }
-
 
 /* 通用操作按鈕樣式 */
 .action-buttons, .admin-option-button {
