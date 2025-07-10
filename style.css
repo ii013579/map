@@ -262,6 +262,7 @@ body {
   background: transparent;
   box-sizing: border-box;
   height: 44px;
+  font-size: 16px;
 }
 
 /* 搜尋結果彈出框樣式 */
