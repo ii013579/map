@@ -401,12 +401,12 @@ body {
     background-color: #e74c3c; /* 紅點 */
     border: 2px solid white;
     border-radius: 50%;
-    width: 7px;
-    height: 7px;
+    width: 5px;
+    height: 5px;
     pointer-events: auto;
     display: block;
-    margin-left: -7px;
-    margin-top: -7px;
+    margin-left: -5px;
+    margin-top: -5px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
