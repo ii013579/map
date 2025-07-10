@@ -195,9 +195,11 @@ document.addEventListener('DOMContentLoaded', () => {
                icon: L.divIcon({
                  className: 'marker-label',
                  html: `<span id="${labelId}">${name}</span>`,
-                 iconSize: [null, null]
+                 iconSize: [null, null],
+                 iconAnchor: [0, 0]
                }),
-               interactive: false
+               interactive: false,
+               zIndexOffset: 1000
              });            
              
               dot.on('click', (e) => {
@@ -207,6 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.marker-label span.label-active').forEach(el => {
                   el.classList.remove('label-active');
                 });
+                document.getElementById(labelId)?.classList.add('label-active');
             
                 // 套用高亮到當前 label
                 const target = document.getElementById(labelId);
