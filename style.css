@@ -266,6 +266,8 @@ body {
 
 /* 搜尋結果彈出框樣式 */
 #searchResults {
+  position: absolute;
+  z-index: 3000; /* 確保在最上層 */
   top: 100%; /* 相對於父容器 (searchContainer) 的底部 */
   left: 0; /* 相對於父容器的左側 */
   width: 100%; /* 與父容器同寬 */
@@ -281,8 +283,6 @@ body {
   box-shadow: 0 6px 16px rgba(0,0,0,0.18);
   font-size: 15px;
   display: none; /* 預設隱藏 */
-  position: absolute;
-  z-index: 2000; /* 確保在最上層 */
   grid-template-columns: repeat(3, 1fr); /* 固定為三欄 */
   gap: 8px; /* 項目間距 */
   padding: 10px;
