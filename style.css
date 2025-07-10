@@ -387,8 +387,8 @@ body {
 
 /* 導航按鈕實際內容 (圖片) 樣式 */
 .nav-button-content img {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   cursor: pointer;
   display: block;
   border-radius: 50%;
