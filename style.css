@@ -322,6 +322,11 @@ body {
   border-radius: 2px;
 }
 
+#searchContainer.search-active {
+  z-index: 9998; /* 或比 .leaflet-control 更高即可 */
+  position: relative; /* 確保 z-index 生效 */
+}
+
 /* 地圖容器樣式 */
 #map {
   flex-grow: 1;
