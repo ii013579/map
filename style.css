@@ -804,16 +804,4 @@ body {
   .confirmation-modal-content {
     border-radius: 0 !important;
   }
-
-   /* Leaflet 控制項容器（包含圖層控制、縮放、定位按鈕） */
-   .leaflet-control-container,
-   .leaflet-top,
-   .leaflet-right,
-   .leaflet-left,
-   .leaflet-control-zoom,
-   .leaflet-control-layers,
-    .leaflet-control-locate-me {
-     z-index: 500 !important;
-     position: relative;
-   }
 }
