@@ -804,4 +804,15 @@ body {
   .confirmation-modal-content {
     border-radius: 0 !important;
   }
+  /* 強制調低所有 Leaflet 控制項的圖層順序 */
+  .leaflet-control {
+    z-index: 500 !important;
+    position: relative !important;
+  }
+
+  /* 確保搜尋結果在更上層 */
+  #searchResults {
+    position: absolute;
+    z-index: 5000 !important;
+  }
 }
