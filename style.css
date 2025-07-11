@@ -267,7 +267,7 @@ body {
 /* 搜尋結果彈出框樣式 */
 #searchResults {
   position: absolute;
-  z-index: 3000; /* 確保在最上層 */
+  z-index: 2000; /* 確保在最上層 */
   top: 100%; /* 相對於父容器 (searchContainer) 的底部 */
   left: 0; /* 相對於父容器的左側 */
   width: 100%; /* 與父容器同寬 */
@@ -804,4 +804,16 @@ body {
   .confirmation-modal-content {
     border-radius: 0 !important;
   }
+
+   /* Leaflet 控制項容器（包含圖層控制、縮放、定位按鈕） */
+   .leaflet-control-container,
+   .leaflet-top,
+   .leaflet-right,
+   .leaflet-left,
+   .leaflet-control-zoom,
+   .leaflet-control-layers,
+    .leaflet-control-locate-me {
+     z-index: 500 !important;
+     position: relative;
+   }
 }
