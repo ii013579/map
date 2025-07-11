@@ -804,15 +804,25 @@ body {
   .confirmation-modal-content {
     border-radius: 0 !important;
   }
-  /* 強制調低所有 Leaflet 控制項的圖層順序 */
-  .leaflet-control {
-    z-index: 500 !important;
-    position: relative !important;
+  /* 將 Leaflet 控制元件統一壓到下層 */
+  .leaflet-control,
+  .leaflet-control-container,
+  .leaflet-top,
+  .leaflet-right,
+  .leaflet-left,
+  .leaflet-control-zoom,
+  .leaflet-control-layers,
+  .leaflet-control-locate-me {
+    z-index: 1000 !important;
   }
 
-  /* 確保搜尋結果在更上層 */
+  /* 確保搜尋結果浮在最上層 */
   #searchResults {
     position: absolute;
-    z-index: 5000 !important;
+    z-index: 9999 !important;
+  }
+  #searchContainer {
+    position: relative;
+    z-index: 9998;
   }
 }
