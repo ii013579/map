@@ -236,9 +236,11 @@ body {
 }
 /* 當搜尋結果顯示時，調整搜尋容器的底部圓角和邊框 */
 #searchContainer.search-active {
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    border-bottom-color: transparent; /* 讓底部邊框透明，與搜尋結果框連接 */
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: transparent; /* 讓底部邊框透明，與搜尋結果框連接 */
+  z-index: 9998; /* 或比 .leaflet-control 更高即可 */
+  position: relative; /* 確保 z-index 生效 */
 }
 
 /* Material Symbols 圖標樣式 */
@@ -320,11 +322,6 @@ body {
 .result-item::-webkit-scrollbar-thumb {
   background: #ccc;
   border-radius: 2px;
-}
-
-#searchContainer.search-active {
-  z-index: 9998; /* 或比 .leaflet-control 更高即可 */
-  position: relative; /* 確保 z-index 生效 */
 }
 
 /* 地圖容器樣式 */
