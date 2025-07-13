@@ -805,24 +805,28 @@ body {
     border-radius: 0 !important;
   }
   
-/* 強制將所有 Leaflet 控制項壓到底層 */
-  .leaflet-control-container,
-  .leaflet-control,
-  .leaflet-top,
-  .leaflet-bottom,
-  .leaflet-control-zoom,
-  .leaflet-control-layers,
-  .leaflet-control-locate-me {
-    z-index: 1000 !important;
-  }
-/* 確保搜尋結果浮在最上層 */
+/* 完整壓低 Leaflet 控制項層級 */
+.leaflet-control-container,
+.leaflet-control,
+.leaflet-top,
+.leaflet-bottom,
+.leaflet-control-zoom,
+.leaflet-control-layers,
+.leaflet-control-locate-me,
+.leaflet-control a,
+.leaflet-bar {
+  z-index: 10 !important;
+  position: relative !important;
+}
+
+/* 提高搜尋結果層級 */
 #searchContainer {
-    position: relative;
-    z-index: 3000;
-  }
+  position: relative;
+  z-index: 1000;
+}
 
 #searchResults {
-   position: absolute;
-   z-index: 5000 !important;
- }
+  position: absolute;
+  z-index: 2000 !important;
+}
 }
