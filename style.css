@@ -231,16 +231,13 @@ body {
   background-color: #fff;
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
   position: relative; /* 為了 searchResults 絕對定位 */
-  z-index:9998;
   transition: border-radius 0.2s ease-in-out, border-bottom-color 0.2s ease-in-out; /* 平滑過渡 */
 }
 /* 當搜尋結果顯示時，調整搜尋容器的底部圓角和邊框 */
 #searchContainer.search-active {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-  border-bottom-color: transparent; /* 讓底部邊框透明，與搜尋結果框連接 */
-  z-index: 9998; /* 或比 .leaflet-control 更高即可 */
-  position: relative; /* 確保 z-index 生效 */
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-color: transparent; /* 讓底部邊框透明，與搜尋結果框連接 */
 }
 
 /* Material Symbols 圖標樣式 */
@@ -270,7 +267,6 @@ body {
 /* 搜尋結果彈出框樣式 */
 #searchResults {
   position: absolute;
-  z-index: 2000; /* 確保在最上層 */
   top: 100%; /* 相對於父容器 (searchContainer) 的底部 */
   left: 0; /* 相對於父容器的左側 */
   width: 100%; /* 與父容器同寬 */
@@ -286,6 +282,8 @@ body {
   box-shadow: 0 6px 16px rgba(0,0,0,0.18);
   font-size: 15px;
   display: none; /* 預設隱藏 */
+  position: absolute;
+  z-index: 2000; /* 確保在最上層 */
   grid-template-columns: repeat(3, 1fr); /* 固定為三欄 */
   gap: 8px; /* 項目間距 */
   padding: 10px;
@@ -343,7 +341,6 @@ body {
     /* 調整位置，確保不與搜尋結果重疊 */
     left: 15px; /* 預設的左邊距 */
     top: 15px; /* 預設的上邊距 */
-    position: relative;
     z-index: 900 !important; /* 確保在搜尋結果之下，避免遮擋 */
 }
 
@@ -571,8 +568,8 @@ body {
 
 /* 自定義定位按鈕樣式 */
 .leaflet-control-locate-me {
-    position: relative;
-    z-index: 1200;
+	  position: relative;
+	  z-index: 1200;
     background-color: #fff;
     border-radius: 4px;
     box-shadow: 0 1px 5px rgba(0,0,0,0.65);
@@ -807,21 +804,25 @@ body {
   .confirmation-modal-content {
     border-radius: 0 !important;
   }
-  /* 將 Leaflet 控制元件統一壓到下層 */
-  .leaflet-control,
+  
+/* 強制將所有 Leaflet 控制項壓到底層 */
   .leaflet-control-container,
+  .leaflet-control,
   .leaflet-top,
-  .leaflet-right,
-  .leaflet-left,
+  .leaflet-bottom,
   .leaflet-control-zoom,
   .leaflet-control-layers,
   .leaflet-control-locate-me {
     z-index: 1000 !important;
   }
-
-  /* 確保搜尋結果浮在最上層 */
-  #searchResults {
-    position: absolute;
-    z-index: 9999 !important;
+/* 確保搜尋結果浮在最上層 */
+#searchContainer {
+    position: relative;
+    z-index: 3000;
   }
+
+#searchResults {
+   position: absolute;
+   z-index: 5000 !important;
+ }
 }
