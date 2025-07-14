@@ -812,31 +812,22 @@ body {
 }
 
 /* 將地圖版權資訊壓到最底層（在地圖下方） *
-.leaflet-control-attribution {
+
+/* 恢復 Leaflet attribution 控制項的正確位置（右下角） */
+.leaflet-bottom.leaflet-right {
   position: absolute !important;
-  bottom: 0 !important;
-  right: 0 !important;
-  left: auto !important;
-  top: auto !important;
-  margin: 0 5px 5px 0 !important;
-  background: none;
-  font-size: 11px;
-  z-index: 10 !important;
-  pointer-events: none;
+  bottom: 0;
+  right: 0;
+  z-index: 1;
 }
 
-/* 完整壓低 Leaflet 控制項層級 */
-.leaflet-control-container,
-.leaflet-control,
-.leaflet-top,
-.leaflet-bottom,
-.leaflet-control-zoom,
-.leaflet-control-layers,
-.leaflet-control-locate-me,
-.leaflet-control a,
-.leaflet-bar {
-  z-index: 900 !important;
-  position: relative !important;
+.leaflet-control-attribution {
+  position: relative;
+  margin: 0 5px 5px 0;
+  background: none;
+  font-size: 11px;
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* 提高搜尋結果層級 */
