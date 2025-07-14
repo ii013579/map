@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 icon: L.divIcon({
                     className: 'user-location-dot',
                     iconSize: [16, 16],
-                    iconAnchor: [0, -10]
+                    iconAnchor: [8, 8]
                 })
             }).addTo(map);
 
