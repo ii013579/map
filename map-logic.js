@@ -100,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this._userLocationMarker = L.marker(e.latlng, {
                 icon: L.divIcon({
                     className: 'user-location-dot',
+                    html: '&nbsp;',
                     iconSize: [16, 16],
                     iconAnchor: [8, 8]
                 })
