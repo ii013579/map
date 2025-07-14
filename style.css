@@ -810,11 +810,11 @@ body {
   position: relative;
   z-index: 800;
 }
-	
-/* attribution 壓最底 */
+
+/* 將地圖版權資訊壓到最底層（在地圖下方） */
 .leaflet-control-attribution {
-  position: relative;
-  z-index: 5;
+  z-index: 100 !important;
+  position: relative !important;
 }
 
 /* 完整壓低 Leaflet 控制項層級 */
