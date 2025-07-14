@@ -811,14 +811,17 @@ body {
   z-index: 800;
 }
 
-/* 將地圖版權資訊壓到最底層（在地圖下方） */
+/* 將地圖版權資訊壓到最底層（在地圖下方） *
 .leaflet-control-attribution {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  font-size: 11px;
-  z-index: 1;
+  position: absolute !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  left: auto !important;
+  top: auto !important;
+  margin: 0 5px 5px 0 !important;
   background: none;
+  font-size: 11px;
+  z-index: 10 !important;
   pointer-events: none;
 }
 
