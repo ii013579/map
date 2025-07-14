@@ -813,7 +813,8 @@ body {
 	
 /* attribution 壓最底 */
 .leaflet-control-attribution {
-  z-index: 0;
+  position: relative;
+  z-index: 5;
 }
 
 /* 完整壓低 Leaflet 控制項層級 */
