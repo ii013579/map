@@ -89,12 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 enableHighAccuracy: true,
                 watch: false
             });
-            window.showConfirmationModal('定位中', '正在獲取您的位置...', '確定', '取消')
-             .then(userConfirmed => {
-               if (!userConfirmed) {
-                 console.log('使用者取消定位');
-                 return;
-               }
+            window.showMessage('定位中', '正在獲取您的位置...');
         },
 
         _onLocationFound: function(e) {
@@ -105,9 +100,8 @@ document.addEventListener('DOMContentLoaded', () => {
             this._userLocationMarker = L.marker(e.latlng, {
                 icon: L.divIcon({
                     className: 'user-location-dot',
-                    html: '&nbsp;',
                     iconSize: [16, 16],
-                    iconAnchor: [8, 8]
+                    iconAnchor: [0, -10]
                 })
             }).addTo(map);
 
@@ -118,12 +112,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 weight: 2
             }).addTo(map);
 
-            window.showMessage('定位成功', `您的位置已定位，誤差約 ${radius.toFixed(0)} 公尺。`, '確定');
+            window.showMessage('定位成功', `您的位置已定位，誤差約 ${radius.toFixed(0)} 公尺。`);
         },
 
         _onLocationError: function(e) {
             this._clearLocationMarkers();
-            window.showMessage('定位失敗', `無法獲取您的位置: ${e.message}`, '確定');
+            window.showMessage('定位失敗', `無法獲取您的位置: ${e.message}`);
             console.error('Geolocation error:', e.message);
         },
 
