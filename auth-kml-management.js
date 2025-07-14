@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 輔助函數：顯示自訂確認模態框
-    window.showConfirmationModal = function(title, message) {
+    window.showConfirmationModal = function(title, message, yesText = '確定', noText = '取消') {
         return new Promise(resolve => {
             const modalOverlay = document.getElementById('confirmationModalOverlay');
             const modalTitle = document.getElementById('confirmationModalTitle');
@@ -148,7 +148,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             modalTitle.textContent = title;
             modalMessage.textContent = message;
+            confirmYesBtn.textContent = yesText;
+            confirmNoBtn.textContent = noText;
             modalOverlay.classList.add('visible');
+
 
             const cleanupAndResolve = (result) => {
                 modalOverlay.classList.remove('visible');

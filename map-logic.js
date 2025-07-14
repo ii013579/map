@@ -89,7 +89,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 enableHighAccuracy: true,
                 watch: false
             });
-            window.showMessage('定位中', '正在獲取您的位置...', '取消');
+            window.showConfirmationModal('定位中', '正在獲取您的位置...', '確定', '取消')
+             .then(userConfirmed => {
+               if (!userConfirmed) {
+                 console.log('使用者取消定位');
+                 return;
+               }
         },
 
         _onLocationFound: function(e) {
