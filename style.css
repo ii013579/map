@@ -811,6 +811,11 @@ body {
   z-index: 800;
 }
 	
+/* attribution 壓最底 */
+.leaflet-control-attribution {
+  z-index: 0;
+}
+
 /* 完整壓低 Leaflet 控制項層級 */
 .leaflet-control-container,
 .leaflet-control,
