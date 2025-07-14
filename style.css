@@ -309,6 +309,20 @@ body {
   transition: background-color 0.2s, transform 0.2s;
 }
 
+/* 預設：3 欄 */
+#searchResults.columns-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+/* 若名稱過長時：切成 2 欄 */
+#searchResults.columns-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
 .result-item:hover {
   background-color: #e6f0ff;
   transform: translateY(-2px);
