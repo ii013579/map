@@ -815,7 +815,7 @@ body {
 .leaflet-control-locate-me,
 .leaflet-control a,
 .leaflet-bar {
-  z-index: 10 !important;
+  z-index: 900 !important;
   position: relative !important;
 }
 
