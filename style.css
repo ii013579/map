@@ -805,6 +805,12 @@ body {
     border-radius: 0 !important;
   }
   
+/* map層級 */
+#searchContainer {
+  position: relative;
+  z-index: 800;
+}
+	
 /* 完整壓低 Leaflet 控制項層級 */
 .leaflet-control-container,
 .leaflet-control,
