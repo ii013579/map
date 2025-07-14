@@ -378,8 +378,6 @@ body {
      1px  1px 0 #fff;
 }
 
-
-
 /* 點擊或搜尋結果時高亮 */
 .marker-label span.label-active {
   color: #007bff;
@@ -639,6 +637,7 @@ body {
 
 /* 用戶位置點樣式 (脈衝動畫) */
 .user-location-dot {
+	  display: block;
     background-color: #1a73e8;
     border: 2px solid white;
     border-radius: 50%;
