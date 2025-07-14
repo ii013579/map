@@ -813,8 +813,13 @@ body {
 
 /* 將地圖版權資訊壓到最底層（在地圖下方） */
 .leaflet-control-attribution {
-  z-index: 1 !important;
-  position: absolute !important;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  font-size: 11px;
+  z-index: 1;
+  background: none;
+  pointer-events: none;
 }
 
 /* 完整壓低 Leaflet 控制項層級 */
