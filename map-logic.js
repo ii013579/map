@@ -10,7 +10,8 @@ window.allKmlFeatures = [];
 document.addEventListener('DOMContentLoaded', () => {
     // 初始化地圖
     map = L.map('map', {
-      zoomControl: true,
+      attributionControl: true,
+      zoomControl: false,
       maxZoom: 25,
       minZoom: 5
     }).setView([23.6, 120.9], 8);
