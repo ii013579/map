@@ -357,7 +357,14 @@ body {
   z-index: 100;
   position: relative;
   background: none;
+  text-shadow:
+    -1px -1px 0 #fff,
+     1px -1px 0 #fff,
+    -1px  1px 0 #fff,
+     1px  1px 0 #fff;
 }
+
+
 
 /* 點擊或搜尋結果時高亮 */
 .marker-label span.label-active {
