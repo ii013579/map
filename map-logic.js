@@ -211,6 +211,13 @@ document.addEventListener('DOMContentLoaded', () => {
     markers.addTo(map);
     navButtons.addTo(map);
 
+    // 還原上次載入的 KML 圖層（如果存在）
+    const lastKmlId = localStorage.getItem('lastKmlId');
+    if (lastKmlId) {
+      console.log(`正在還原上次開啟的 KML 圖層：${lastKmlId}`);
+      window.loadKmlLayerFromFirestore(lastKmlId);
+    }
+
     // 全局函數：添加標記到地圖 (現在支援 Point, LineString, Polygon)
     window.addMarkers = function(featuresToDisplay) {
         markers.clearLayers(); // 清除現有標記
@@ -326,7 +333,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 全局函數：從 Firestore 載入 KML 圖層 (保留原版 logic，僅為了讓 auth-kml-management.js 找到)
     // 實際的 KML features 處理會透過 window.addMarkers 完成
-    window.loadKmlLayerFromFirestore = async function(kmlId) {
+    // 記住目前載入的 kmlId（你選取後立即呼叫的地方應加上）
+        window.loadKmlLayerFromFirestore(kmlId);
+        localStorage.setItem('lastKmlId', kmlId);  {
         if (!kmlId) {
             console.log("未提供 KML ID，不載入。");
             window.clearAllKmlLayers();
@@ -340,11 +349,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // 從 Firestore 獲取 KML 文件的元數據
             const doc = await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId).get();
             if (!doc.exists) {
-                console.error('KML 圖層文檔未找到 ID:', kmlId);
-                showMessage('錯誤', '找不到指定的 KML 圖層資料。');
-                return;
+              console.error('KML 圖層文檔未找到 ID:', kmlId);
+              showMessage('錯誤', '找不到指定的 KML 圖層資料。');
+            
+              // ✅ 圖層不存在，清除記憶
+              localStorage.removeItem('lastKmlId');
+              return;
             }
-            const kmlData = doc.data();
+           const kmlData = doc.data();
 
             console.log(`正在載入 KML Features，圖層名稱: ${kmlData.name || kmlId}`);
 
@@ -382,6 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 為了幫助調試，這裡可以顯示更詳細的錯誤訊息，例如安全規則相關的錯誤
             showMessage('錯誤', `無法載入 KML 圖層: ${error.message}。請確認 Firebase 安全規則已正確設定，允許讀取 /artifacts/{appId}/public/data/kmlLayers。`);
         }
+      };
     };
 
     // 全局函數：清除所有 KML 圖層、標記和導航按鈕
