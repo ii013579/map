@@ -588,7 +588,7 @@ body {
 /* 自定義定位按鈕樣式 */
 .leaflet-control-locate-me {
 	  position: relative;
-	  z-index: 1200;
+	  z-index: 500; !important;
     background-color: #fff;
     border-radius: 4px;
     box-shadow: 0 1px 5px rgba(0,0,0,0.65);
@@ -823,14 +823,28 @@ body {
   .confirmation-modal-content {
     border-radius: 0 !important;
   }
+
+/* 降低整個控制欄容器 */
+.leaflet-control-container {
+  z-index: 500 !important;
+  position: relative; /* 確保 z-index 有效 */
+}
+
+/* 降低個別區域控制（左上、右上、右下等） */
+.leaflet-top.leaflet-left,
+.leaflet-top.leaflet-right,
+.leaflet-bottom.leaflet.left,
+.leaflet-bottom.leaflet-right {
+  z-index: 500 !important;
+  position: relative;
+}
   
 /* map層級 */
 #searchContainer {
   position: relative;
-  z-index: 800;
+  z-index: 1000;
 }
 
-/* 將地圖版權資訊壓到最底層（在地圖下方） *
 
 /* 恢復 Leaflet attribution 控制項的正確位置（右下角） */
 .leaflet-bottom.leaflet-right {
