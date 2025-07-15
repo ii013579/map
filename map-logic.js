@@ -334,7 +334,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 全局函數：從 Firestore 載入 KML 圖層 (保留原版 logic，僅為了讓 auth-kml-management.js 找到)
     // 實際的 KML features 處理會透過 window.addMarkers 完成
     // 記住目前載入的 kmlId（你選取後立即呼叫的地方應加上）
-        if (!kmlId) {
+    window.loadKmlLayerFromFirestore = async function(kmlId) {
+    	      if (!kmlId) {
             console.log("未提供 KML ID，不載入。");
             window.clearAllKmlLayers();
             return;
@@ -393,6 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showMessage('錯誤', `無法載入 KML 圖層: ${error.message}。請確認 Firebase 安全規則已正確設定，允許讀取 /artifacts/{appId}/public/data/kmlLayers。`);
         }
       };
+     };
 
     // 全局函數：清除所有 KML 圖層、標記和導航按鈕
     window.clearAllKmlLayers = function() {
