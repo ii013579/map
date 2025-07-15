@@ -98,8 +98,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 enableHighAccuracy: true,
                 watch: false
             });
-            window.showMessage('定位中', '正在獲取您的位置...');
-        },
+            window.showMessageCustom({
+                title: '定位中',
+                message: '正在獲取您的位置...',
+                buttonText: '取消',
+                autoClose: false
+              });
+            },
 
         _onLocationFound: function(e) {
             this._clearLocationMarkers();
@@ -121,8 +126,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 weight: 2
             }).addTo(map);
 
-            window.showMessageWithCancel('定位成功', `您的位置已定位，誤差約 ${radius.toFixed(0)} 公尺。`, 3000);
-        },
+            window.showMessageCustom({
+                title: '定位成功',
+                message: `您的位置已定位，誤差約 ${radius.toFixed(0)} 公尺。`,
+                buttonText: '確定',
+                autoClose: true,
+                autoCloseDelay: 3000
+              });
+            },
 
         _onLocationError: function(e) {
             this._clearLocationMarkers();
@@ -142,7 +153,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-        window.showMessageWithCancel = function(title, message, autoCloseMs = 3000) {
+    window.showMessageCustom = function({
+      title = '',
+      message = '',
+      buttonText = '確定',
+      autoClose = false,
+      autoCloseDelay = 3000,
+      onClose = null
+    }) {
       const overlay = document.querySelector('.message-box-overlay');
       const content = overlay.querySelector('.message-box-content');
       const header = content.querySelector('h3');
@@ -151,18 +169,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
       header.textContent = title;
       paragraph.textContent = message;
-      button.textContent = '取消'; // ✅ 改成取消
+      button.textContent = buttonText;
       overlay.classList.add('visible');
     
-      // 點按取消手動關閉
+      // 移除舊的 onclick
       button.onclick = () => {
         overlay.classList.remove('visible');
+        if (typeof onClose === 'function') onClose();
       };
     
-      // 自動關閉
-      setTimeout(() => {
-        overlay.classList.remove('visible');
-      }, autoCloseMs);
+      if (autoClose) {
+        setTimeout(() => {
+          overlay.classList.remove('visible');
+          if (typeof onClose === 'function') onClose();
+        }, autoCloseDelay);
+      }
     };
     
 
