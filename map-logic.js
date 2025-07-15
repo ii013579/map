@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 weight: 2
             }).addTo(map);
 
-            window.showMessage('定位成功', `您的位置已定位，誤差約 ${radius.toFixed(0)} 公尺。`);
+            window.showMessageWithCancel('定位成功', `您的位置已定位，誤差約 ${radius.toFixed(0)} 公尺。`, 3000);
         },
 
         _onLocationError: function(e) {
@@ -132,6 +132,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+    
+        window.showMessageWithCancel = function(title, message, autoCloseMs = 3000) {
+      const overlay = document.querySelector('.message-box-overlay');
+      const content = overlay.querySelector('.message-box-content');
+      const header = content.querySelector('h3');
+      const paragraph = content.querySelector('p');
+      const button = content.querySelector('button');
+    
+      header.textContent = title;
+      paragraph.textContent = message;
+      button.textContent = '取消'; // ✅ 改成取消
+      overlay.classList.add('visible');
+    
+      // 點按取消手動關閉
+      button.onclick = () => {
+        overlay.classList.remove('visible');
+      };
+    
+      // 自動關閉
+      setTimeout(() => {
+        overlay.classList.remove('visible');
+      }, autoCloseMs);
+    };
+    
 
     // 將自定義定位控制項添加到地圖的右上角
     new LocateMeControl({ position: 'topright' }).addTo(map);
