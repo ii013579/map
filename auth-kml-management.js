@@ -127,15 +127,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // KML 層選擇器變更處理函數
-    const handleKmlLayerSelectChange = (event) => {
-        const kmlId = event.target.value;
-        if (kmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
-            window.loadKmlLayerFromFirestore(kmlId);
-        } else if (typeof window.clearAllKmlLayers === 'function') {
-            window.clearAllKmlLayers();
-        }
-    };
+          const handleKmlLayerSelectChange = (event) => {
+              const kmlId = event.target.value;
+              if (kmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
+                  window.loadKmlLayerFromFirestore(kmlId);
+                  localStorage.setItem('lastKmlId', kmlId); // ✅ 記憶使用者選擇的圖層 ID
+              } else if (typeof window.clearAllKmlLayers === 'function') {
+                  window.clearAllKmlLayers();
+                  localStorage.removeItem('lastKmlId'); // ✅ 若使用者選「清除」，也清除記憶
+              }
+          };
 
     // 輔助函數：顯示自訂確認模態框
     window.showConfirmationModal = function(title, message) {
