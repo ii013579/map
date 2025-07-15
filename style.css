@@ -800,10 +800,10 @@ body {
 /* 優化渲染 */
 @media (max-width: 768px) {
   /* 全面取消陰影與動畫 */
-  *,
-  *::before,
-  *::after {
-    box-shadow: none !important;
+  *:not(.user-location-dot),
+  *:not(.user-location-dot)::before,
+  *:not(.user-location-dot)::after {
+  	box-shadow: none !important;
     transition: none !important;
   }
 
