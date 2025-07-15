@@ -41,9 +41,18 @@ document.addEventListener('DOMContentLoaded', () => {
         })
     };
 
-    // 預設將 'Google 街道圖' 添加到地圖
-    baseLayers['Google 街道圖'].addTo(map);
-
+    // 嘗試從 localStorage 取得上次選擇的圖層名稱
+    const lastLayerName = localStorage.getItem('lastBaseLayer');
+    
+    // 如果有記憶，且該圖層目前仍存在 → 載入
+    if (lastLayerName && baseLayers[lastLayerName]) {
+        baseLayers[lastLayerName].addTo(map);
+        console.log(`已還原上次使用的圖層：${lastLayerName}`);
+    } else {
+        // 無記憶或記憶的圖層不存在 → 不加任何圖層
+        localStorage.removeItem('lastBaseLayer'); // 清除無效記錄
+        console.warn(`找不到記憶圖層 "${lastLayerName}"，已清除記錄。`);
+    }
     // 將縮放控制添加到地圖的右上角
     L.control.zoom({ position: 'topright' }).addTo(map);
 
@@ -166,6 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 監聽基本圖層變更事件，並在變更後自動隱藏圖層控制面板
     map.on('baselayerchange', function (e) {
         console.log("基本圖層已變更:", e.name);
+        localStorage.setItem('lastBaseLayer', e.name);
         const controlContainer = layerControl.getContainer();
         if (controlContainer && controlContainer.classList.contains('leaflet-control-layers-expanded')) {
             // 移除 'leaflet-control-layers-expanded' 類別來收起控制面板
