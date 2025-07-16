@@ -54,39 +54,64 @@ body {
 
 /* 圖釘按鈕樣式  */
 .pin-button-icon {
-  width: 50px;
+  width: 90px;
   height: 40px;
+  padding: 0;
   border: none;
   border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
+  background-color: #1a73e8; /* 預設藍底 */
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  background-color: #1a73e8; /* 預設藍底 */
   transition: background-color 0.3s, transform 0.2s, box-shadow 0.2s;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-sizing: border-box;
 }
 
-/* 圖釘圖示統一為黑色 */
-.pin-button-icon .material-symbols-outlined {
-  font-size: 20px;
-  color: #000000;
-  user-select: none;
+/* 圖釘按鈕：固定大小、靠中、狀態切換 */
+#pinButton.pin-button-icon {
+  width: 90px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background-color: #1a73e8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  flex-shrink: 0; /* 避免被 flex 容器壓縮 */
+  box-sizing: border-box;
+}
+
+/* 圖示樣式（固定大小、黑色） */
+#pinButton .pin-icon {
+  width: 20px;
+  height: 20px;
+  filter: brightness(0); /* 黑色圖示 */
   pointer-events: none;
+  user-select: none;
 }
 
-/* 點擊後（紅底） */
-.pin-button-icon.clicked {
+/* 點擊（釘選）後：紅底 */
+#pinButton.clicked {
   background-color: #e53935;
 }
 
-/* 禁用時（灰底） */
-.pin-button-icon:disabled {
+/* 禁用時：灰底 + 不可點 */
+#pinButton:disabled {
   background-color: #9e9e9e;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+/* hover 效果 */
+#pinButton:hover:not(:disabled) {
+  transform: scale(1.03);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
 }
 
 /* 認證面板樣式 (預設隱藏，點擊編輯按鈕顯示) */

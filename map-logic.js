@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
             maxNativeZoom: 20
         }),
         'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: 'c <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 25,
             maxNativeZoom: 20
         })
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
          localStorage.removeItem('lastBaseLayer');
          console.warn(`找不到記憶圖層 "${lastLayerName}"，已清除記錄。`);
        
-         // ? 預設載入 Google 街道圖
+         // ✅ 預設載入 Google 街道圖
          baseLayers['Google 街道圖'].addTo(map);
        }
 
@@ -376,10 +376,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                  console.warn("地理要素存在，但其邊界對於地圖視圖不適用，或地圖上沒有圖層可適合。");
             }
-            
-            // *** 新增：在成功載入 KML 層後，將其 ID 存儲為「釘選」層 ***
-            localStorage.setItem('pinnedKmlLayerId', kmlId);
-            console.log(`KML 圖層 ${kmlId} 已被釘選。`);
 
         } catch (error) {
             console.error("獲取 KML Features 或載入 KML 時出錯:", error);
@@ -394,9 +390,6 @@ document.addEventListener('DOMContentLoaded', () => {
         navButtons.clearLayers();
         window.allKmlFeatures = [];
         console.log("所有 KML 圖層、標記和導航按鈕已清除。");
-        // *** 新增：當所有圖層被清除時，也清除釘選的 KML ID ***
-        localStorage.removeItem('pinnedKmlLayerId');
-        console.log("釘選的 KML 圖層已取消釘選。");
     };
 
     // 全局函數：創建導航按鈕
@@ -404,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
         navButtons.clearLayers();
 
         // 使用通用的 Google Maps 查詢 URL，現代手機會自動識別並提供開啟地圖應用的選項。
-        const googleMapsUrl = `http://maps.google.com/maps?q=${latlng.lat},${latlng.lng}`;
+        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${latlng.lat},${latlng.lng}`;
 
 
         const buttonHtml = `
@@ -449,13 +442,4 @@ document.addEventListener('DOMContentLoaded', () => {
       // 清除導航按鈕
       navButtons.clearLayers();
     });
-
-    // *** 新增：在初始化時檢查是否有釘選的 KML 圖層並載入它 ***
-    const pinnedKmlId = localStorage.getItem('pinnedKmlLayerId');
-    if (pinnedKmlId) {
-        console.log(`偵測到釘選的 KML 圖層 ID：${pinnedKmlId}，正在自動載入。`);
-        window.loadKmlLayerFromFirestore(pinnedKmlId);
-    } else {
-        console.log("沒有釘選的 KML 圖層。");
-    }
 });

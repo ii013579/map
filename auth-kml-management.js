@@ -666,56 +666,64 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchKmlLayersForDeletion();
 
 
-    // ===== 新增的圖釘按鈕相關邏輯 =====
-    // 當 KML 圖層下拉選單的值改變時，處理圖釘按鈕的啟用/禁用狀態
-    kmlLayerSelect.addEventListener('change', () => {
-        if (kmlLayerSelect.value) {
-            pinKmlLayerBtn.removeAttribute('disabled'); // 如果有選擇圖層，啟用圖釘按鈕
-        } else {
-            pinKmlLayerBtn.setAttribute('disabled', 'true'); // 如果沒有選擇圖層，禁用圖釘按鈕
-        }
-    });
+// 初始化：禁用按鈕
+if (pinKmlLayerBtn) {
+    pinKmlLayerBtn.setAttribute('disabled', 'true');
+    pinKmlLayerBtn.classList.remove('clicked'); // 清除樣式
+}
 
-    // 初始化時先禁用圖釘按鈕 (確保頁面載入時是禁用狀態)
-    if (pinKmlLayerBtn) {
-        pinKmlLayerBtn.setAttribute('disabled', 'true');
-    }
+// 當圖層下拉選單變化
+kmlLayerSelect.addEventListener('change', () => {
+    const hasSelected = !!kmlLayerSelect.value;
 
-
-    // 監聽圖釘按鈕的點擊事件
-    if (pinKmlLayerBtn) {
-        pinKmlLayerBtn.addEventListener('click', async () => {
-            const selectedKmlId = kmlLayerSelect.value; // 獲取當前選中的 KML ID
-
-            if (selectedKmlId) {
-                console.log(`嘗試釘選 KML 圖層: ${selectedKmlId}`);
-                // 呼叫 map-logic.js 中的函數來載入 KML 圖層
-                // window.loadKmlLayerFromFirestore 會自動將選定的圖層 ID 存入 localStorage
-                await window.loadKmlLayerFromFirestore(selectedKmlId);
-                
-                // 獲取選擇的圖層名稱以顯示友好的訊息
-                const selectedOption = kmlLayerSelect.options[kmlLayerSelect.selectedIndex];
-                const kmlLayerName = selectedOption ? selectedOption.textContent : selectedKmlId;
-
-                window.showMessageCustom({
-                    title: '釘選成功',
-                    message: `「${kmlLayerName}」已釘選為預設圖層，下次載入網頁時將自動顯示。`,
-                    buttonText: '確定',
-                    autoClose: true,
-                    autoCloseDelay: 3000
-                });
-            } else {
-                window.showMessageCustom({
-                    title: '釘選失敗',
-                    message: '請先從下拉選單中選擇一個 KML 圖層才能釘選。',
-                    buttonText: '確定'
-                });
-                console.warn('沒有選擇 KML 圖層可釘選。');
-            }
-        });
+    if (hasSelected) {
+        pinKmlLayerBtn.removeAttribute('disabled');
     } else {
-        console.error('找不到 id 為 "pinKmlLayerBtn" 的圖釘按鈕，釘選功能無法啟用。');
+        pinKmlLayerBtn.setAttribute('disabled', 'true');
+        pinKmlLayerBtn.classList.remove('clicked'); // 清除釘選樣式
     }
-    // ===== 圖釘按鈕相關邏輯結束 =====
+});
 
-}); // DOMContentLoaded 結束
+// 點擊圖釘按鈕
+pinKmlLayerBtn?.addEventListener('click', async () => {
+    const selectedKmlId = kmlLayerSelect.value;
+
+    if (!selectedKmlId) {
+        window.showMessageCustom({
+            title: '釘選失敗',
+            message: '請先從下拉選單中選擇一個 KML 圖層才能釘選。',
+            buttonText: '確定'
+        });
+        console.warn('沒有選擇 KML 圖層可釘選。');
+        return;
+    }
+
+    // 嘗試釘選
+    try {
+        console.log(`嘗試釘選 KML 圖層: ${selectedKmlId}`);
+        await window.loadKmlLayerFromFirestore(selectedKmlId);
+
+        // 顯示成功訊息
+        const selectedOption = kmlLayerSelect.options[kmlLayerSelect.selectedIndex];
+        const kmlLayerName = selectedOption?.textContent || selectedKmlId;
+
+        window.showMessageCustom({
+            title: '釘選成功',
+            message: `「${kmlLayerName}」已釘選為預設圖層，下次載入網頁時將自動顯示。`,
+            buttonText: '確定',
+            autoClose: true,
+            autoCloseDelay: 3000
+        });
+
+        // 加上紅底樣式
+        pinKmlLayerBtn.classList.add('clicked');
+
+    } catch (error) {
+        console.error('釘選 KML 圖層失敗:', error);
+        window.showMessageCustom({
+            title: '釘選失敗',
+            message: '載入圖層時發生錯誤，請稍後再試。',
+            buttonText: '確定'
+        });
+    }
+});
