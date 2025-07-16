@@ -1,4 +1,4 @@
-﻿// map-logic.js
+// map-logic.js
 
 let map;
 let markers = L.featureGroup(); // 用於儲存所有標記以便管理
