@@ -228,7 +228,62 @@ document.addEventListener('DOMContentLoaded', () => {
     markers.addTo(map);
     navButtons.addTo(map);
   
-    // ? 還原記憶的 KML 圖層
+    window.addMarkers = function(featuresToDisplay) {
+      markers.clearLayers();
+      if (!featuresToDisplay || featuresToDisplay.length === 0) return;
+      featuresToDisplay.forEach(f => {
+        const name = f.properties.name || '未命名';
+        const coordinates = f.geometry.coordinates;
+        if (f.geometry.type === 'Point') {
+          const [lon, lat] = coordinates;
+          const latlng = L.latLng(lat, lon);
+          const labelId = `label-${lat}-${lon}`.replace(/\./g, '_');
+          const dotIcon = L.divIcon({
+            className: 'custom-dot-icon',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+          });
+          const dot = L.marker(latlng, {
+            icon: dotIcon,
+            interactive: true
+          });
+          const label = L.marker(latlng, {
+            icon: L.divIcon({
+              className: 'marker-label',
+              html: `<span id="${labelId}">${name}</span>`
+            }),
+            interactive: false,
+            zIndexOffset: 1000
+          });
+          dot.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            document.querySelectorAll('.marker-label span.label-active').forEach(el => el.classList.remove('label-active'));
+            document.getElementById(labelId)?.classList.add('label-active');
+            window.createNavButton(latlng, name);
+          });
+          markers.addLayer(dot);
+          markers.addLayer(label);
+        } else if (f.geometry.type === 'LineString') {
+          const latlngs = coordinates.map(coord => L.latLng(coord[1], coord[0]));
+          const line = L.polyline(latlngs, { color: '#1a73e8', weight: 4, opacity: 0.7 });
+          line.bindPopup(`<b>${name}</b>`);
+          markers.addLayer(line);
+        } else if (f.geometry.type === 'Polygon') {
+          const latlngs = coordinates[0].map(coord => L.latLng(coord[1], coord[0]));
+          const polygon = L.polygon(latlngs, {
+            color: '#1a73e8', fillColor: '#6dd5ed', fillOpacity: 0.3, weight: 2
+          });
+          polygon.bindPopup(`<b>${name}</b>`);
+          markers.addLayer(polygon);
+        }
+      });
+      if (markers.getLayers().length > 0 && markers.getBounds().isValid()) {
+        map.fitBounds(markers.getBounds());
+      }
+    };
+  });
+ 
+     // ? 還原記憶的 KML 圖層
     const lastKmlId = localStorage.getItem('lastKmlId');
     if (lastKmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
       console.log(`正在還原上次開啟的 KML 圖層：${lastKmlId}`);
@@ -321,61 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.allKmlFeatures = [];
     };
   
-    window.addMarkers = function(featuresToDisplay) {
-      markers.clearLayers();
-      if (!featuresToDisplay || featuresToDisplay.length === 0) return;
-      featuresToDisplay.forEach(f => {
-        const name = f.properties.name || '未命名';
-        const coordinates = f.geometry.coordinates;
-        if (f.geometry.type === 'Point') {
-          const [lon, lat] = coordinates;
-          const latlng = L.latLng(lat, lon);
-          const labelId = `label-${lat}-${lon}`.replace(/\./g, '_');
-          const dotIcon = L.divIcon({
-            className: 'custom-dot-icon',
-            iconSize: [16, 16],
-            iconAnchor: [8, 8]
-          });
-          const dot = L.marker(latlng, {
-            icon: dotIcon,
-            interactive: true
-          });
-          const label = L.marker(latlng, {
-            icon: L.divIcon({
-              className: 'marker-label',
-              html: `<span id="${labelId}">${name}</span>`
-            }),
-            interactive: false,
-            zIndexOffset: 1000
-          });
-          dot.on('click', (e) => {
-            L.DomEvent.stopPropagation(e);
-            document.querySelectorAll('.marker-label span.label-active').forEach(el => el.classList.remove('label-active'));
-            document.getElementById(labelId)?.classList.add('label-active');
-            window.createNavButton(latlng, name);
-          });
-          markers.addLayer(dot);
-          markers.addLayer(label);
-        } else if (f.geometry.type === 'LineString') {
-          const latlngs = coordinates.map(coord => L.latLng(coord[1], coord[0]));
-          const line = L.polyline(latlngs, { color: '#1a73e8', weight: 4, opacity: 0.7 });
-          line.bindPopup(`<b>${name}</b>`);
-          markers.addLayer(line);
-        } else if (f.geometry.type === 'Polygon') {
-          const latlngs = coordinates[0].map(coord => L.latLng(coord[1], coord[0]));
-          const polygon = L.polygon(latlngs, {
-            color: '#1a73e8', fillColor: '#6dd5ed', fillOpacity: 0.3, weight: 2
-          });
-          polygon.bindPopup(`<b>${name}</b>`);
-          markers.addLayer(polygon);
-        }
-      });
-      if (markers.getLayers().length > 0 && markers.getBounds().isValid()) {
-        map.fitBounds(markers.getBounds());
-      }
-    };
-  });
-  
+ 
     // 全局函數：創建導航按鈕
     window.createNavButton = function(latlng, name) {
         navButtons.clearLayers();
