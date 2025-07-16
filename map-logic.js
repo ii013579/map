@@ -202,46 +202,6 @@ document.addEventListener('DOMContentLoaded', () => {
       markers.addTo(map);
       navButtons.addTo(map);
     
-      // ✅ 還原記憶的 KML 圖層
-      const lastKmlId = localStorage.getItem('lastKmlId');
-      if (lastKmlId) {
-        console.log(`正在還原上次開啟的 KML 圖層：${lastKmlId}`);
-        window.loadKmlLayerFromFirestore(lastKmlId);
-      }
-    
-      // ✅ 自訂顯示訊息框（支援取消與自動關閉）
-      window.showMessageCustom = function({
-        title = '',
-        message = '',
-        buttonText = '確定',
-        autoClose = false,
-        autoCloseDelay = 3000,
-        onClose = null
-      }) {
-        const overlay = document.querySelector('.message-box-overlay');
-        const content = overlay.querySelector('.message-box-content');
-        const header = content.querySelector('h3');
-        const paragraph = content.querySelector('p');
-        const button = content.querySelector('button');
-    
-        header.textContent = title;
-        paragraph.textContent = message;
-        button.textContent = buttonText;
-        overlay.classList.add('visible');
-    
-        button.onclick = () => {
-          overlay.classList.remove('visible');
-          if (typeof onClose === 'function') onClose();
-        };
-    
-        if (autoClose) {
-          setTimeout(() => {
-            overlay.classList.remove('visible');
-            if (typeof onClose === 'function') onClose();
-          }, autoCloseDelay);
-        }
-      };
-    });
     // 全局函數：添加標記到地圖 (現在支援 Point, LineString, Polygon)
     window.addMarkers = function(featuresToDisplay) {
         markers.clearLayers(); // 清除現有標記
@@ -419,6 +379,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       };
      };
+
+      // ✅ 還原記憶的 KML 圖層
+      const lastKmlId = localStorage.getItem('lastKmlId');
+      if (lastKmlId) {
+        console.log(`正在還原上次開啟的 KML 圖層：${lastKmlId}`);
+        window.loadKmlLayerFromFirestore(lastKmlId);
+      }
+    
+      // ✅ 自訂顯示訊息框（支援取消與自動關閉）
+      window.showMessageCustom = function({
+        title = '',
+        message = '',
+        buttonText = '確定',
+        autoClose = false,
+        autoCloseDelay = 3000,
+        onClose = null
+      }) {
+        const overlay = document.querySelector('.message-box-overlay');
+        const content = overlay.querySelector('.message-box-content');
+        const header = content.querySelector('h3');
+        const paragraph = content.querySelector('p');
+        const button = content.querySelector('button');
+    
+        header.textContent = title;
+        paragraph.textContent = message;
+        button.textContent = buttonText;
+        overlay.classList.add('visible');
+    
+        button.onclick = () => {
+          overlay.classList.remove('visible');
+          if (typeof onClose === 'function') onClose();
+        };
+    
+        if (autoClose) {
+          setTimeout(() => {
+            overlay.classList.remove('visible');
+            if (typeof onClose === 'function') onClose();
+          }, autoCloseDelay);
+        }
+      };
+    });
 
     // 全局函數：清除所有 KML 圖層、標記和導航按鈕
     window.clearAllKmlLayers = function() {
