@@ -1,14 +1,12 @@
-// map-logic.js（整合記憶 KML 圖層功能 + 圖釘按鈕 + 高亮藍字 + v1.3 完整功能）
+// map-logic.js（整合記憶 KML 圖層功能 + 圖釘按鈕 + 高亮藍字 + v1.3 完整功能 + 定位控制）
 
 let map;
 let markers = L.featureGroup();
 let navButtons = L.featureGroup();
 
-// 用於記憶所有地圖上 KML Point Features 的數據，供搜尋使用
 window.allKmlFeatures = [];
-let currentKmlId = null; // 當前載入的 KML ID
+let currentKmlId = null;
 
-// 記住目前載入的圖層
 window.pinCurrentKmlLayer = function () {
   if (currentKmlId) {
     localStorage.setItem('lastKmlId', currentKmlId);
@@ -72,23 +70,96 @@ document.addEventListener('DOMContentLoaded', () => {
   markers.addTo(map);
   navButtons.addTo(map);
 
+  // ? 加回定位控制
+  const LocateMeControl = L.Control.extend({
+    _userLocationMarker: null,
+    _userLocationCircle: null,
+    onAdd: function(map) {
+      const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-locate-me');
+      const button = L.DomUtil.create('a', '', container);
+      button.href = "#";
+      button.title = "顯示我的位置";
+      button.setAttribute("role", "button");
+      button.setAttribute("aria-label", "顯示我的位置");
+      button.innerHTML = `<span class="material-symbols-outlined" style="font-size: 24px; line-height: 30px;">my_location</span>`;
+      L.DomEvent.on(button, 'click', this._locateUser, this);
+      map.on('locationfound', this._onLocationFound, this);
+      map.on('locationerror', this._onLocationError, this);
+      return container;
+    },
+    onRemove: function(map) {
+      map.off('locationfound', this._onLocationFound, this);
+      map.off('locationerror', this._onLocationError, this);
+      this._clearLocationMarkers();
+    },
+    _locateUser: function(e) {
+      L.DomEvent.stopPropagation(e);
+      L.DomEvent.preventDefault(e);
+      this._clearLocationMarkers();
+      map.locate({ setView: true, maxZoom: 16, enableHighAccuracy: true, watch: false });
+      window.showMessageCustom({
+        title: '定位中',
+        message: '正在獲取您的位置...',
+        buttonText: '取消',
+        autoClose: false
+      });
+    },
+    _onLocationFound: function(e) {
+      this._clearLocationMarkers();
+      const radius = e.accuracy / 2;
+      this._userLocationMarker = L.marker(e.latlng, {
+        icon: L.divIcon({
+          className: 'user-location-dot',
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        })
+      }).addTo(map);
+      this._userLocationCircle = L.circle(e.latlng, radius, {
+        color: '#1a73e8', fillColor: '#1a73e8', fillOpacity: 0.15, weight: 2
+      }).addTo(map);
+      window.showMessageCustom({
+        title: '定位成功',
+        message: `您的位置已定位，誤差約 ${radius.toFixed(0)} 公尺。`,
+        buttonText: '確定',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+    },
+    _onLocationError: function(e) {
+      this._clearLocationMarkers();
+      window.showMessageCustom({
+        title: '定位失敗',
+        message: `無法獲取您的位置: ${e.message}`,
+        autoClose: true
+      });
+    },
+    _clearLocationMarkers: function() {
+      if (this._userLocationMarker) {
+        map.removeLayer(this._userLocationMarker);
+        this._userLocationMarker = null;
+      }
+      if (this._userLocationCircle) {
+        map.removeLayer(this._userLocationCircle);
+        this._userLocationCircle = null;
+      }
+    }
+  });
+  new LocateMeControl({ position: 'topright' }).addTo(map);
+
   window.showMessageCustom = function({ title = '', message = '', buttonText = '確定', autoClose = false, autoCloseDelay = 3000, onClose = null }) {
     const overlay = document.querySelector('.message-box-overlay');
     const content = overlay.querySelector('.message-box-content');
     const header = content.querySelector('h3');
     const paragraph = content.querySelector('p');
     const button = content.querySelector('button');
-
     header.textContent = title;
     paragraph.textContent = message;
     button.textContent = buttonText;
     overlay.classList.add('visible');
-
     button.onclick = () => {
       overlay.classList.remove('visible');
       if (typeof onClose === 'function') onClose();
     };
-
     if (autoClose) {
       setTimeout(() => {
         overlay.classList.remove('visible');
@@ -97,13 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // 地圖空白區點擊時，清除藍字高亮與導航
   map.on('click', () => {
     document.querySelectorAll('.marker-label span.label-active').forEach(el => el.classList.remove('label-active'));
     navButtons.clearLayers();
   });
 
-  // ? 若有記憶圖層，載入 KML（必須先定義函式）
   const lastKmlId = localStorage.getItem('lastKmlId');
   if (lastKmlId) {
     console.log(`正在還原上次開啟的 KML 圖層：${lastKmlId}`);
