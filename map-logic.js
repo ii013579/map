@@ -41,20 +41,16 @@ document.addEventListener('DOMContentLoaded', () => {
         })
     };
 
-    // 嘗試從 localStorage 取得上次選擇的圖層名稱
-       const lastLayerName = localStorage.getItem('lastBaseLayer');
-       
-       if (lastLayerName && baseLayers[lastLayerName]) {
-         baseLayers[lastLayerName].addTo(map);
-         console.log(`已還原上次使用的圖層：${lastLayerName}`);
-       } else {
-         localStorage.removeItem('lastBaseLayer');
-         console.warn(`找不到記憶圖層 "${lastLayerName}"，已清除記錄。`);
-       
-         // ✅ 預設載入 Google 街道圖
-         baseLayers['Google 街道圖'].addTo(map);
-       }
-
+    // 從 localStorage 載入記憶圖層（若有），否則載入預設
+    const lastLayerName = localStorage.getItem('lastBaseLayer');
+    if (lastLayerName && baseLayers[lastLayerName]) {
+      baseLayers[lastLayerName].addTo(map);
+      console.log(`已還原上次使用的圖層：${lastLayerName}`);
+    } else {
+      baseLayers['Google 街道圖'].addTo(map);
+      console.log('已載入預設底圖：Google 街道圖');
+    }
+  
     // 將縮放控制添加到地圖的右上角
     L.control.zoom({ position: 'topright' }).addTo(map);
 
@@ -189,35 +185,64 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
 
-    // 將自定義定位控制項添加到地圖的右上角
-    new LocateMeControl({ position: 'topright' }).addTo(map);
-
-    // 將基本圖層控制添加到地圖的右上角
-    const layerControl = L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
-
-    // 監聽基本圖層變更事件，並在變更後自動隱藏圖層控制面板
-    map.on('baselayerchange', function (e) {
+      // 地圖控制項
+      L.control.zoom({ position: 'topright' }).addTo(map);
+      const layerControl = L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+    
+      map.on('baselayerchange', function (e) {
         console.log("基本圖層已變更:", e.name);
         localStorage.setItem('lastBaseLayer', e.name);
+    
         const controlContainer = layerControl.getContainer();
         if (controlContainer && controlContainer.classList.contains('leaflet-control-layers-expanded')) {
-            // 移除 'leaflet-control-layers-expanded' 類別來收起控制面板
-            controlContainer.classList.remove('leaflet-control-layers-expanded');
-            console.log("圖層控制面板已自動收起。");
+          controlContainer.classList.remove('leaflet-control-layers-expanded');
+          console.log("圖層控制面板已自動收起。");
         }
+      });
+    
+      markers.addTo(map);
+      navButtons.addTo(map);
+    
+      // ✅ 還原記憶的 KML 圖層
+      const lastKmlId = localStorage.getItem('lastKmlId');
+      if (lastKmlId) {
+        console.log(`正在還原上次開啟的 KML 圖層：${lastKmlId}`);
+        window.loadKmlLayerFromFirestore(lastKmlId);
+      }
+    
+      // ✅ 自訂顯示訊息框（支援取消與自動關閉）
+      window.showMessageCustom = function({
+        title = '',
+        message = '',
+        buttonText = '確定',
+        autoClose = false,
+        autoCloseDelay = 3000,
+        onClose = null
+      }) {
+        const overlay = document.querySelector('.message-box-overlay');
+        const content = overlay.querySelector('.message-box-content');
+        const header = content.querySelector('h3');
+        const paragraph = content.querySelector('p');
+        const button = content.querySelector('button');
+    
+        header.textContent = title;
+        paragraph.textContent = message;
+        button.textContent = buttonText;
+        overlay.classList.add('visible');
+    
+        button.onclick = () => {
+          overlay.classList.remove('visible');
+          if (typeof onClose === 'function') onClose();
+        };
+    
+        if (autoClose) {
+          setTimeout(() => {
+            overlay.classList.remove('visible');
+            if (typeof onClose === 'function') onClose();
+          }, autoCloseDelay);
+        }
+      };
     });
-
-    // 將 markers 和 navButtons 添加到地圖
-    markers.addTo(map);
-    navButtons.addTo(map);
-
-    // 還原上次載入的 KML 圖層（如果存在）
-    const lastKmlId = localStorage.getItem('lastKmlId');
-    if (lastKmlId) {
-      console.log(`正在還原上次開啟的 KML 圖層：${lastKmlId}`);
-      window.loadKmlLayerFromFirestore(lastKmlId);
-    }
-
     // 全局函數：添加標記到地圖 (現在支援 Point, LineString, Polygon)
     window.addMarkers = function(featuresToDisplay) {
         markers.clearLayers(); // 清除現有標記
