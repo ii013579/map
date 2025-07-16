@@ -52,37 +52,40 @@ body {
   box-shadow: 0 4px 8px rgba(0,0,0,0.25);
 }
 
-/* 圖釘按鈕基本樣式 */
+/* 圖釘按鈕樣式  */
 .pin-button-icon {
-    width: 4px;
-    height: 4px;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-shrink: 0;
-    cursor: pointer; /* 顯示為可點擊 */
-    border: none; /* 移除預設邊框 */
-    background-color: transparent; /* 透明背景 */
+  padding: 8px 15px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  background-color: #1a73e8; /* 預設藍底 */
+  transition: background-color 0.3s, transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-/* 圖釘圖示未點擊時 (預設藍色) */
+/* 圖釘圖示統一為黑色 */
 .pin-button-icon .material-symbols-outlined {
-    font-size: 20px;
-    color: #1a73e8; /* Google 藍色 */
+  font-size: 20px;
+  color: #000000;
+  user-select: none;
+  pointer-events: none;
 }
 
-/* 圖釘按鈕點擊後的樣式 (紅色) */
-.pin-button-icon.clicked .material-symbols-outlined {
-    color: #e53935; /* Material Design 紅色 */
+/* 點擊後（紅底） */
+.pin-button-icon.clicked {
+  background-color: #e53935;
 }
 
-/* 當按鈕被禁用時的樣式 (可選，例如灰色) */
-.pin-button-icon:disabled .material-symbols-outlined {
-    color: #9e9e9e; /* Material Design 灰色 */
-}
+/* 禁用時（灰底） */
 .pin-button-icon:disabled {
-    cursor: not-allowed; /* 顯示為不可點擊 */
+  background-color: #9e9e9e;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* 認證面板樣式 (預設隱藏，點擊編輯按鈕顯示) */
