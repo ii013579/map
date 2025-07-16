@@ -186,7 +186,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
       // 地圖控制項
-      L.control.zoom({ position: 'topright' }).addTo(map);
       const layerControl = L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
     
       map.on('baselayerchange', function (e) {
