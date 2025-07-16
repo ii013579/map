@@ -1,14 +1,14 @@
-// map-logic.js
+ï»¿// map-logic.js
 
 let map;
-let markers = L.featureGroup(); // ¥Î©óÀx¦s©Ò¦³¼Ğ°O¥H«KºŞ²z
-let navButtons = L.featureGroup(); // ¥Î©óÀx¦s¾É¯è«ö¶s
+let markers = L.featureGroup(); // ç”¨æ–¼å„²å­˜æ‰€æœ‰æ¨™è¨˜ä»¥ä¾¿ç®¡ç†
+let navButtons = L.featureGroup(); // ç”¨æ–¼å„²å­˜å°èˆªæŒ‰éˆ•
 
-// ·s¼W¤@­Ó¥ş§½ÅÜ¼Æ¡A¥Î©óÀx¦s©Ò¦³¦a¹Ï¤W KML Point Features ªº¼Æ¾Ú¡A¨Ñ·j´M¨Ï¥Î
+// æ–°å¢ä¸€å€‹å…¨å±€è®Šæ•¸ï¼Œç”¨æ–¼å„²å­˜æ‰€æœ‰åœ°åœ–ä¸Š KML Point Features çš„æ•¸æ“šï¼Œä¾›æœå°‹ä½¿ç”¨
 window.allKmlFeatures = [];
 
 document.addEventListener('DOMContentLoaded', () => {
-    // ªì©l¤Æ¦a¹Ï
+    // åˆå§‹åŒ–åœ°åœ–
     map = L.map('map', {
       attributionControl: true,
       zoomControl: false,
@@ -16,20 +16,20 @@ document.addEventListener('DOMContentLoaded', () => {
       minZoom: 5
     }).setView([23.6, 120.9], 8);
 
-    // ©w¸q°ò¥»¹Ï¼h
+    // å®šç¾©åŸºæœ¬åœ–å±¤
     const baseLayers = {
-        'Google µó¹D¹Ï': L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        'Google è¡—é“åœ–': L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
             attribution: 'Google Maps',
             maxZoom: 25,
             maxNativeZoom: 20
         }),
-        'Google ½Ã¬P¹Ï': L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        'Google è¡›æ˜Ÿåœ–': L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
             attribution: 'Google Maps',
             maxZoom: 25,
             maxNativeZoom: 20
 
         }),
-        'Google ¦a§Î¹Ï': L.tileLayer('https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
+        'Google åœ°å½¢åœ–': L.tileLayer('https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
             attribution: 'Google Maps',
             maxZoom: 25,
             maxNativeZoom: 20
@@ -41,24 +41,24 @@ document.addEventListener('DOMContentLoaded', () => {
         })
     };
 
-    // ¹Á¸Õ±q localStorage ¨ú±o¤W¦¸¿ï¾Üªº¹Ï¼h¦WºÙ
+    // å˜—è©¦å¾ localStorage å–å¾—ä¸Šæ¬¡é¸æ“‡çš„åœ–å±¤åç¨±
        const lastLayerName = localStorage.getItem('lastBaseLayer');
        
        if (lastLayerName && baseLayers[lastLayerName]) {
          baseLayers[lastLayerName].addTo(map);
-         console.log(`¤wÁÙ­ì¤W¦¸¨Ï¥Îªº¹Ï¼h¡G${lastLayerName}`);
+         console.log(`å·²é‚„åŸä¸Šæ¬¡ä½¿ç”¨çš„åœ–å±¤ï¼š${lastLayerName}`);
        } else {
          localStorage.removeItem('lastBaseLayer');
-         console.warn(`§ä¤£¨ì°O¾Ğ¹Ï¼h "${lastLayerName}"¡A¤w²M°£°O¿ı¡C`);
+         console.warn(`æ‰¾ä¸åˆ°è¨˜æ†¶åœ–å±¤ "${lastLayerName}"ï¼Œå·²æ¸…é™¤è¨˜éŒ„ã€‚`);
        
-         // ? ¹w³]¸ü¤J Google µó¹D¹Ï
-         baseLayers['Google µó¹D¹Ï'].addTo(map);
+         // ? é è¨­è¼‰å…¥ Google è¡—é“åœ–
+         baseLayers['Google è¡—é“åœ–'].addTo(map);
        }
 
-    // ±NÁY©ñ±±¨î²K¥[¨ì¦a¹Ïªº¥k¤W¨¤
+    // å°‡ç¸®æ”¾æ§åˆ¶æ·»åŠ åˆ°åœ°åœ–çš„å³ä¸Šè§’
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // ¦Û©w¸q©w¦ì±±¨î¶µ
+    // è‡ªå®šç¾©å®šä½æ§åˆ¶é …
     const LocateMeControl = L.Control.extend({
         _userLocationMarker: null,
         _userLocationCircle: null,
@@ -67,14 +67,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-locate-me');
             const button = L.DomUtil.create('a', '', container);
             button.href = "#";
-            button.title = "Åã¥Ü§Úªº¦ì¸m";
+            button.title = "é¡¯ç¤ºæˆ‘çš„ä½ç½®";
             button.setAttribute("role", "button");
-            button.setAttribute("aria-label", "Åã¥Ü§Úªº¦ì¸m");
+            button.setAttribute("aria-label", "é¡¯ç¤ºæˆ‘çš„ä½ç½®");
             button.innerHTML = `<span class="material-symbols-outlined" style="font-size: 24px; line-height: 30px;">my_location</span>`;
 
             L.DomEvent.on(button, 'click', this._locateUser, this);
 
-            // ¬°¦a²z©w¦ì¦¨¥\/¥¢±Ñ¨Æ¥ó²K¥[ºÊÅ¥¾¹
+            // ç‚ºåœ°ç†å®šä½æˆåŠŸ/å¤±æ•—äº‹ä»¶æ·»åŠ ç›£è½å™¨
             map.on('locationfound', this._onLocationFound, this);
             map.on('locationerror', this._onLocationError, this);
 
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             this._clearLocationMarkers();
 
-            // ¶}©l©w¦ì¥Î¤á¦ì¸m
+            // é–‹å§‹å®šä½ç”¨æˆ¶ä½ç½®
             map.locate({
                 setView: true,
                 maxZoom: 16,
@@ -101,9 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 watch: false
             });
             window.showMessageCustom({
-                title: '©w¦ì¤¤',
-                message: '¥¿¦bÀò¨ú±zªº¦ì¸m...',
-                buttonText: '¨ú®ø',
+                title: 'å®šä½ä¸­',
+                message: 'æ­£åœ¨ç²å–æ‚¨çš„ä½ç½®...',
+                buttonText: 'å–æ¶ˆ',
                 autoClose: false
               });
             },
@@ -129,9 +129,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }).addTo(map);
 
             window.showMessageCustom({
-                title: '©w¦ì¦¨¥\',
-                message: `±zªº¦ì¸m¤w©w¦ì¡A»~®t¬ù ${radius.toFixed(0)} ¤½¤Ø¡C`,
-                buttonText: '½T©w',
+                title: 'å®šä½æˆåŠŸ',
+                message: `æ‚¨çš„ä½ç½®å·²å®šä½ï¼Œèª¤å·®ç´„ ${radius.toFixed(0)} å…¬å°ºã€‚`,
+                buttonText: 'ç¢ºå®š',
                 autoClose: true,
                 autoCloseDelay: 3000
               });
@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         _onLocationError: function(e) {
             this._clearLocationMarkers();
-            window.showMessage('©w¦ì¥¢±Ñ', `µLªkÀò¨ú±zªº¦ì¸m: ${e.message}`);
+            window.showMessage('å®šä½å¤±æ•—', `ç„¡æ³•ç²å–æ‚¨çš„ä½ç½®: ${e.message}`);
             console.error('Geolocation error:', e.message);
         },
 
@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showMessageCustom = function({
       title = '',
       message = '',
-      buttonText = '½T©w',
+      buttonText = 'ç¢ºå®š',
       autoClose = false,
       autoCloseDelay = 3000,
       onClose = null
@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
       button.textContent = buttonText;
       overlay.classList.add('visible');
     
-      // ²¾°£ÂÂªº onclick
+      // ç§»é™¤èˆŠçš„ onclick
       button.onclick = () => {
         overlay.classList.remove('visible');
         if (typeof onClose === 'function') onClose();
@@ -189,45 +189,45 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
 
-    // ±N¦Û©w¸q©w¦ì±±¨î¶µ²K¥[¨ì¦a¹Ïªº¥k¤W¨¤
+    // å°‡è‡ªå®šç¾©å®šä½æ§åˆ¶é …æ·»åŠ åˆ°åœ°åœ–çš„å³ä¸Šè§’
     new LocateMeControl({ position: 'topright' }).addTo(map);
 
-    // ±N°ò¥»¹Ï¼h±±¨î²K¥[¨ì¦a¹Ïªº¥k¤W¨¤
+    // å°‡åŸºæœ¬åœ–å±¤æ§åˆ¶æ·»åŠ åˆ°åœ°åœ–çš„å³ä¸Šè§’
     const layerControl = L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
 
-    // ºÊÅ¥°ò¥»¹Ï¼hÅÜ§ó¨Æ¥ó¡A¨Ã¦bÅÜ§ó«á¦Û°ÊÁôÂÃ¹Ï¼h±±¨î­±ªO
+    // ç›£è½åŸºæœ¬åœ–å±¤è®Šæ›´äº‹ä»¶ï¼Œä¸¦åœ¨è®Šæ›´å¾Œè‡ªå‹•éš±è—åœ–å±¤æ§åˆ¶é¢æ¿
     map.on('baselayerchange', function (e) {
-        console.log("°ò¥»¹Ï¼h¤wÅÜ§ó:", e.name);
+        console.log("åŸºæœ¬åœ–å±¤å·²è®Šæ›´:", e.name);
         localStorage.setItem('lastBaseLayer', e.name);
         const controlContainer = layerControl.getContainer();
         if (controlContainer && controlContainer.classList.contains('leaflet-control-layers-expanded')) {
-            // ²¾°£ 'leaflet-control-layers-expanded' Ãş§O¨Ó¦¬°_±±¨î­±ªO
+            // ç§»é™¤ 'leaflet-control-layers-expanded' é¡åˆ¥ä¾†æ”¶èµ·æ§åˆ¶é¢æ¿
             controlContainer.classList.remove('leaflet-control-layers-expanded');
-            console.log("¹Ï¼h±±¨î­±ªO¤w¦Û°Ê¦¬°_¡C");
+            console.log("åœ–å±¤æ§åˆ¶é¢æ¿å·²è‡ªå‹•æ”¶èµ·ã€‚");
         }
     });
 
-    // ±N markers ©M navButtons ²K¥[¨ì¦a¹Ï
+    // å°‡ markers å’Œ navButtons æ·»åŠ åˆ°åœ°åœ–
     markers.addTo(map);
     navButtons.addTo(map);
 
-    // ¥ş§½¨ç¼Æ¡G²K¥[¼Ğ°O¨ì¦a¹Ï (²{¦b¤ä´© Point, LineString, Polygon)
+    // å…¨å±€å‡½æ•¸ï¼šæ·»åŠ æ¨™è¨˜åˆ°åœ°åœ– (ç¾åœ¨æ”¯æ´ Point, LineString, Polygon)
     window.addMarkers = function(featuresToDisplay) {
-        markers.clearLayers(); // ²M°£²{¦³¼Ğ°O
+        markers.clearLayers(); // æ¸…é™¤ç¾æœ‰æ¨™è¨˜
 
         if (!featuresToDisplay || featuresToDisplay.length === 0) {
-            console.log("¨S¦³ features ¥iÅã¥Ü¡C");
-            window.showMessage('¸ü¤JÄµ¥Ü', 'KML ¹Ï¼h¸ü¤J§¹¦¨¦ı¥¼µo²{¦³®Ä¦a¹Ï¤¸¯À¡C');
+            console.log("æ²’æœ‰ features å¯é¡¯ç¤ºã€‚");
+            window.showMessage('è¼‰å…¥è­¦ç¤º', 'KML åœ–å±¤è¼‰å…¥å®Œæˆä½†æœªç™¼ç¾æœ‰æ•ˆåœ°åœ–å…ƒç´ ã€‚');
             return;
         }
-        console.log(`¥¿¦b±N ${featuresToDisplay.length} ­Ó features ²K¥[¨ì¦a¹Ï¡C`);
+        console.log(`æ­£åœ¨å°‡ ${featuresToDisplay.length} å€‹ features æ·»åŠ åˆ°åœ°åœ–ã€‚`);
         featuresToDisplay.forEach(f => {
-            const name = f.properties.name || '¥¼©R¦W';
+            const name = f.properties.name || 'æœªå‘½å';
             const coordinates = f.geometry.coordinates;
             let layer;
 
             if (!coordinates) {
-                console.warn(`¸õ¹L¯Ê¤Ö®y¼Ğªº feature: ${name} (Ãş«¬: ${f.geometry.type || '¥¼ª¾'})`);
+                console.warn(`è·³éç¼ºå°‘åº§æ¨™çš„ feature: ${name} (é¡å‹: ${f.geometry.type || 'æœªçŸ¥'})`);
                 return;
             }
 
@@ -263,153 +263,153 @@ document.addEventListener('DOMContentLoaded', () => {
               dot.on('click', (e) => {
                 L.DomEvent.stopPropagation(e);
             
-                // ²M°£©Ò¦³°ª«G¤å¦r
+                // æ¸…é™¤æ‰€æœ‰é«˜äº®æ–‡å­—
                 document.querySelectorAll('.marker-label span.label-active').forEach(el => {
                   el.classList.remove('label-active');
                 });
                 document.getElementById(labelId)?.classList.add('label-active');
             
-                // ®M¥Î°ª«G¨ì·í«e label
+                // å¥—ç”¨é«˜äº®åˆ°ç•¶å‰ label
                 const target = document.getElementById(labelId);
                 if (target) {
                   target.classList.add('label-active');
                 }
             
-                // Åã¥Ü¾É¯è«ö¶s
+                // é¡¯ç¤ºå°èˆªæŒ‰éˆ•
                 window.createNavButton(latlng, name);
               });
             
               markers.addLayer(dot);
               markers.addLayer(label);
-              console.log(`²K¥[ Point: ${name} (Lat: ${latlng.lat}, Lng: ${latlng.lng})`);
+              console.log(`æ·»åŠ  Point: ${name} (Lat: ${latlng.lat}, Lng: ${latlng.lng})`);
 
             } else if (f.geometry.type === 'LineString') {
-                // ±N [lon, lat] °}¦CÂà´«¬° L.LatLng °}¦C¥H¥Î©ó LineString
+                // å°‡ [lon, lat] é™£åˆ—è½‰æ›ç‚º L.LatLng é™£åˆ—ä»¥ç”¨æ–¼ LineString
                 const latlngs = coordinates.map(coord => L.latLng(coord[1], coord[0]));
                 layer = L.polyline(latlngs, {
-                    color: '#1a73e8', // ÂÅ¦â
+                    color: '#1a73e8', // è—è‰²
                     weight: 4,
                     opacity: 0.7
                 });
-                layer.bindPopup(`<b>${name}</b>`); // ¬°½u²K¥[¼u¥Xµøµ¡Åã¥Ü¦WºÙ
+                layer.bindPopup(`<b>${name}</b>`); // ç‚ºç·šæ·»åŠ å½ˆå‡ºè¦–çª—é¡¯ç¤ºåç¨±
                 markers.addLayer(layer);
-                console.log(`²K¥[ LineString: ${name} (${coordinates.length} ÂI)`);
+                console.log(`æ·»åŠ  LineString: ${name} (${coordinates.length} é»)`);
 
             } else if (f.geometry.type === 'Polygon') {
-                // ¹ï©ó Polygon¡A®y¼Ğ¬O [ [[lon,lat],[lon,lat],...]] ¥Î©ó¥~Àô
-                // ¨Ã¥B¥i¯à¥]§t¤ºÀô¡CL.polygon ´Á±æ¤@­Ó LatLng °}¦Cªº°}¦C¡C
+                // å°æ–¼ Polygonï¼Œåº§æ¨™æ˜¯ [ [[lon,lat],[lon,lat],...]] ç”¨æ–¼å¤–ç’°
+                // ä¸¦ä¸”å¯èƒ½åŒ…å«å…§ç’°ã€‚L.polygon æœŸæœ›ä¸€å€‹ LatLng é™£åˆ—çš„é™£åˆ—ã€‚
                 const latlngs = coordinates[0].map(coord => L.latLng(coord[1], coord[0]));
                 layer = L.polygon(latlngs, {
-                    color: '#1a73e8', // ÂÅ¦âÃä®Ø
-                    fillColor: '#6dd5ed', // ²LÂÅ¦â¶ñ¥R
+                    color: '#1a73e8', // è—è‰²é‚Šæ¡†
+                    fillColor: '#6dd5ed', // æ·ºè—è‰²å¡«å……
                     fillOpacity: 0.3,
                     weight: 2
                 });
-                layer.bindPopup(`<b>${name}</b>`); // ¬°¦hÃä§Î²K¥[¼u¥Xµøµ¡Åã¥Ü¦WºÙ
+                layer.bindPopup(`<b>${name}</b>`); // ç‚ºå¤šé‚Šå½¢æ·»åŠ å½ˆå‡ºè¦–çª—é¡¯ç¤ºåç¨±
                 markers.addLayer(layer);
-                console.log(`²K¥[ Polygon: ${name} (${coordinates[0].length} ÂI)`);
+                console.log(`æ·»åŠ  Polygon: ${name} (${coordinates[0].length} é»)`);
 
             } else {
-                console.warn(`¸õ¹L¤£¤ä´©ªº´X¦óÃş«¬: ${f.geometry.type} (¦WºÙ: ${name})`);
+                console.warn(`è·³éä¸æ”¯æ´çš„å¹¾ä½•é¡å‹: ${f.geometry.type} (åç¨±: ${name})`);
             }
         });
 
-        // ½Õ¾ã¦a¹Ïµø¨¤¥H¥]§t©Ò¦³²K¥[ªº¼Ğ°O©M´X¦ó¹Ï§Î
+        // èª¿æ•´åœ°åœ–è¦–è§’ä»¥åŒ…å«æ‰€æœ‰æ·»åŠ çš„æ¨™è¨˜å’Œå¹¾ä½•åœ–å½¢
         if (markers.getLayers().length > 0 && markers.getBounds().isValid()) {
             map.fitBounds(markers.getBounds());
-            console.log("¦a¹Ïµø¹Ï¤w½Õ¾ã¥H¥]§t©Ò¦³¸ü¤Jªº¦a²z­n¯À¡C");
+            console.log("åœ°åœ–è¦–åœ–å·²èª¿æ•´ä»¥åŒ…å«æ‰€æœ‰è¼‰å…¥çš„åœ°ç†è¦ç´ ã€‚");
         } else if (featuresToDisplay.length > 0) {
-            // ¦pªG¦³ features ¦ı¨S¦³¤@­Ó³Q²K¥[¨ì¦a¹Ï (¨Ò¦p¡A©Ò¦³³£¬O¤£¤ä´©ªºÃş«¬)
-            console.warn("KML features ¤w¸ü¤J¡A¦ı¦a¹Ï¤W¨S¦³¥iÅã¥Üªº´X¦óÃş«¬¡C½ĞÀË¬d±±¨î¥x¤é»x¥HÀò¨ú¸Ô²Ó¸ê°T¡C");
+            // å¦‚æœæœ‰ features ä½†æ²’æœ‰ä¸€å€‹è¢«æ·»åŠ åˆ°åœ°åœ– (ä¾‹å¦‚ï¼Œæ‰€æœ‰éƒ½æ˜¯ä¸æ”¯æ´çš„é¡å‹)
+            console.warn("KML features å·²è¼‰å…¥ï¼Œä½†åœ°åœ–ä¸Šæ²’æœ‰å¯é¡¯ç¤ºçš„å¹¾ä½•é¡å‹ã€‚è«‹æª¢æŸ¥æ§åˆ¶å°æ—¥èªŒä»¥ç²å–è©³ç´°è³‡è¨Šã€‚");
         }
     };
 
-    // ¥ş§½¨ç¼Æ¡G±q Firestore ¸ü¤J KML ¹Ï¼h («O¯d­ìª© logic¡A¶È¬°¤FÅı auth-kml-management.js §ä¨ì)
-    // ¹ê»Úªº KML features ³B²z·|³z¹L window.addMarkers §¹¦¨
+    // å…¨å±€å‡½æ•¸ï¼šå¾ Firestore è¼‰å…¥ KML åœ–å±¤ (ä¿ç•™åŸç‰ˆ logicï¼Œåƒ…ç‚ºäº†è®“ auth-kml-management.js æ‰¾åˆ°)
+    // å¯¦éš›çš„ KML features è™•ç†æœƒé€é window.addMarkers å®Œæˆ
     window.loadKmlLayerFromFirestore = async function(kmlId) {
         if (!kmlId) {
-            console.log("¥¼´£¨Ñ KML ID¡A¤£¸ü¤J¡C");
+            console.log("æœªæä¾› KML IDï¼Œä¸è¼‰å…¥ã€‚");
             window.clearAllKmlLayers();
             return;
         }
 
-        // ²¾°£²{¦³ KML ¹Ï¼h©M©Ò¦³¼Ğ°O (¥]¬A¾É¯è«ö¶s)
+        // ç§»é™¤ç¾æœ‰ KML åœ–å±¤å’Œæ‰€æœ‰æ¨™è¨˜ (åŒ…æ‹¬å°èˆªæŒ‰éˆ•)
         window.clearAllKmlLayers();
 
         try {
-            // ±q Firestore Àò¨ú KML ¤å¥óªº¤¸¼Æ¾Ú
+            // å¾ Firestore ç²å– KML æ–‡ä»¶çš„å…ƒæ•¸æ“š
             const doc = await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId).get();
             if (!doc.exists) {
-                console.error('KML ¹Ï¼h¤åÀÉ¥¼§ä¨ì ID:', kmlId);
-                showMessage('¿ù»~', '§ä¤£¨ì«ü©wªº KML ¹Ï¼h¸ê®Æ¡C');
+                console.error('KML åœ–å±¤æ–‡æª”æœªæ‰¾åˆ° ID:', kmlId);
+                showMessage('éŒ¯èª¤', 'æ‰¾ä¸åˆ°æŒ‡å®šçš„ KML åœ–å±¤è³‡æ–™ã€‚');
                 return;
             }
             const kmlData = doc.data();
 
-            console.log(`¥¿¦b¸ü¤J KML Features¡A¹Ï¼h¦WºÙ: ${kmlData.name || kmlId}`);
+            console.log(`æ­£åœ¨è¼‰å…¥ KML Featuresï¼Œåœ–å±¤åç¨±: ${kmlData.name || kmlId}`);
 
-            // ±q kmlLayers/{kmlId}/features ¤l¶°¦X¤¤Àò¨ú©Ò¦³ GeoJSON features
+            // å¾ kmlLayers/{kmlId}/features å­é›†åˆä¸­ç²å–æ‰€æœ‰ GeoJSON features
             const featuresSubCollectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId).collection('features');
             const querySnapshot = await featuresSubCollectionRef.get();
 
             const loadedFeatures = [];
             if (querySnapshot.empty) {
-                console.log(`KML ¹Ï¼h "${kmlData.name}" ªº features ¤l¶°¦X¬°ªÅ¡C`);
+                console.log(`KML åœ–å±¤ "${kmlData.name}" çš„ features å­é›†åˆç‚ºç©ºã€‚`);
             } else {
                 querySnapshot.forEach(featureDoc => {
                     const feature = featureDoc.data();
-                    // ½T«O feature ¥]§t geometry ©M properties
+                    // ç¢ºä¿ feature åŒ…å« geometry å’Œ properties
                     if (feature.geometry && feature.geometry.coordinates && feature.properties) {
                         loadedFeatures.push(feature);
                     } else {
-                        console.warn('¥¿¦b¸õ¹L¨Ó¦Û Firestore ªºµL®Ä feature:', feature);
+                        console.warn('æ­£åœ¨è·³éä¾†è‡ª Firestore çš„ç„¡æ•ˆ feature:', feature);
                     }
                 });
             }
 
-            window.allKmlFeatures = loadedFeatures; // §ó·s¥ş§½·j´M¼Æ¾Ú
-            window.addMarkers(window.allKmlFeatures); // ±N©Ò¦³¦a²z­n¯À²K¥[¨ì¦a¹Ï
+            window.allKmlFeatures = loadedFeatures; // æ›´æ–°å…¨å±€æœå°‹æ•¸æ“š
+            window.addMarkers(window.allKmlFeatures); // å°‡æ‰€æœ‰åœ°ç†è¦ç´ æ·»åŠ åˆ°åœ°åœ–
 
-            // ¦pªG¦³¦a²z­n¯À¡A³]©w¦a¹Ïµø¨¤¥H¥]§t©Ò¦³­n¯À
+            // å¦‚æœæœ‰åœ°ç†è¦ç´ ï¼Œè¨­å®šåœ°åœ–è¦–è§’ä»¥åŒ…å«æ‰€æœ‰è¦ç´ 
             if (window.allKmlFeatures.length > 0 && markers.getLayers().length > 0 && markers.getBounds().isValid()) {
                  map.fitBounds(markers.getBounds());
             } else {
-                 console.warn("¦a²z­n¯À¦s¦b¡A¦ı¨äÃä¬É¹ï©ó¦a¹Ïµø¹Ï¤£¾A¥Î¡A©Î¦a¹Ï¤W¨S¦³¹Ï¼h¥i¾A¦X¡C");
+                 console.warn("åœ°ç†è¦ç´ å­˜åœ¨ï¼Œä½†å…¶é‚Šç•Œå°æ–¼åœ°åœ–è¦–åœ–ä¸é©ç”¨ï¼Œæˆ–åœ°åœ–ä¸Šæ²’æœ‰åœ–å±¤å¯é©åˆã€‚");
             }
             
-            // *** ·s¼W¡G¦b¦¨¥\¸ü¤J KML ¼h«á¡A±N¨ä ID ¦sÀx¬°¡u°v¿ï¡v¼h ***
+            // *** æ–°å¢ï¼šåœ¨æˆåŠŸè¼‰å…¥ KML å±¤å¾Œï¼Œå°‡å…¶ ID å­˜å„²ç‚ºã€Œé‡˜é¸ã€å±¤ ***
             localStorage.setItem('pinnedKmlLayerId', kmlId);
-            console.log(`KML ¹Ï¼h ${kmlId} ¤w³Q°v¿ï¡C`);
+            console.log(`KML åœ–å±¤ ${kmlId} å·²è¢«é‡˜é¸ã€‚`);
 
         } catch (error) {
-            console.error("Àò¨ú KML Features ©Î¸ü¤J KML ®É¥X¿ù:", error);
-            // ¬°¤FÀ°§U½Õ¸Õ¡A³o¸Ì¥i¥HÅã¥Ü§ó¸Ô²Óªº¿ù»~°T®§¡A¨Ò¦p¦w¥ş³W«h¬ÛÃöªº¿ù»~
-            showMessage('¿ù»~', `µLªk¸ü¤J KML ¹Ï¼h: ${error.message}¡C½Ğ½T»{ Firebase ¦w¥ş³W«h¤w¥¿½T³]©w¡A¤¹³\Åª¨ú /artifacts/{appId}/public/data/kmlLayers¡C`);
+            console.error("ç²å– KML Features æˆ–è¼‰å…¥ KML æ™‚å‡ºéŒ¯:", error);
+            // ç‚ºäº†å¹«åŠ©èª¿è©¦ï¼Œé€™è£¡å¯ä»¥é¡¯ç¤ºæ›´è©³ç´°çš„éŒ¯èª¤è¨Šæ¯ï¼Œä¾‹å¦‚å®‰å…¨è¦å‰‡ç›¸é—œçš„éŒ¯èª¤
+            showMessage('éŒ¯èª¤', `ç„¡æ³•è¼‰å…¥ KML åœ–å±¤: ${error.message}ã€‚è«‹ç¢ºèª Firebase å®‰å…¨è¦å‰‡å·²æ­£ç¢ºè¨­å®šï¼Œå…è¨±è®€å– /artifacts/{appId}/public/data/kmlLayersã€‚`);
         }
     };
 
-    // ¥ş§½¨ç¼Æ¡G²M°£©Ò¦³ KML ¹Ï¼h¡B¼Ğ°O©M¾É¯è«ö¶s
+    // å…¨å±€å‡½æ•¸ï¼šæ¸…é™¤æ‰€æœ‰ KML åœ–å±¤ã€æ¨™è¨˜å’Œå°èˆªæŒ‰éˆ•
     window.clearAllKmlLayers = function() {
         markers.clearLayers();
         navButtons.clearLayers();
         window.allKmlFeatures = [];
-        console.log("©Ò¦³ KML ¹Ï¼h¡B¼Ğ°O©M¾É¯è«ö¶s¤w²M°£¡C");
-        // *** ·s¼W¡G·í©Ò¦³¹Ï¼h³Q²M°£®É¡A¤]²M°£°v¿ïªº KML ID ***
+        console.log("æ‰€æœ‰ KML åœ–å±¤ã€æ¨™è¨˜å’Œå°èˆªæŒ‰éˆ•å·²æ¸…é™¤ã€‚");
+        // *** æ–°å¢ï¼šç•¶æ‰€æœ‰åœ–å±¤è¢«æ¸…é™¤æ™‚ï¼Œä¹Ÿæ¸…é™¤é‡˜é¸çš„ KML ID ***
         localStorage.removeItem('pinnedKmlLayerId');
-        console.log("°v¿ïªº KML ¹Ï¼h¤w¨ú®ø°v¿ï¡C");
+        console.log("é‡˜é¸çš„ KML åœ–å±¤å·²å–æ¶ˆé‡˜é¸ã€‚");
     };
 
-    // ¥ş§½¨ç¼Æ¡G³Ğ«Ø¾É¯è«ö¶s
+    // å…¨å±€å‡½æ•¸ï¼šå‰µå»ºå°èˆªæŒ‰éˆ•
     window.createNavButton = function(latlng, name) {
         navButtons.clearLayers();
 
-        // ¨Ï¥Î³q¥Îªº Google Maps ¬d¸ß URL¡A²{¥N¤â¾÷·|¦Û°ÊÃÑ§O¨Ã´£¨Ñ¶}±Ò¦a¹ÏÀ³¥Îªº¿ï¶µ¡C
+        // ä½¿ç”¨é€šç”¨çš„ Google Maps æŸ¥è©¢ URLï¼Œç¾ä»£æ‰‹æ©Ÿæœƒè‡ªå‹•è­˜åˆ¥ä¸¦æä¾›é–‹å•Ÿåœ°åœ–æ‡‰ç”¨çš„é¸é …ã€‚
         const googleMapsUrl = `http://maps.google.com/maps?q=${latlng.lat},${latlng.lng}`;
 
 
         const buttonHtml = `
             <div class="nav-button-content" onclick="window.open('${googleMapsUrl}', '_blank'); event.stopPropagation();">
-                <img src="https://i0.wp.com/canadasafetycouncil.org/wp-content/uploads/2018/08/offroad.png" alt="¾É¯è" />
+                <img src="https://i0.wp.com/canadasafetycouncil.org/wp-content/uploads/2018/08/offroad.png" alt="å°èˆª" />
             </div>
         `;
         const buttonIcon = L.divIcon({
@@ -425,10 +425,10 @@ document.addEventListener('DOMContentLoaded', () => {
             interactive: true
         }).addTo(navButtons);
 
-        console.log(`¤w¬° ${name} ¦b ${latlng.lat}, ${latlng.lng} ³Ğ«Ø¾É¯è«ö¶s¡C`);
+        console.log(`å·²ç‚º ${name} åœ¨ ${latlng.lat}, ${latlng.lng} å‰µå»ºå°èˆªæŒ‰éˆ•ã€‚`);
     };
 
-    // ³B²z¦a¹ÏÂIÀ»¨Æ¥ó¡AÁôÂÃ·j´Mµ²ªG©M¾É¯è«ö¶s»P¨ú®ø¼ĞÅÒ°ª«G
+    // è™•ç†åœ°åœ–é»æ“Šäº‹ä»¶ï¼Œéš±è—æœå°‹çµæœå’Œå°èˆªæŒ‰éˆ•èˆ‡å–æ¶ˆæ¨™ç±¤é«˜äº®
     map.on('click', () => {
       const searchResults = document.getElementById('searchResults');
       const searchContainer = document.getElementById('searchContainer');
@@ -441,21 +441,21 @@ document.addEventListener('DOMContentLoaded', () => {
         searchBox.value = '';
       }
     
-      // ¨ú®ø©Ò¦³ÂÅ¦â°ª«G¼ĞÅÒ
+      // å–æ¶ˆæ‰€æœ‰è—è‰²é«˜äº®æ¨™ç±¤
       document.querySelectorAll('.marker-label span.label-active').forEach(el => {
         el.classList.remove('label-active');
       });
     
-      // ²M°£¾É¯è«ö¶s
+      // æ¸…é™¤å°èˆªæŒ‰éˆ•
       navButtons.clearLayers();
     });
 
-    // *** ·s¼W¡G¦bªì©l¤Æ®ÉÀË¬d¬O§_¦³°v¿ïªº KML ¹Ï¼h¨Ã¸ü¤J¥¦ ***
+    // *** æ–°å¢ï¼šåœ¨åˆå§‹åŒ–æ™‚æª¢æŸ¥æ˜¯å¦æœ‰é‡˜é¸çš„ KML åœ–å±¤ä¸¦è¼‰å…¥å®ƒ ***
     const pinnedKmlId = localStorage.getItem('pinnedKmlLayerId');
     if (pinnedKmlId) {
-        console.log(`°»´ú¨ì°v¿ïªº KML ¹Ï¼h ID¡G${pinnedKmlId}¡A¥¿¦b¦Û°Ê¸ü¤J¡C`);
+        console.log(`åµæ¸¬åˆ°é‡˜é¸çš„ KML åœ–å±¤ IDï¼š${pinnedKmlId}ï¼Œæ­£åœ¨è‡ªå‹•è¼‰å…¥ã€‚`);
         window.loadKmlLayerFromFirestore(pinnedKmlId);
     } else {
-        console.log("¨S¦³°v¿ïªº KML ¹Ï¼h¡C");
+        console.log("æ²’æœ‰é‡˜é¸çš„ KML åœ–å±¤ã€‚");
     }
 });
