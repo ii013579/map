@@ -200,91 +200,182 @@ document.addEventListener('DOMContentLoaded', () => {
     markers.addTo(map);
     navButtons.addTo(map);
   
+    // 從 localStorage 載入記憶圖層（若有），否則載入預設
+    const lastLayerName = localStorage.getItem('lastBaseLayer');
+    if (lastLayerName && baseLayers[lastLayerName]) {
+      baseLayers[lastLayerName].addTo(map);
+      console.log(`已還原上次使用的圖層：${lastLayerName}`);
+    } else {
+      baseLayers['Google 街道圖'].addTo(map);
+      console.log('已載入預設底圖：Google 街道圖');
+    }
+  
+    // 地圖控制項
+    L.control.zoom({ position: 'topright' }).addTo(map);
+    const layerControl = L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+  
+    map.on('baselayerchange', function (e) {
+      console.log("基本圖層已變更:", e.name);
+      localStorage.setItem('lastBaseLayer', e.name);
+  
+      const controlContainer = layerControl.getContainer();
+      if (controlContainer && controlContainer.classList.contains('leaflet-control-layers-expanded')) {
+        controlContainer.classList.remove('leaflet-control-layers-expanded');
+        console.log("圖層控制面板已自動收起。");
+      }
+    });
+  
+    markers.addTo(map);
+    navButtons.addTo(map);
+  
     // ? 還原記憶的 KML 圖層
     const lastKmlId = localStorage.getItem('lastKmlId');
     if (lastKmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
       console.log(`正在還原上次開啟的 KML 圖層：${lastKmlId}`);
       window.loadKmlLayerFromFirestore(lastKmlId);
     }
-    
-        // 調整地圖視角以包含所有添加的標記和幾何圖形
-        if (markers.getLayers().length > 0 && markers.getBounds().isValid()) {
-            map.fitBounds(markers.getBounds());
-            console.log("地圖視圖已調整以包含所有載入的地理要素。");
-        } else if (featuresToDisplay.length > 0) {
-            // 如果有 features 但沒有一個被添加到地圖 (例如，所有都是不支援的類型)
-            console.warn("KML features 已載入，但地圖上沒有可顯示的幾何類型。請檢查控制台日誌以獲取詳細資訊。");
-        }
+  
+    // ? 自訂顯示訊息框（支援取消與自動關閉）
+    window.showMessageCustom = function({
+      title = '',
+      message = '',
+      buttonText = '確定',
+      autoClose = false,
+      autoCloseDelay = 3000,
+      onClose = null
+    }) {
+      const overlay = document.querySelector('.message-box-overlay');
+      const content = overlay.querySelector('.message-box-content');
+      const header = content.querySelector('h3');
+      const paragraph = content.querySelector('p');
+      const button = content.querySelector('button');
+  
+      header.textContent = title;
+      paragraph.textContent = message;
+      button.textContent = buttonText;
+      overlay.classList.add('visible');
+  
+      button.onclick = () => {
+        overlay.classList.remove('visible');
+        if (typeof onClose === 'function') onClose();
+      };
+  
+      if (autoClose) {
+        setTimeout(() => {
+          overlay.classList.remove('visible');
+          if (typeof onClose === 'function') onClose();
+        }, autoCloseDelay);
+      }
     };
-
-    // 全局函數：從 Firestore 載入 KML 圖層 (保留原版 logic，僅為了讓 auth-kml-management.js 找到)
-    // 實際的 KML features 處理會透過 window.addMarkers 完成
+  
+    // ? 載入 KML 圖層函式（從原始版本補回）
     window.loadKmlLayerFromFirestore = async function(kmlId) {
-        if (!kmlId) {
-            console.log("未提供 KML ID，不載入。");
-            window.clearAllKmlLayers();
-            return;
-        }
-
-        // 移除現有 KML 圖層和所有標記 (包括導航按鈕)
+      if (!kmlId) {
+        console.log("未提供 KML ID，不載入。");
         window.clearAllKmlLayers();
-
-        try {
-            // 從 Firestore 獲取 KML 文件的元數據
-            const doc = await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId).get();
-            if (!doc.exists) {
-                console.error('KML 圖層文檔未找到 ID:', kmlId);
-                showMessage('錯誤', '找不到指定的 KML 圖層資料。');
-                return;
-            }
-            const kmlData = doc.data();
-
-            console.log(`正在載入 KML Features，圖層名稱: ${kmlData.name || kmlId}`);
-
-            // 從 kmlLayers/{kmlId}/features 子集合中獲取所有 GeoJSON features
-            const featuresSubCollectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId).collection('features');
-            const querySnapshot = await featuresSubCollectionRef.get();
-
-            const loadedFeatures = [];
-            if (querySnapshot.empty) {
-                console.log(`KML 圖層 "${kmlData.name}" 的 features 子集合為空。`);
-            } else {
-                querySnapshot.forEach(featureDoc => {
-                    const feature = featureDoc.data();
-                    // 確保 feature 包含 geometry 和 properties
-                    if (feature.geometry && feature.geometry.coordinates && feature.properties) {
-                        loadedFeatures.push(feature);
-                    } else {
-                        console.warn('正在跳過來自 Firestore 的無效 feature:', feature);
-                    }
-                });
-            }
-
-            window.allKmlFeatures = loadedFeatures; // 更新全局搜尋數據
-            window.addMarkers(window.allKmlFeatures); // 將所有地理要素添加到地圖
-
-            // 如果有地理要素，設定地圖視角以包含所有要素
-            if (window.allKmlFeatures.length > 0 && markers.getLayers().length > 0 && markers.getBounds().isValid()) {
-                 map.fitBounds(markers.getBounds());
-            } else {
-                 console.warn("地理要素存在，但其邊界對於地圖視圖不適用，或地圖上沒有圖層可適合。");
-            }
-
-        } catch (error) {
-            console.error("獲取 KML Features 或載入 KML 時出錯:", error);
-            // 為了幫助調試，這裡可以顯示更詳細的錯誤訊息，例如安全規則相關的錯誤
-            showMessage('錯誤', `無法載入 KML 圖層: ${error.message}。請確認 Firebase 安全規則已正確設定，允許讀取 /artifacts/{appId}/public/data/kmlLayers。`);
+        return;
+      }
+      window.clearAllKmlLayers();
+      try {
+        const doc = await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId).get();
+        if (!doc.exists) {
+          console.error('KML 圖層文檔未找到 ID:', kmlId);
+          showMessage('錯誤', '找不到指定的 KML 圖層資料。');
+          localStorage.removeItem('lastKmlId');
+          return;
         }
+        const kmlData = doc.data();
+        const featuresSubCollectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId).collection('features');
+        const querySnapshot = await featuresSubCollectionRef.get();
+        const loadedFeatures = [];
+        if (!querySnapshot.empty) {
+          querySnapshot.forEach(featureDoc => {
+            const feature = featureDoc.data();
+            if (feature.geometry && feature.geometry.coordinates && feature.properties) {
+              loadedFeatures.push(feature);
+            }
+          });
+        }
+        window.allKmlFeatures = loadedFeatures;
+        window.addMarkers(window.allKmlFeatures);
+        if (window.allKmlFeatures.length > 0 && markers.getLayers().length > 0 && markers.getBounds().isValid()) {
+          map.fitBounds(markers.getBounds());
+        }
+      } catch (error) {
+        console.error("獲取 KML Features 或載入 KML 時出錯:", error);
+        showMessage('錯誤', `無法載入 KML 圖層: ${error.message}`);
+      }
     };
-
-    // 全局函數：清除所有 KML 圖層、標記和導航按鈕
+  
+    // ? 加入清除與渲染函式
     window.clearAllKmlLayers = function() {
-        markers.clearLayers();
-        navButtons.clearLayers();
-        window.allKmlFeatures = [];
-        console.log("所有 KML 圖層、標記和導航按鈕已清除。");
+      markers.clearLayers();
+      navButtons.clearLayers();
+      window.allKmlFeatures = [];
     };
-
+  
+    // ? 加入清除與渲染函式
+    window.clearAllKmlLayers = function() {
+      markers.clearLayers();
+      navButtons.clearLayers();
+      window.allKmlFeatures = [];
+    };
+  
+    window.addMarkers = function(featuresToDisplay) {
+      markers.clearLayers();
+      if (!featuresToDisplay || featuresToDisplay.length === 0) return;
+      featuresToDisplay.forEach(f => {
+        const name = f.properties.name || '未命名';
+        const coordinates = f.geometry.coordinates;
+        if (f.geometry.type === 'Point') {
+          const [lon, lat] = coordinates;
+          const latlng = L.latLng(lat, lon);
+          const labelId = `label-${lat}-${lon}`.replace(/\./g, '_');
+          const dotIcon = L.divIcon({
+            className: 'custom-dot-icon',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+          });
+          const dot = L.marker(latlng, {
+            icon: dotIcon,
+            interactive: true
+          });
+          const label = L.marker(latlng, {
+            icon: L.divIcon({
+              className: 'marker-label',
+              html: `<span id="${labelId}">${name}</span>`
+            }),
+            interactive: false,
+            zIndexOffset: 1000
+          });
+          dot.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            document.querySelectorAll('.marker-label span.label-active').forEach(el => el.classList.remove('label-active'));
+            document.getElementById(labelId)?.classList.add('label-active');
+            window.createNavButton(latlng, name);
+          });
+          markers.addLayer(dot);
+          markers.addLayer(label);
+        } else if (f.geometry.type === 'LineString') {
+          const latlngs = coordinates.map(coord => L.latLng(coord[1], coord[0]));
+          const line = L.polyline(latlngs, { color: '#1a73e8', weight: 4, opacity: 0.7 });
+          line.bindPopup(`<b>${name}</b>`);
+          markers.addLayer(line);
+        } else if (f.geometry.type === 'Polygon') {
+          const latlngs = coordinates[0].map(coord => L.latLng(coord[1], coord[0]));
+          const polygon = L.polygon(latlngs, {
+            color: '#1a73e8', fillColor: '#6dd5ed', fillOpacity: 0.3, weight: 2
+          });
+          polygon.bindPopup(`<b>${name}</b>`);
+          markers.addLayer(polygon);
+        }
+      });
+      if (markers.getLayers().length > 0 && markers.getBounds().isValid()) {
+        map.fitBounds(markers.getBounds());
+      }
+    };
+  });
+  
     // 全局函數：創建導航按鈕
     window.createNavButton = function(latlng, name) {
         navButtons.clearLayers();
