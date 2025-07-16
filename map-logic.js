@@ -1,14 +1,14 @@
 // map-logic.js
 
 let map;
-let markers = L.featureGroup(); // ç”¨æ–¼å„²å­˜æ‰€æœ‰æ¨™è¨˜ä»¥ä¾¿ç®¡ç†
-let navButtons = L.featureGroup(); // ç”¨æ–¼å„²å­˜å°èˆªæŒ‰éˆ•
+let markers = L.featureGroup(); // ¥Î©óÀx¦s©Ò¦³¼Ğ°O¥H«KºŞ²z
+let navButtons = L.featureGroup(); // ¥Î©óÀx¦s¾É¯è«ö¶s
 
-// æ–°å¢ä¸€å€‹å…¨å±€è®Šæ•¸ï¼Œç”¨æ–¼å„²å­˜æ‰€æœ‰åœ°åœ–ä¸Š KML Point Features çš„æ•¸æ“šï¼Œä¾›æœå°‹ä½¿ç”¨
+// ·s¼W¤@­Ó¥ş§½ÅÜ¼Æ¡A¥Î©óÀx¦s©Ò¦³¦a¹Ï¤W KML Point Features ªº¼Æ¾Ú¡A¨Ñ·j´M¨Ï¥Î
 window.allKmlFeatures = [];
 
 document.addEventListener('DOMContentLoaded', () => {
-    // åˆå§‹åŒ–åœ°åœ–
+    // ªì©l¤Æ¦a¹Ï
     map = L.map('map', {
       attributionControl: true,
       zoomControl: false,
@@ -16,20 +16,20 @@ document.addEventListener('DOMContentLoaded', () => {
       minZoom: 5
     }).setView([23.6, 120.9], 8);
 
-    // å®šç¾©åŸºæœ¬åœ–å±¤
+    // ©w¸q°ò¥»¹Ï¼h
     const baseLayers = {
-        'Google è¡—é“åœ–': L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        'Google µó¹D¹Ï': L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
             attribution: 'Google Maps',
             maxZoom: 25,
             maxNativeZoom: 20
         }),
-        'Google è¡›æ˜Ÿåœ–': L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        'Google ½Ã¬P¹Ï': L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
             attribution: 'Google Maps',
             maxZoom: 25,
             maxNativeZoom: 20
 
         }),
-        'Google åœ°å½¢åœ–': L.tileLayer('https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
+        'Google ¦a§Î¹Ï': L.tileLayer('https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
             attribution: 'Google Maps',
             maxZoom: 25,
             maxNativeZoom: 20
@@ -41,368 +41,261 @@ document.addEventListener('DOMContentLoaded', () => {
         })
     };
 
-    // å˜—è©¦å¾ localStorage å–å¾—ä¸Šæ¬¡é¸æ“‡çš„åœ–å±¤åç¨±
-       const lastLayerName = localStorage.getItem('lastBaseLayer');
-       
-       if (lastLayerName && baseLayers[lastLayerName]) {
-         baseLayers[lastLayerName].addTo(map);
-         console.log(`å·²é‚„åŸä¸Šæ¬¡ä½¿ç”¨çš„åœ–å±¤ï¼š${lastLayerName}`);
-       } else {
-         localStorage.removeItem('lastBaseLayer');
-         console.warn(`æ‰¾ä¸åˆ°è¨˜æ†¶åœ–å±¤ "${lastLayerName}"ï¼Œå·²æ¸…é™¤è¨˜éŒ„ã€‚`);
-       
-         // âœ… é è¨­è¼‰å…¥ Google è¡—é“åœ–
-         baseLayers['Google è¡—é“åœ–'].addTo(map);
-       }
-
-    // å°‡ç¸®æ”¾æ§åˆ¶æ·»åŠ åˆ°åœ°åœ–çš„å³ä¸Šè§’
-    L.control.zoom({ position: 'topright' }).addTo(map);
-
-    // è‡ªå®šç¾©å®šä½æ§åˆ¶é …
-    const LocateMeControl = L.Control.extend({
-        _userLocationMarker: null,
-        _userLocationCircle: null,
-
-        onAdd: function(map) {
-            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-locate-me');
-            const button = L.DomUtil.create('a', '', container);
-            button.href = "#";
-            button.title = "é¡¯ç¤ºæˆ‘çš„ä½ç½®";
-            button.setAttribute("role", "button");
-            button.setAttribute("aria-label", "é¡¯ç¤ºæˆ‘çš„ä½ç½®");
-            button.innerHTML = `<span class="material-symbols-outlined" style="font-size: 24px; line-height: 30px;">my_location</span>`;
-
-            L.DomEvent.on(button, 'click', this._locateUser, this);
-
-            // ç‚ºåœ°ç†å®šä½æˆåŠŸ/å¤±æ•—äº‹ä»¶æ·»åŠ ç›£è½å™¨
-            map.on('locationfound', this._onLocationFound, this);
-            map.on('locationerror', this._onLocationError, this);
-
-            return container;
-        },
-
-        onRemove: function(map) {
-            map.off('locationfound', this._onLocationFound, this);
-            map.off('locationerror', this._onLocationError, this);
-            this._clearLocationMarkers();
-        },
-
-        _locateUser: function(e) {
-            L.DomEvent.stopPropagation(e);
-            L.DomEvent.preventDefault(e);
-
-            this._clearLocationMarkers();
-
-            // é–‹å§‹å®šä½ç”¨æˆ¶ä½ç½®
-            map.locate({
-                setView: true,
-                maxZoom: 16,
-                enableHighAccuracy: true,
-                watch: false
-            });
-            window.showMessageCustom({
-                title: 'å®šä½ä¸­',
-                message: 'æ­£åœ¨ç²å–æ‚¨çš„ä½ç½®...',
-                buttonText: 'å–æ¶ˆ',
-                autoClose: false
+      // ±q localStorage ¸ü¤J°O¾Ğ¹Ï¼h¡]­Y¦³¡^¡A§_«h¸ü¤J¹w³]
+      const lastLayerName = localStorage.getItem('lastBaseLayer');
+      if (lastLayerName && baseLayers[lastLayerName]) {
+        baseLayers[lastLayerName].addTo(map);
+        console.log(`¤wÁÙ­ì¤W¦¸¨Ï¥Îªº¹Ï¼h¡G${lastLayerName}`);
+      } else {
+        baseLayers['Google µó¹D¹Ï'].addTo(map);
+        console.log('¤w¸ü¤J¹w³]©³¹Ï¡GGoogle µó¹D¹Ï');
+      }
+     
+      // ¦Û©w¸q©w¦ì±±¨î¶µ
+      const LocateMeControl = L.Control.extend({
+          _userLocationMarker: null,
+          _userLocationCircle: null,
+  
+          onAdd: function(map) {
+              const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-locate-me');
+              const button = L.DomUtil.create('a', '', container);
+              button.href = "#";
+              button.title = "Åã¥Ü§Úªº¦ì¸m";
+              button.setAttribute("role", "button");
+              button.setAttribute("aria-label", "Åã¥Ü§Úªº¦ì¸m");
+              button.innerHTML = `<span class="material-symbols-outlined" style="font-size: 24px; line-height: 30px;">my_location</span>`;
+  
+              L.DomEvent.on(button, 'click', this._locateUser, this);
+  
+              // ¬°¦a²z©w¦ì¦¨¥\/¥¢±Ñ¨Æ¥ó²K¥[ºÊÅ¥¾¹
+              map.on('locationfound', this._onLocationFound, this);
+              map.on('locationerror', this._onLocationError, this);
+  
+              return container;
+          },
+  
+          onRemove: function(map) {
+              map.off('locationfound', this._onLocationFound, this);
+              map.off('locationerror', this._onLocationError, this);
+              this._clearLocationMarkers();
+          },
+  
+          _locateUser: function(e) {
+              L.DomEvent.stopPropagation(e);
+              L.DomEvent.preventDefault(e);
+  
+              this._clearLocationMarkers();
+  
+              // ¶}©l©w¦ì¥Î¤á¦ì¸m
+              map.locate({
+                  setView: true,
+                  maxZoom: 16,
+                  enableHighAccuracy: true,
+                  watch: false
               });
-            },
-
-        _onLocationFound: function(e) {
-            this._clearLocationMarkers();
-
-            const radius = e.accuracy / 2;
-
-            this._userLocationMarker = L.marker(e.latlng, {
-                icon: L.divIcon({
-                    className: 'user-location-dot',
-                    iconSize: [16, 16],
-                    iconAnchor: [8, 8]
-                })
-            }).addTo(map);
-
-            this._userLocationCircle = L.circle(e.latlng, radius, {
-                color: '#1a73e8',
-                fillColor: '#1a73e8',
-                fillOpacity: 0.15,
-                weight: 2
-            }).addTo(map);
-
-            window.showMessageCustom({
-                title: 'å®šä½æˆåŠŸ',
-                message: `æ‚¨çš„ä½ç½®å·²å®šä½ï¼Œèª¤å·®ç´„ ${radius.toFixed(0)} å…¬å°ºã€‚`,
-                buttonText: 'ç¢ºå®š',
-                autoClose: true,
-                autoCloseDelay: 3000
-              });
-            },
-
-        _onLocationError: function(e) {
-            this._clearLocationMarkers();
-            window.showMessage('å®šä½å¤±æ•—', `ç„¡æ³•ç²å–æ‚¨çš„ä½ç½®: ${e.message}`);
-            console.error('Geolocation error:', e.message);
-        },
-
-        _clearLocationMarkers: function() {
-            if (this._userLocationMarker) {
-                map.removeLayer(this._userLocationMarker);
-                this._userLocationMarker = null;
-            }
-            if (this._userLocationCircle) {
-                map.removeLayer(this._userLocationCircle);
-                this._userLocationCircle = null;
-            }
-        }
-    });
-    
-    window.showMessageCustom = function({
-      title = '',
-      message = '',
-      buttonText = 'ç¢ºå®š',
-      autoClose = false,
-      autoCloseDelay = 3000,
-      onClose = null
-    }) {
-      const overlay = document.querySelector('.message-box-overlay');
-      const content = overlay.querySelector('.message-box-content');
-      const header = content.querySelector('h3');
-      const paragraph = content.querySelector('p');
-      const button = content.querySelector('button');
-    
-      header.textContent = title;
-      paragraph.textContent = message;
-      button.textContent = buttonText;
-      overlay.classList.add('visible');
-    
-      // ç§»é™¤èˆŠçš„ onclick
-      button.onclick = () => {
-        overlay.classList.remove('visible');
-        if (typeof onClose === 'function') onClose();
-      };
-    
-      if (autoClose) {
-        setTimeout(() => {
+              window.showMessageCustom({
+                  title: '©w¦ì¤¤',
+                  message: '¥¿¦bÀò¨ú±zªº¦ì¸m...',
+                  buttonText: '¨ú®ø',
+                  autoClose: false
+                });
+              },
+  
+          _onLocationFound: function(e) {
+              this._clearLocationMarkers();
+  
+              const radius = e.accuracy / 2;
+  
+              this._userLocationMarker = L.marker(e.latlng, {
+                  icon: L.divIcon({
+                      className: 'user-location-dot',
+                      iconSize: [16, 16],
+                      iconAnchor: [8, 8]
+                  })
+              }).addTo(map);
+  
+              this._userLocationCircle = L.circle(e.latlng, radius, {
+                  color: '#1a73e8',
+                  fillColor: '#1a73e8',
+                  fillOpacity: 0.15,
+                  weight: 2
+              }).addTo(map);
+  
+              window.showMessageCustom({
+                  title: '©w¦ì¦¨¥\',
+                  message: `±zªº¦ì¸m¤w©w¦ì¡A»~®t¬ù ${radius.toFixed(0)} ¤½¤Ø¡C`,
+                  buttonText: '½T©w',
+                  autoClose: true,
+                  autoCloseDelay: 3000
+                });
+              },
+  
+          _onLocationError: function(e) {
+              this._clearLocationMarkers();
+              window.showMessage('©w¦ì¥¢±Ñ', `µLªkÀò¨ú±zªº¦ì¸m: ${e.message}`);
+              console.error('Geolocation error:', e.message);
+          },
+  
+          _clearLocationMarkers: function() {
+              if (this._userLocationMarker) {
+                  map.removeLayer(this._userLocationMarker);
+                  this._userLocationMarker = null;
+              }
+              if (this._userLocationCircle) {
+                  map.removeLayer(this._userLocationCircle);
+                  this._userLocationCircle = null;
+              }
+          }
+      });
+      
+      window.showMessageCustom = function({
+        title = '',
+        message = '',
+        buttonText = '½T©w',
+        autoClose = false,
+        autoCloseDelay = 3000,
+        onClose = null
+      }) {
+        const overlay = document.querySelector('.message-box-overlay');
+        const content = overlay.querySelector('.message-box-content');
+        const header = content.querySelector('h3');
+        const paragraph = content.querySelector('p');
+        const button = content.querySelector('button');
+      
+        header.textContent = title;
+        paragraph.textContent = message;
+        button.textContent = buttonText;
+        overlay.classList.add('visible');
+      
+        // ²¾°£ÂÂªº onclick
+        button.onclick = () => {
           overlay.classList.remove('visible');
           if (typeof onClose === 'function') onClose();
-        }, autoCloseDelay);
-      }
-    };
-    
-
-    // å°‡è‡ªå®šç¾©å®šä½æ§åˆ¶é …æ·»åŠ åˆ°åœ°åœ–çš„å³ä¸Šè§’
-    new LocateMeControl({ position: 'topright' }).addTo(map);
-
-    // å°‡åŸºæœ¬åœ–å±¤æ§åˆ¶æ·»åŠ åˆ°åœ°åœ–çš„å³ä¸Šè§’
-    const layerControl = L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
-
-    // ç›£è½åŸºæœ¬åœ–å±¤è®Šæ›´äº‹ä»¶ï¼Œä¸¦åœ¨è®Šæ›´å¾Œè‡ªå‹•éš±è—åœ–å±¤æ§åˆ¶é¢æ¿
-    map.on('baselayerchange', function (e) {
-        console.log("åŸºæœ¬åœ–å±¤å·²è®Šæ›´:", e.name);
-        localStorage.setItem('lastBaseLayer', e.name);
-        const controlContainer = layerControl.getContainer();
-        if (controlContainer && controlContainer.classList.contains('leaflet-control-layers-expanded')) {
-            // ç§»é™¤ 'leaflet-control-layers-expanded' é¡åˆ¥ä¾†æ”¶èµ·æ§åˆ¶é¢æ¿
-            controlContainer.classList.remove('leaflet-control-layers-expanded');
-            console.log("åœ–å±¤æ§åˆ¶é¢æ¿å·²è‡ªå‹•æ”¶èµ·ã€‚");
+        };
+      
+        if (autoClose) {
+          setTimeout(() => {
+            overlay.classList.remove('visible');
+            if (typeof onClose === 'function') onClose();
+          }, autoCloseDelay);
         }
+      };
+      
+  
+    // ¦a¹Ï±±¨î¶µ
+    L.control.zoom({ position: 'topright' }).addTo(map);
+    const layerControl = L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+  
+    map.on('baselayerchange', function (e) {
+      console.log("°ò¥»¹Ï¼h¤wÅÜ§ó:", e.name);
+      localStorage.setItem('lastBaseLayer', e.name);
+  
+      const controlContainer = layerControl.getContainer();
+      if (controlContainer && controlContainer.classList.contains('leaflet-control-layers-expanded')) {
+        controlContainer.classList.remove('leaflet-control-layers-expanded');
+        console.log("¹Ï¼h±±¨î­±ªO¤w¦Û°Ê¦¬°_¡C");
+      }
     });
-
-    // å°‡ markers å’Œ navButtons æ·»åŠ åˆ°åœ°åœ–
+  
     markers.addTo(map);
     navButtons.addTo(map);
-
-    // å…¨å±€å‡½æ•¸ï¼šæ·»åŠ æ¨™è¨˜åˆ°åœ°åœ– (ç¾åœ¨æ”¯æ´ Point, LineString, Polygon)
-    window.addMarkers = function(featuresToDisplay) {
-        markers.clearLayers(); // æ¸…é™¤ç¾æœ‰æ¨™è¨˜
-
-        if (!featuresToDisplay || featuresToDisplay.length === 0) {
-            console.log("æ²’æœ‰ features å¯é¡¯ç¤ºã€‚");
-            window.showMessage('è¼‰å…¥è­¦ç¤º', 'KML åœ–å±¤è¼‰å…¥å®Œæˆä½†æœªç™¼ç¾æœ‰æ•ˆåœ°åœ–å…ƒç´ ã€‚');
-            return;
-        }
-        console.log(`æ­£åœ¨å°‡ ${featuresToDisplay.length} å€‹ features æ·»åŠ åˆ°åœ°åœ–ã€‚`);
-        featuresToDisplay.forEach(f => {
-            const name = f.properties.name || 'æœªå‘½å';
-            const coordinates = f.geometry.coordinates;
-            let layer;
-
-            if (!coordinates) {
-                console.warn(`è·³éç¼ºå°‘åº§æ¨™çš„ feature: ${name} (é¡å‹: ${f.geometry.type || 'æœªçŸ¥'})`);
-                return;
-            }
-
-            if (f.geometry.type === 'Point') {
-              const [lon, lat] = coordinates;
-              const latlng = L.latLng(lat, lon);
-              const labelLatLng = latlng;
-            
-              const labelId = `label-${lat}-${lon}`.replace(/\./g, '_');
-            
-              const dotIcon = L.divIcon({
-                className: 'custom-dot-icon',
-                iconSize: [16, 16],
-                iconAnchor: [8, 8]
-              });
-            
-              const dot = L.marker(latlng, {
-                icon: dotIcon,
-                interactive: true
-              });
-            
-              const label = L.marker(labelLatLng, {
-               icon: L.divIcon({
-                 className: 'marker-label',
-                 html: `<span id="${labelId}">${name}</span>`,
-                 iconSize: [null, null],
-                 iconAnchor: [0, 0]
-               }),
-               interactive: false,
-               zIndexOffset: 1000
-             });            
-             
-              dot.on('click', (e) => {
-                L.DomEvent.stopPropagation(e);
-            
-                // æ¸…é™¤æ‰€æœ‰é«˜äº®æ–‡å­—
-                document.querySelectorAll('.marker-label span.label-active').forEach(el => {
-                  el.classList.remove('label-active');
-                });
-                document.getElementById(labelId)?.classList.add('label-active');
-            
-                // å¥—ç”¨é«˜äº®åˆ°ç•¶å‰ label
-                const target = document.getElementById(labelId);
-                if (target) {
-                  target.classList.add('label-active');
-                }
-            
-                // é¡¯ç¤ºå°èˆªæŒ‰éˆ•
-                window.createNavButton(latlng, name);
-              });
-            
-              markers.addLayer(dot);
-              markers.addLayer(label);
-              console.log(`æ·»åŠ  Point: ${name} (Lat: ${latlng.lat}, Lng: ${latlng.lng})`);
-
-            } else if (f.geometry.type === 'LineString') {
-                // å°‡ [lon, lat] é™£åˆ—è½‰æ›ç‚º L.LatLng é™£åˆ—ä»¥ç”¨æ–¼ LineString
-                const latlngs = coordinates.map(coord => L.latLng(coord[1], coord[0]));
-                layer = L.polyline(latlngs, {
-                    color: '#1a73e8', // è—è‰²
-                    weight: 4,
-                    opacity: 0.7
-                });
-                layer.bindPopup(`<b>${name}</b>`); // ç‚ºç·šæ·»åŠ å½ˆå‡ºè¦–çª—é¡¯ç¤ºåç¨±
-                markers.addLayer(layer);
-                console.log(`æ·»åŠ  LineString: ${name} (${coordinates.length} é»)`);
-
-            } else if (f.geometry.type === 'Polygon') {
-                // å°æ–¼ Polygonï¼Œåº§æ¨™æ˜¯ [ [[lon,lat],[lon,lat],...]] ç”¨æ–¼å¤–ç’°
-                // ä¸¦ä¸”å¯èƒ½åŒ…å«å…§ç’°ã€‚L.polygon æœŸæœ›ä¸€å€‹ LatLng é™£åˆ—çš„é™£åˆ—ã€‚
-                const latlngs = coordinates[0].map(coord => L.latLng(coord[1], coord[0]));
-                layer = L.polygon(latlngs, {
-                    color: '#1a73e8', // è—è‰²é‚Šæ¡†
-                    fillColor: '#6dd5ed', // æ·ºè—è‰²å¡«å……
-                    fillOpacity: 0.3,
-                    weight: 2
-                });
-                layer.bindPopup(`<b>${name}</b>`); // ç‚ºå¤šé‚Šå½¢æ·»åŠ å½ˆå‡ºè¦–çª—é¡¯ç¤ºåç¨±
-                markers.addLayer(layer);
-                console.log(`æ·»åŠ  Polygon: ${name} (${coordinates[0].length} é»)`);
-
-            } else {
-                console.warn(`è·³éä¸æ”¯æ´çš„å¹¾ä½•é¡å‹: ${f.geometry.type} (åç¨±: ${name})`);
-            }
-        });
-
-        // èª¿æ•´åœ°åœ–è¦–è§’ä»¥åŒ…å«æ‰€æœ‰æ·»åŠ çš„æ¨™è¨˜å’Œå¹¾ä½•åœ–å½¢
+  
+    // ? ÁÙ­ì°O¾Ğªº KML ¹Ï¼h
+    const lastKmlId = localStorage.getItem('lastKmlId');
+    if (lastKmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
+      console.log(`¥¿¦bÁÙ­ì¤W¦¸¶}±Òªº KML ¹Ï¼h¡G${lastKmlId}`);
+      window.loadKmlLayerFromFirestore(lastKmlId);
+    }
+    
+        // ½Õ¾ã¦a¹Ïµø¨¤¥H¥]§t©Ò¦³²K¥[ªº¼Ğ°O©M´X¦ó¹Ï§Î
         if (markers.getLayers().length > 0 && markers.getBounds().isValid()) {
             map.fitBounds(markers.getBounds());
-            console.log("åœ°åœ–è¦–åœ–å·²èª¿æ•´ä»¥åŒ…å«æ‰€æœ‰è¼‰å…¥çš„åœ°ç†è¦ç´ ã€‚");
+            console.log("¦a¹Ïµø¹Ï¤w½Õ¾ã¥H¥]§t©Ò¦³¸ü¤Jªº¦a²z­n¯À¡C");
         } else if (featuresToDisplay.length > 0) {
-            // å¦‚æœæœ‰ features ä½†æ²’æœ‰ä¸€å€‹è¢«æ·»åŠ åˆ°åœ°åœ– (ä¾‹å¦‚ï¼Œæ‰€æœ‰éƒ½æ˜¯ä¸æ”¯æ´çš„é¡å‹)
-            console.warn("KML features å·²è¼‰å…¥ï¼Œä½†åœ°åœ–ä¸Šæ²’æœ‰å¯é¡¯ç¤ºçš„å¹¾ä½•é¡å‹ã€‚è«‹æª¢æŸ¥æ§åˆ¶å°æ—¥èªŒä»¥ç²å–è©³ç´°è³‡è¨Šã€‚");
+            // ¦pªG¦³ features ¦ı¨S¦³¤@­Ó³Q²K¥[¨ì¦a¹Ï (¨Ò¦p¡A©Ò¦³³£¬O¤£¤ä´©ªºÃş«¬)
+            console.warn("KML features ¤w¸ü¤J¡A¦ı¦a¹Ï¤W¨S¦³¥iÅã¥Üªº´X¦óÃş«¬¡C½ĞÀË¬d±±¨î¥x¤é»x¥HÀò¨ú¸Ô²Ó¸ê°T¡C");
         }
     };
 
-    // å…¨å±€å‡½æ•¸ï¼šå¾ Firestore è¼‰å…¥ KML åœ–å±¤ (ä¿ç•™åŸç‰ˆ logicï¼Œåƒ…ç‚ºäº†è®“ auth-kml-management.js æ‰¾åˆ°)
-    // å¯¦éš›çš„ KML features è™•ç†æœƒé€é window.addMarkers å®Œæˆ
+    // ¥ş§½¨ç¼Æ¡G±q Firestore ¸ü¤J KML ¹Ï¼h («O¯d­ìª© logic¡A¶È¬°¤FÅı auth-kml-management.js §ä¨ì)
+    // ¹ê»Úªº KML features ³B²z·|³z¹L window.addMarkers §¹¦¨
     window.loadKmlLayerFromFirestore = async function(kmlId) {
         if (!kmlId) {
-            console.log("æœªæä¾› KML IDï¼Œä¸è¼‰å…¥ã€‚");
+            console.log("¥¼´£¨Ñ KML ID¡A¤£¸ü¤J¡C");
             window.clearAllKmlLayers();
             return;
         }
 
-        // ç§»é™¤ç¾æœ‰ KML åœ–å±¤å’Œæ‰€æœ‰æ¨™è¨˜ (åŒ…æ‹¬å°èˆªæŒ‰éˆ•)
+        // ²¾°£²{¦³ KML ¹Ï¼h©M©Ò¦³¼Ğ°O (¥]¬A¾É¯è«ö¶s)
         window.clearAllKmlLayers();
 
         try {
-            // å¾ Firestore ç²å– KML æ–‡ä»¶çš„å…ƒæ•¸æ“š
+            // ±q Firestore Àò¨ú KML ¤å¥óªº¤¸¼Æ¾Ú
             const doc = await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId).get();
             if (!doc.exists) {
-                console.error('KML åœ–å±¤æ–‡æª”æœªæ‰¾åˆ° ID:', kmlId);
-                showMessage('éŒ¯èª¤', 'æ‰¾ä¸åˆ°æŒ‡å®šçš„ KML åœ–å±¤è³‡æ–™ã€‚');
+                console.error('KML ¹Ï¼h¤åÀÉ¥¼§ä¨ì ID:', kmlId);
+                showMessage('¿ù»~', '§ä¤£¨ì«ü©wªº KML ¹Ï¼h¸ê®Æ¡C');
                 return;
             }
             const kmlData = doc.data();
 
-            console.log(`æ­£åœ¨è¼‰å…¥ KML Featuresï¼Œåœ–å±¤åç¨±: ${kmlData.name || kmlId}`);
+            console.log(`¥¿¦b¸ü¤J KML Features¡A¹Ï¼h¦WºÙ: ${kmlData.name || kmlId}`);
 
-            // å¾ kmlLayers/{kmlId}/features å­é›†åˆä¸­ç²å–æ‰€æœ‰ GeoJSON features
+            // ±q kmlLayers/{kmlId}/features ¤l¶°¦X¤¤Àò¨ú©Ò¦³ GeoJSON features
             const featuresSubCollectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId).collection('features');
             const querySnapshot = await featuresSubCollectionRef.get();
 
             const loadedFeatures = [];
             if (querySnapshot.empty) {
-                console.log(`KML åœ–å±¤ "${kmlData.name}" çš„ features å­é›†åˆç‚ºç©ºã€‚`);
+                console.log(`KML ¹Ï¼h "${kmlData.name}" ªº features ¤l¶°¦X¬°ªÅ¡C`);
             } else {
                 querySnapshot.forEach(featureDoc => {
                     const feature = featureDoc.data();
-                    // ç¢ºä¿ feature åŒ…å« geometry å’Œ properties
+                    // ½T«O feature ¥]§t geometry ©M properties
                     if (feature.geometry && feature.geometry.coordinates && feature.properties) {
                         loadedFeatures.push(feature);
                     } else {
-                        console.warn('æ­£åœ¨è·³éä¾†è‡ª Firestore çš„ç„¡æ•ˆ feature:', feature);
+                        console.warn('¥¿¦b¸õ¹L¨Ó¦Û Firestore ªºµL®Ä feature:', feature);
                     }
                 });
             }
 
-            window.allKmlFeatures = loadedFeatures; // æ›´æ–°å…¨å±€æœå°‹æ•¸æ“š
-            window.addMarkers(window.allKmlFeatures); // å°‡æ‰€æœ‰åœ°ç†è¦ç´ æ·»åŠ åˆ°åœ°åœ–
+            window.allKmlFeatures = loadedFeatures; // §ó·s¥ş§½·j´M¼Æ¾Ú
+            window.addMarkers(window.allKmlFeatures); // ±N©Ò¦³¦a²z­n¯À²K¥[¨ì¦a¹Ï
 
-            // å¦‚æœæœ‰åœ°ç†è¦ç´ ï¼Œè¨­å®šåœ°åœ–è¦–è§’ä»¥åŒ…å«æ‰€æœ‰è¦ç´ 
+            // ¦pªG¦³¦a²z­n¯À¡A³]©w¦a¹Ïµø¨¤¥H¥]§t©Ò¦³­n¯À
             if (window.allKmlFeatures.length > 0 && markers.getLayers().length > 0 && markers.getBounds().isValid()) {
                  map.fitBounds(markers.getBounds());
             } else {
-                 console.warn("åœ°ç†è¦ç´ å­˜åœ¨ï¼Œä½†å…¶é‚Šç•Œå°æ–¼åœ°åœ–è¦–åœ–ä¸é©ç”¨ï¼Œæˆ–åœ°åœ–ä¸Šæ²’æœ‰åœ–å±¤å¯é©åˆã€‚");
+                 console.warn("¦a²z­n¯À¦s¦b¡A¦ı¨äÃä¬É¹ï©ó¦a¹Ïµø¹Ï¤£¾A¥Î¡A©Î¦a¹Ï¤W¨S¦³¹Ï¼h¥i¾A¦X¡C");
             }
 
         } catch (error) {
-            console.error("ç²å– KML Features æˆ–è¼‰å…¥ KML æ™‚å‡ºéŒ¯:", error);
-            // ç‚ºäº†å¹«åŠ©èª¿è©¦ï¼Œé€™è£¡å¯ä»¥é¡¯ç¤ºæ›´è©³ç´°çš„éŒ¯èª¤è¨Šæ¯ï¼Œä¾‹å¦‚å®‰å…¨è¦å‰‡ç›¸é—œçš„éŒ¯èª¤
-            showMessage('éŒ¯èª¤', `ç„¡æ³•è¼‰å…¥ KML åœ–å±¤: ${error.message}ã€‚è«‹ç¢ºèª Firebase å®‰å…¨è¦å‰‡å·²æ­£ç¢ºè¨­å®šï¼Œå…è¨±è®€å– /artifacts/{appId}/public/data/kmlLayersã€‚`);
+            console.error("Àò¨ú KML Features ©Î¸ü¤J KML ®É¥X¿ù:", error);
+            // ¬°¤FÀ°§U½Õ¸Õ¡A³o¸Ì¥i¥HÅã¥Ü§ó¸Ô²Óªº¿ù»~°T®§¡A¨Ò¦p¦w¥ş³W«h¬ÛÃöªº¿ù»~
+            showMessage('¿ù»~', `µLªk¸ü¤J KML ¹Ï¼h: ${error.message}¡C½Ğ½T»{ Firebase ¦w¥ş³W«h¤w¥¿½T³]©w¡A¤¹³\Åª¨ú /artifacts/{appId}/public/data/kmlLayers¡C`);
         }
     };
 
-    // å…¨å±€å‡½æ•¸ï¼šæ¸…é™¤æ‰€æœ‰ KML åœ–å±¤ã€æ¨™è¨˜å’Œå°èˆªæŒ‰éˆ•
+    // ¥ş§½¨ç¼Æ¡G²M°£©Ò¦³ KML ¹Ï¼h¡B¼Ğ°O©M¾É¯è«ö¶s
     window.clearAllKmlLayers = function() {
         markers.clearLayers();
         navButtons.clearLayers();
         window.allKmlFeatures = [];
-        console.log("æ‰€æœ‰ KML åœ–å±¤ã€æ¨™è¨˜å’Œå°èˆªæŒ‰éˆ•å·²æ¸…é™¤ã€‚");
+        console.log("©Ò¦³ KML ¹Ï¼h¡B¼Ğ°O©M¾É¯è«ö¶s¤w²M°£¡C");
     };
 
-    // å…¨å±€å‡½æ•¸ï¼šå‰µå»ºå°èˆªæŒ‰éˆ•
+    // ¥ş§½¨ç¼Æ¡G³Ğ«Ø¾É¯è«ö¶s
     window.createNavButton = function(latlng, name) {
         navButtons.clearLayers();
 
-        // ä½¿ç”¨é€šç”¨çš„ Google Maps æŸ¥è©¢ URLï¼Œç¾ä»£æ‰‹æ©Ÿæœƒè‡ªå‹•è­˜åˆ¥ä¸¦æä¾›é–‹å•Ÿåœ°åœ–æ‡‰ç”¨çš„é¸é …ã€‚
+        // ¨Ï¥Î³q¥Îªº Google Maps ¬d¸ß URL¡A²{¥N¤â¾÷·|¦Û°ÊÃÑ§O¨Ã´£¨Ñ¶}±Ò¦a¹ÏÀ³¥Îªº¿ï¶µ¡C
         const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${latlng.lat},${latlng.lng}`;
 
 
         const buttonHtml = `
             <div class="nav-button-content" onclick="window.open('${googleMapsUrl}', '_blank'); event.stopPropagation();">
-                <img src="https://i0.wp.com/canadasafetycouncil.org/wp-content/uploads/2018/08/offroad.png" alt="å°èˆª" />
+                <img src="https://i0.wp.com/canadasafetycouncil.org/wp-content/uploads/2018/08/offroad.png" alt="¾É¯è" />
             </div>
         `;
         const buttonIcon = L.divIcon({
@@ -418,10 +311,10 @@ document.addEventListener('DOMContentLoaded', () => {
             interactive: true
         }).addTo(navButtons);
 
-        console.log(`å·²ç‚º ${name} åœ¨ ${latlng.lat}, ${latlng.lng} å‰µå»ºå°èˆªæŒ‰éˆ•ã€‚`);
+        console.log(`¤w¬° ${name} ¦b ${latlng.lat}, ${latlng.lng} ³Ğ«Ø¾É¯è«ö¶s¡C`);
     };
 
-    // è™•ç†åœ°åœ–é»æ“Šäº‹ä»¶ï¼Œéš±è—æœå°‹çµæœå’Œå°èˆªæŒ‰éˆ•èˆ‡å–æ¶ˆæ¨™ç±¤é«˜äº®
+    // ³B²z¦a¹ÏÂIÀ»¨Æ¥ó¡AÁôÂÃ·j´Mµ²ªG©M¾É¯è«ö¶s»P¨ú®ø¼ĞÅÒ°ª«G
     map.on('click', () => {
       const searchResults = document.getElementById('searchResults');
       const searchContainer = document.getElementById('searchContainer');
@@ -434,12 +327,12 @@ document.addEventListener('DOMContentLoaded', () => {
         searchBox.value = '';
       }
     
-      // å–æ¶ˆæ‰€æœ‰è—è‰²é«˜äº®æ¨™ç±¤
+      // ¨ú®ø©Ò¦³ÂÅ¦â°ª«G¼ĞÅÒ
       document.querySelectorAll('.marker-label span.label-active').forEach(el => {
         el.classList.remove('label-active');
       });
     
-      // æ¸…é™¤å°èˆªæŒ‰éˆ•
+      // ²M°£¾É¯è«ö¶s
       navButtons.clearLayers();
     });
 });
