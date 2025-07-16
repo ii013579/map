@@ -54,7 +54,8 @@ body {
 
 /* 圖釘按鈕樣式  */
 .pin-button-icon {
-  padding: 8px 15px;
+  width: 90px;
+  height: 40px;
   border: none;
   border-radius: 8px;
   font-size: 16px;
