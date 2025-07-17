@@ -109,22 +109,22 @@ document.addEventListener('DOMContentLoaded', () => {
           pinButton.classList.remove('clicked');
           showMessage('提示', '已取消釘選圖層。');
           console.log(`📍 取消釘選 KML：${selectedKmlId}`);
-        
-          // ✅ 觸發圖層同步（更新圖釘樣式）
+    
+          // ⭐ 補：更新圖釘狀態
           if (typeof handleKmlLayerSelectChange === 'function') {
             handleKmlLayerSelectChange();
-            }
-            
+          }
+    
         } else {
           // ✅ 尚未釘選 → 執行釘選
           localStorage.setItem('pinnedKmlLayerId', selectedKmlId);
           pinButton.classList.add('clicked');
           showMessage('提示', 'KML 圖層已釘選。');
-          console.log(`\uD83D\uDCCC 釘選 KML：${selectedKmlId}`);
+          console.log(`📌 釘選 KML：${selectedKmlId}`);
         }
       };
     }
-    
+        
     // 控制 KML 上傳與刪除區塊
     if (uploadKmlSectionDashboard) {
         uploadKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
