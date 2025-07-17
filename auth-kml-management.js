@@ -880,6 +880,7 @@ pinKmlLayerBtn?.addEventListener('click', async () => {
     try {
         console.log(`嘗試釘選 KML 圖層: ${selectedKmlId}`);
         await window.loadKmlLayerFromFirestore(selectedKmlId);
+        localStorage.setItem('pinnedKmlLayerId', selectedKmlId);
 
         const selectedOption = kmlLayerSelect.options[kmlLayerSelect.selectedIndex];
         const kmlLayerName = selectedOption?.textContent || selectedKmlId;
