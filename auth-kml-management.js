@@ -110,7 +110,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 currentKmlLayers.push({ id: kmlId, name: kmlName });
             });
-
+            
+            // === NEW: 如果有釘選的圖層，讓選單自動選中並把圖釘變藍 ===
+            const pinnedId = localStorage.getItem('pinnedKmlLayerId');
+            if (pinnedId && currentKmlLayers.some(l => l.id === pinnedId)) {
+                kmlLayerSelect.value = pinnedId;           // 前台選單
+                if (kmlLayerSelectDashboard) {
+                    kmlLayerSelectDashboard.value = pinnedId; // 儀表板選單（若需要）
+                }
+                // 更新圖釘樣式
+                const pinBtn = document.getElementById('pinButton');
+                if (pinBtn) {
+                    pinBtn.classList.add('clicked');   // 藍底
+                    pinBtn.removeAttribute('disabled');
+                }
+            }
+            
             if (currentKmlLayers.length > 0) {
                 if (canEdit && deleteSelectedKmlBtn) {
                     deleteSelectedKmlBtn.disabled = false;
