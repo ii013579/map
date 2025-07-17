@@ -149,6 +149,10 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("更新 KML 圖層列表時出錯:", error);
         showMessage('錯誤', '無法載入 KML 圖層列表。');
     }
+    
+        if (typeof window.tryLoadPinnedKmlLayerWhenReady === 'function') {
+          window.tryLoadPinnedKmlLayerWhenReady();
+        }
 };
 
 
@@ -419,10 +423,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     updateKmlLayerSelects();
-                    
-                    if (typeof window.tryLoadPinnedKmlLayerWhenReady === 'function') {
-                      window.tryLoadPinnedKmlLayerWhenReady();
-                    }
 
                 } else {
                     console.log("用戶數據不存在，為新註冊用戶創建預設數據。");
