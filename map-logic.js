@@ -486,8 +486,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
       console.log(`✅ 偵測到釘選的 KML 圖層 ID：${pinnedKmlId}，嘗試載入...`);
       window.loadKmlLayerFromFirestore(pinnedKmlId);
-    }
-    
+      
+      // ✅ 載入完成後，同步 UI 選單與圖釘按鈕狀態
+      const kmlSelect = document.getElementById('kmlLayerSelect');
+      if (kmlSelect) {
+        kmlSelect.value = pinnedKmlId;
+      }
+     
+      const pinButton = document.getElementById('pinButton');
+      if (pinButton) {
+        pinButton.classList.add('clicked'); // 變藍
+        pinButton.removeAttribute('disabled');
+      }
+     }
+     
     // 📌 加入呼叫點：在地圖初始化結尾呼叫
     tryLoadPinnedKmlLayerWhenReady();
+    
 });
