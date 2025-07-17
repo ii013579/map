@@ -89,7 +89,7 @@ body {
 
 /* 圖示樣式（固定大小、黑色） */
 #pinButton .pin-icon {
-  width: 20px;
+  width: 10px;
   height: 20px;
   filter: brightness(0); /* 黑色圖示 */
   pointer-events: none;
