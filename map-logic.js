@@ -459,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("沒有釘選的 KML 圖層。");
     }
     // *** 自動載入釘選的 KML 圖層：延遲直到 Firebase 初始化完成 ***
-    async function tryLoadPinnedKmlLayerWhenReady() {
+    window.tryLoadPinnedKmlLayerWhenReady = async function () {
       const pinnedKmlId = localStorage.getItem('pinnedKmlLayerId');
       if (!pinnedKmlId) {
         console.log("⚠ 沒有釘選的 KML 圖層。");
@@ -474,10 +474,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
       let retries = 0;
       const maxRetries = 20;
-      const delay = 300; // ms
+      const delay = 300;
     
       while (!checkReady()) {
-        if (retries++ >= maxRetries) {
+        if (++retries > maxRetries) {
           console.error("⛔ 無法載入釘選的 KML 圖層：Firebase 尚未初始化。");
           return;
         }
@@ -487,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log(`✅ 偵測到釘選的 KML 圖層 ID：${pinnedKmlId}，嘗試載入...`);
       await window.loadKmlLayerFromFirestore(pinnedKmlId);
     
-      // ✅ 載入完成後，同步 UI 選單與圖釘按鈕狀態
+      // ✅ UI 同步：選單與圖釘
       const kmlSelect = document.getElementById('kmlLayerSelect');
       if (kmlSelect) {
         kmlSelect.value = pinnedKmlId;
@@ -495,9 +495,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
       const pinButton = document.getElementById('pinButton');
       if (pinButton) {
-        pinButton.classList.add('clicked'); // 變藍
+        pinButton.classList.add('clicked');
         pinButton.removeAttribute('disabled');
       }
-    }     
+    };   
     
 });
