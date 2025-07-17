@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'owner': 4
     };
 
-    // 輔助函數：更新 KML 圖層選單 
+    // --- 第一段：定義 updateKmlLayerSelects 函式 ---
     const updateKmlLayerSelects = async () => {
     const kmlLayerSelect = document.getElementById('kmlLayerSelect');
     const kmlLayerSelectDashboard = document.getElementById('kmlLayerSelectDashboard');
@@ -67,6 +67,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const canEdit = (window.currentUserRole === 'owner' || window.currentUserRole === 'editor');
 
+    // --- 第二段：定義 handleKmlLayerSelectChange ---
+    function handleKmlLayerSelectChange() {
+      const selectedKmlId = document.getElementById('kmlLayerSelect')?.value;
+      if (!selectedKmlId) return;
+    
+      if (typeof window.loadKmlLayerFromFirestore === 'function') {
+        window.loadKmlLayerFromFirestore(selectedKmlId);
+      }
+    
+      const pinBtn = document.getElementById('pinButton');
+      if (pinBtn) {
+        const pinnedId = localStorage.getItem('pinnedKmlLayerId');
+        if (pinnedId === selectedKmlId) {
+          pinBtn.classList.add('clicked');
+        } else {
+          pinBtn.classList.remove('clicked');
+        }
+        pinBtn.removeAttribute('disabled');
+      }
+    }
+    
     // 控制 KML 上傳與刪除區塊
     if (uploadKmlSectionDashboard) {
         uploadKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
