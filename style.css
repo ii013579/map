@@ -71,12 +71,12 @@ body {
 
 /* 圖釘按鈕：固定大小、靠中、狀態切換 */
 #pinButton.pin-button-icon {
-  width: 50px;
+  width: 30px;
   height: 40px;
   padding: 0;
   border: none;
   border-radius: 8px;
-  background-color: #1a73e8;
+  background-color: #ffffff;
   display: flex;
   justify-content: center;
   align-items: center;
