@@ -113,6 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
           // ✅ 觸發圖層同步（更新圖釘樣式）
           if (typeof handleKmlLayerSelectChange === 'function') {
             handleKmlLayerSelectChange();
+            }
+            
         } else {
           // ✅ 尚未釘選 → 執行釘選
           localStorage.setItem('pinnedKmlLayerId', selectedKmlId);
