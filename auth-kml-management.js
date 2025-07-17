@@ -88,6 +88,38 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     
+    // --- 第三段：定義 pinButton 點擊行為 ---
+    const pinButton = document.getElementById('pinButton');
+    
+    if (pinButton) {
+      pinButton.onclick = () => {
+        const kmlSelect = document.getElementById('kmlLayerSelect');
+        const selectedKmlId = kmlSelect?.value;
+    
+        if (!selectedKmlId) {
+          showMessage('錯誤', '請先選擇一個 KML 圖層。');
+          return;
+        }
+    
+        const currentPinnedId = localStorage.getItem('pinnedKmlLayerId');
+    
+        if (currentPinnedId === selectedKmlId) {
+          // ✅ 已釘選 → 取消釘選
+          localStorage.removeItem('pinnedKmlLayerId');
+          pinButton.classList.remove('clicked');
+          showMessage('提示', '已取消釘選圖層。');
+          console.log(`\uD83D\uDCCD 取消釘選 KML：${selectedKmlId}`);
+        } else {
+          // ✅ 尚未釘選 → 執行釘選
+          localStorage.setItem('pinnedKmlLayerId', selectedKmlId);
+          pinButton.classList.add('clicked');
+          showMessage('提示', 'KML 圖層已釘選。');
+          console.log(`\uD83D\uDCCC 釘選 KML：${selectedKmlId}`);
+        }
+      };
+    }
+
+    
     // 控制 KML 上傳與刪除區塊
     if (uploadKmlSectionDashboard) {
         uploadKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
