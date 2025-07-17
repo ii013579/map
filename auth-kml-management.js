@@ -115,27 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
             currentKmlLayers.push({ id: kmlId, name: kmlName });
         });
 
-        // ✅ 新增：自動選取釘選圖層並觸發變更
-        const pinnedId = localStorage.getItem('pinnedKmlLayerId');
-        if (pinnedId && currentKmlLayers.some(l => l.id === pinnedId)) {
-            if (kmlLayerSelect) {
-                kmlLayerSelect.value = pinnedId;
-                if (typeof window.loadKmlLayerFromFirestore === 'function') {
-                  window.loadKmlLayerFromFirestore(pinnedId);
-                }
-            }
-
-            if (kmlLayerSelectDashboard) {
-                kmlLayerSelectDashboard.value = pinnedId;
-            }
-
-            const pinBtn = document.getElementById('pinButton');
-            if (pinBtn) {
-                pinBtn.classList.add('clicked'); // ✅ 變藍
-                pinBtn.removeAttribute('disabled');
-            }
-        }
-
         // ✅ 刪除按鈕啟用條件
         if (currentKmlLayers.length > 0 && canEdit && deleteSelectedKmlBtn) {
             deleteSelectedKmlBtn.disabled = false;
