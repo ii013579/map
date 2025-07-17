@@ -71,7 +71,7 @@ body {
 
 /* 圖釘按鈕：固定大小、靠中、狀態切換 */
 #pinButton.pin-button-icon {
-  width: 90px;
+  width: 50px;
   height: 40px;
   padding: 0;
   border: none;
@@ -89,7 +89,7 @@ body {
 
 /* 圖示樣式（固定大小、黑色） */
 #pinButton .pin-icon {
-  width: 10px;
+  width: 20px;
   height: 20px;
   filter: brightness(0); /* 黑色圖示 */
   pointer-events: none;
