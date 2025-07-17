@@ -450,14 +450,6 @@ document.addEventListener('DOMContentLoaded', () => {
       navButtons.clearLayers();
     });
 
-    // *** 新增：在初始化時檢查是否有釘選的 KML 圖層並載入它 ***
-    const pinnedKmlId = localStorage.getItem('pinnedKmlLayerId');
-    if (pinnedKmlId) {
-        console.log(`偵測到釘選的 KML 圖層 ID：${pinnedKmlId}，正在自動載入。`);
-        window.loadKmlLayerFromFirestore(pinnedKmlId);
-    } else {
-        console.log("沒有釘選的 KML 圖層。");
-    }
     // *** 自動載入釘選的 KML 圖層：延遲直到 Firebase 初始化完成 ***
     window.tryLoadPinnedKmlLayerWhenReady = async function () {
       const pinnedKmlId = localStorage.getItem('pinnedKmlLayerId');
