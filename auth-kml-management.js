@@ -419,6 +419,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     updateKmlLayerSelects();
+                    
+                    if (typeof window.tryLoadPinnedKmlLayerWhenReady === 'function') {
+                      window.tryLoadPinnedKmlLayerWhenReady();
+                    }
 
                 } else {
                     console.log("用戶數據不存在，為新註冊用戶創建預設數據。");
