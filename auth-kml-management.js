@@ -120,7 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pinnedId && currentKmlLayers.some(l => l.id === pinnedId)) {
             if (kmlLayerSelect) {
                 kmlLayerSelect.value = pinnedId;
-                kmlLayerSelect.dispatchEvent(new Event('change')); // ✅ 自動載入
+                if (typeof window.loadKmlLayerFromFirestore === 'function') {
+                  window.loadKmlLayerFromFirestore(pinnedId);
+                }
             }
 
             if (kmlLayerSelectDashboard) {
