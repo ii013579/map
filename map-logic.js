@@ -499,7 +499,5 @@ document.addEventListener('DOMContentLoaded', () => {
         pinButton.removeAttribute('disabled');
       }
     }     
-    // 📌 加入呼叫點：在地圖初始化結尾呼叫
-    tryLoadPinnedKmlLayerWhenReady();
     
 });
