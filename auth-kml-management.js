@@ -165,16 +165,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
 
-    // KML 層選擇器變更處理函數
-    const handleKmlLayerSelectChange = (event) => {
-        const kmlId = event.target.value;
-        if (kmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
-            window.loadKmlLayerFromFirestore(kmlId);
-        } else if (typeof window.clearAllKmlLayers === 'function') {
-            window.clearAllKmlLayers();
-        }
-    };
-
     // 輔助函數：顯示自訂確認模態框
     window.showConfirmationModal = function(title, message) {
         return new Promise(resolve => {
