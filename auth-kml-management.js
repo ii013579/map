@@ -80,9 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (pinBtn) {
         const pinnedId = localStorage.getItem('pinnedKmlLayerId');
         if (pinnedId === selectedKmlId) {
-          pinBtn.classList.add('clicked');
+          pinBtn.classList.add('clicked'); // 紅
         } else {
-          pinBtn.classList.remove('clicked');
+          pinBtn.classList.remove('clicked'); // 白
         }
         pinBtn.removeAttribute('disabled');
       }
@@ -95,35 +95,27 @@ document.addEventListener('DOMContentLoaded', () => {
       pinButton.onclick = () => {
         const kmlSelect = document.getElementById('kmlLayerSelect');
         const selectedKmlId = kmlSelect?.value;
-    
         if (!selectedKmlId) {
           showMessage('錯誤', '請先選擇一個 KML 圖層。');
           return;
         }
-    
+      
         const currentPinnedId = localStorage.getItem('pinnedKmlLayerId');
-    
+      
         if (currentPinnedId === selectedKmlId) {
-          // ✅ 取消釘選
+          // ✅ 點紅圖釘 → 取消釘選（變白）
           localStorage.removeItem('pinnedKmlLayerId');
           pinButton.classList.remove('clicked');
-          showMessage('提示', '已取消釘選圖層。');
-          console.log(`📍 取消釘選 KML：${selectedKmlId}`);
-    
-          // 🔁 再次同步圖釘狀態
-          if (typeof handleKmlLayerSelectChange === 'function') {
-            handleKmlLayerSelectChange();
-          }
-        } else {
-          // ✅ 執行釘選
-          localStorage.setItem('pinnedKmlLayerId', selectedKmlId);
-          pinButton.classList.add('clicked');
-          showMessage('提示', 'KML 圖層已釘選。');
-          console.log(`📌 釘選 KML：${selectedKmlId}`);
+          showMessage('取消釘選', `「${kmlSelect.options[kmlSelect.selectedIndex]?.textContent}」已取消釘選。`);
+          return;
         }
+      
+        // ✅ 點白圖釘 → 取消舊圖釘，釘選新圖層
+        localStorage.setItem('pinnedKmlLayerId', selectedKmlId);
+        pinButton.classList.add('clicked');
+        showMessage('釘選成功', `「${kmlSelect.options[kmlSelect.selectedIndex]?.textContent}」已設為預設圖層，下次會自動載入。`);
       };
-    }
-        
+              
     // 控制 KML 上傳與刪除區塊
     if (uploadKmlSectionDashboard) {
         uploadKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';

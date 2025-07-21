@@ -377,10 +377,6 @@ document.addEventListener('DOMContentLoaded', () => {
                  console.warn("地理要素存在，但其邊界對於地圖視圖不適用，或地圖上沒有圖層可適合。");
             }
             
-            // *** 新增：在成功載入 KML 層後，將其 ID 存儲為「釘選」層 ***
-            localStorage.setItem('pinnedKmlLayerId', kmlId);
-            console.log(`KML 圖層 ${kmlId} 已被釘選。`);
-
         } catch (error) {
             console.error("獲取 KML Features 或載入 KML 時出錯:", error);
             // 為了幫助調試，這裡可以顯示更詳細的錯誤訊息，例如安全規則相關的錯誤
