@@ -69,13 +69,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 第二段：定義 handleKmlLayerSelectChange ---
     function handleKmlLayerSelectChange() {
-      const selectedKmlId = document.getElementById('kmlLayerSelect')?.value;
-      if (!selectedKmlId) return;
+      const kmlSelect = document.getElementById('kmlLayerSelect');
+      const selectedKmlId = kmlSelect?.value;
     
+      if (!selectedKmlId) {
+        const pinBtn = document.getElementById('pinButton');
+        if (pinBtn) {
+          pinBtn.setAttribute('disabled', 'true');
+          pinBtn.classList.remove('clicked');
+        }
+        return;
+      }
+    
+      // 載入圖層（不做任何釘選操作）
       if (typeof window.loadKmlLayerFromFirestore === 'function') {
         window.loadKmlLayerFromFirestore(selectedKmlId);
       }
     
+      // 更新圖釘按鈕狀態（根據 localStorage 判斷紅或白）
       const pinBtn = document.getElementById('pinButton');
       if (pinBtn) {
         const pinnedId = localStorage.getItem('pinnedKmlLayerId');
@@ -87,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pinBtn.removeAttribute('disabled');
       }
     }
-    
+
     // --- 第三段：定義 pinButton 點擊行為 ---
     const pinButton = document.getElementById('pinButton');
     
@@ -95,27 +106,28 @@ document.addEventListener('DOMContentLoaded', () => {
       pinButton.onclick = () => {
         const kmlSelect = document.getElementById('kmlLayerSelect');
         const selectedKmlId = kmlSelect?.value;
+    
         if (!selectedKmlId) {
           showMessage('錯誤', '請先選擇一個 KML 圖層。');
           return;
         }
-      
+    
         const currentPinnedId = localStorage.getItem('pinnedKmlLayerId');
-      
+    
         if (currentPinnedId === selectedKmlId) {
           // ✅ 點紅圖釘 → 取消釘選（變白）
           localStorage.removeItem('pinnedKmlLayerId');
           pinButton.classList.remove('clicked');
-          showMessage('取消釘選', `「${kmlSelect.options[kmlSelect.selectedIndex]?.textContent}」已取消釘選。`);
+          showMessage('取消釘選', `「${kmlSelect.options[kmlSelect.selectedIndex]?.textContent}」已取消釘選，下次將不再自動載入。`);
           return;
         }
-      
-        // ✅ 點白圖釘 → 取消舊圖釘，釘選新圖層
+    
+        // ✅ 點白圖釘 → 改為釘選此圖層
         localStorage.setItem('pinnedKmlLayerId', selectedKmlId);
         pinButton.classList.add('clicked');
-        showMessage('釘選成功', `「${kmlSelect.options[kmlSelect.selectedIndex]?.textContent}」已設為預設圖層，下次會自動載入。`);
+        showMessage('釘選成功', `「${kmlSelect.options[kmlSelect.selectedIndex]?.textContent}」已釘選為預設圖層，下次將自動載入。`);
       };
-              
+    }              
     // 控制 KML 上傳與刪除區塊
     if (uploadKmlSectionDashboard) {
         uploadKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
