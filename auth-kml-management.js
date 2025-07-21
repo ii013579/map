@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     kmlLayerSelect.disabled = false;
 
     const canEdit = (window.currentUserRole === 'owner' || window.currentUserRole === 'editor');
+    }
 
     // --- 第二段：定義 handleKmlLayerSelectChange ---
     function handleKmlLayerSelectChange() {
@@ -127,7 +128,8 @@ document.addEventListener('DOMContentLoaded', () => {
         pinButton.classList.add('clicked');
         showMessage('釘選成功', `「${kmlSelect.options[kmlSelect.selectedIndex]?.textContent}」已釘選為預設圖層，下次將自動載入。`);
       };
-    }              
+    }  
+                
     // 控制 KML 上傳與刪除區塊
     if (uploadKmlSectionDashboard) {
         uploadKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
