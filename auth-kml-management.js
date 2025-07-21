@@ -51,30 +51,16 @@ document.addEventListener('DOMContentLoaded', () => {
         'owner': 4
     };
 
-    // --- 第一段：定義 updateKmlLayerSelects 函式 ---
-    const updateKmlLayerSelects = async () => {
-    const kmlLayerSelect = document.getElementById('kmlLayerSelect');
-    const kmlLayerSelectDashboard = document.getElementById('kmlLayerSelectDashboard');
-    const deleteSelectedKmlBtn = document.getElementById('deleteSelectedKmlBtn');
-
-    kmlLayerSelect.innerHTML = '<option value="">-- 請選擇 KML 圖層 --</option>';
-    if (kmlLayerSelectDashboard) {
-        kmlLayerSelectDashboard.innerHTML = '<option value="">-- 請選擇 KML 圖層 --</option>';
-    }
-    if (deleteSelectedKmlBtn) deleteSelectedKmlBtn.disabled = true;
-
-    kmlLayerSelect.disabled = false;
-
-    const canEdit = (window.currentUserRole === 'owner' || window.currentUserRole === 'editor');
-    }
-
-    // --- 第二段：定義 handleKmlLayerSelectChange ---
+// --- KML 圖層選擇變更處理 ---
     function handleKmlLayerSelectChange() {
       const kmlSelect = document.getElementById('kmlLayerSelect');
       const selectedKmlId = kmlSelect?.value;
+      const pinBtn = document.getElementById('pinButton');
     
       if (!selectedKmlId) {
-        const pinBtn = document.getElementById('pinButton');
+        if (typeof window.clearAllKmlLayers === 'function') {
+          window.clearAllKmlLayers();
+        }
         if (pinBtn) {
           pinBtn.setAttribute('disabled', 'true');
           pinBtn.classList.remove('clicked');
@@ -82,121 +68,102 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
     
-      // 載入圖層（不做任何釘選操作）
       if (typeof window.loadKmlLayerFromFirestore === 'function') {
         window.loadKmlLayerFromFirestore(selectedKmlId);
       }
     
-      // 更新圖釘按鈕狀態（根據 localStorage 判斷紅或白）
-      const pinBtn = document.getElementById('pinButton');
       if (pinBtn) {
         const pinnedId = localStorage.getItem('pinnedKmlLayerId');
         if (pinnedId === selectedKmlId) {
-          pinBtn.classList.add('clicked'); // 紅
+          pinBtn.classList.add('clicked'); // 紅圖釘
         } else {
-          pinBtn.classList.remove('clicked'); // 白
+          pinBtn.classList.remove('clicked'); // 白圖釘
         }
         pinBtn.removeAttribute('disabled');
       }
     }
-
-    // --- 第三段：定義 pinButton 點擊行為 ---
-    const pinButton = document.getElementById('pinButton');
     
-    if (pinButton) {
-      pinButton.onclick = () => {
-        const kmlSelect = document.getElementById('kmlLayerSelect');
-        const selectedKmlId = kmlSelect?.value;
+    // --- 整合 updateKmlLayerSelects ---
+    const updateKmlLayerSelects = async () => {
+      const kmlLayerSelect = document.getElementById('kmlLayerSelect');
+      const kmlLayerSelectDashboard = document.getElementById('kmlLayerSelectDashboard');
+      const deleteSelectedKmlBtn = document.getElementById('deleteSelectedKmlBtn');
     
-        if (!selectedKmlId) {
-          showMessage('錯誤', '請先選擇一個 KML 圖層。');
-          return;
-        }
+      kmlLayerSelect.innerHTML = '<option value="">-- 請選擇 KML 圖層 --</option>';
+      if (kmlLayerSelectDashboard) {
+        kmlLayerSelectDashboard.innerHTML = '<option value="">-- 請選擇 KML 圖層 --</option>';
+      }
+      if (deleteSelectedKmlBtn) deleteSelectedKmlBtn.disabled = true;
     
-        const currentPinnedId = localStorage.getItem('pinnedKmlLayerId');
+      kmlLayerSelect.disabled = false;
     
-        if (currentPinnedId === selectedKmlId) {
-          // ✅ 點紅圖釘 → 取消釘選（變白）
-          localStorage.removeItem('pinnedKmlLayerId');
-          pinButton.classList.remove('clicked');
-          showMessage('取消釘選', `「${kmlSelect.options[kmlSelect.selectedIndex]?.textContent}」已取消釘選，下次將不再自動載入。`);
-          return;
-        }
+      const canEdit = (window.currentUserRole === 'owner' || window.currentUserRole === 'editor');
     
-        // ✅ 點白圖釘 → 改為釘選此圖層
-        localStorage.setItem('pinnedKmlLayerId', selectedKmlId);
-        pinButton.classList.add('clicked');
-        showMessage('釘選成功', `「${kmlSelect.options[kmlSelect.selectedIndex]?.textContent}」已釘選為預設圖層，下次將自動載入。`);
-      };
-    }  
-                
-    // 控制 KML 上傳與刪除區塊
-    if (uploadKmlSectionDashboard) {
+      if (uploadKmlSectionDashboard) {
         uploadKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
-    }
-    if (deleteKmlSectionDashboard) {
+      }
+      if (deleteKmlSectionDashboard) {
         deleteKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
-    }
-
-    if (kmlLayerSelectDashboard) kmlLayerSelectDashboard.disabled = !canEdit;
-    if (uploadKmlSubmitBtnDashboard) uploadKmlSubmitBtnDashboard.disabled = !canEdit;
-
-    try {
+      }
+    
+      if (kmlLayerSelectDashboard) kmlLayerSelectDashboard.disabled = !canEdit;
+      if (uploadKmlSubmitBtnDashboard) uploadKmlSubmitBtnDashboard.disabled = !canEdit;
+    
+      try {
         const kmlRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers');
         let snapshot;
-
+    
         if (window.currentUserRole === 'editor' && auth.currentUser && auth.currentUser.email) {
-            snapshot = await kmlRef.where('uploadedBy', '==', auth.currentUser.email).get();
+          snapshot = await kmlRef.where('uploadedBy', '==', auth.currentUser.email).get();
         } else {
-            snapshot = await kmlRef.get();
+          snapshot = await kmlRef.get();
         }
-
+    
         currentKmlLayers = [];
-
+    
         if (snapshot.empty) {
-            console.log("沒有 KML 圖層資料。");
-            return;
+          console.log("沒有 KML 圖層資料。");
+          return;
         }
-
+    
         snapshot.forEach(doc => {
-            const data = doc.data();
-            const kmlId = doc.id;
-            const kmlName = data.name || `KML_${kmlId.substring(0, 8)}`;
-
-            const option = document.createElement('option');
-            option.value = kmlId;
-            option.textContent = kmlName;
-            kmlLayerSelect.appendChild(option);
-
-            if (kmlLayerSelectDashboard) {
-                const optionDashboard = document.createElement('option');
-                optionDashboard.value = kmlId;
-                optionDashboard.textContent = kmlName;
-                kmlLayerSelectDashboard.appendChild(optionDashboard);
-            }
-
-            currentKmlLayers.push({ id: kmlId, name: kmlName });
+          const data = doc.data();
+          const kmlId = doc.id;
+          const kmlName = data.name || `KML_${kmlId.substring(0, 8)}`;
+    
+          const option = document.createElement('option');
+          option.value = kmlId;
+          option.textContent = kmlName;
+          kmlLayerSelect.appendChild(option);
+    
+          if (kmlLayerSelectDashboard) {
+            const optionDashboard = document.createElement('option');
+            optionDashboard.value = kmlId;
+            optionDashboard.textContent = kmlName;
+            kmlLayerSelectDashboard.appendChild(optionDashboard);
+          }
+    
+          currentKmlLayers.push({ id: kmlId, name: kmlName });
         });
-
-        // ✅ 刪除按鈕啟用條件
+    
         if (currentKmlLayers.length > 0 && canEdit && deleteSelectedKmlBtn) {
-            deleteSelectedKmlBtn.disabled = false;
+          deleteSelectedKmlBtn.disabled = false;
         }
-
-        // ✅ 綁定圖層變更事件
+    
+        // ✅ 安全重新綁定 change 事件（不重複綁定）
         kmlLayerSelect.removeEventListener('change', handleKmlLayerSelectChange);
         kmlLayerSelect.addEventListener('change', handleKmlLayerSelectChange);
-
-    } catch (error) {
+    
+      } catch (error) {
         console.error("更新 KML 圖層列表時出錯:", error);
         showMessage('錯誤', '無法載入 KML 圖層列表。');
-    }
+      }
     
-        if (typeof window.tryLoadPinnedKmlLayerWhenReady === 'function') {
-          window.tryLoadPinnedKmlLayerWhenReady();
-        }
-};
-
+      // ✅ 自動載入 pinned 圖層（但不會影響釘選狀態）
+      if (typeof window.tryLoadPinnedKmlLayerWhenReady === 'function') {
+        window.tryLoadPinnedKmlLayerWhenReady();
+      }
+    };
 
     // KML 層選擇器變更處理函數
     const handleKmlLayerSelectChange = (event) => {

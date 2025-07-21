@@ -475,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log(`✅ 偵測到釘選的 KML 圖層 ID：${pinnedKmlId}，嘗試載入...`);
       await window.loadKmlLayerFromFirestore(pinnedKmlId);
     
-      // ✅ UI 同步：選單與圖釘
+      // ✅ UI 同步：讓選單顯示正確值，圖釘變紅
       const kmlSelect = document.getElementById('kmlLayerSelect');
       if (kmlSelect) {
         kmlSelect.value = pinnedKmlId;
@@ -483,9 +483,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
       const pinButton = document.getElementById('pinButton');
       if (pinButton) {
-        pinButton.classList.add('clicked');
+        pinButton.classList.add('clicked'); // 紅色圖釘
         pinButton.removeAttribute('disabled');
       }
-    };   
-    
+    };    
 });
