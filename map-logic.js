@@ -7,6 +7,9 @@ let navButtons = L.featureGroup(); // 用於儲存導航按鈕
 // 新增一個全局變數，用於儲存所有地圖上 KML Point Features 的數據，供搜尋使用
 window.allKmlFeatures = [];
 
+// 🔁 記錄目前已載入的圖層 ID，避免重複載入
+window.currentKmlLayerId = null;
+
 document.addEventListener('DOMContentLoaded', () => {
     // 初始化地圖
     map = L.map('map', {
@@ -326,8 +329,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 全局函數：從 Firestore 載入 KML 圖層 (保留原版 logic，僅為了讓 auth-kml-management.js 找到)
     // 實際的 KML features 處理會透過 window.addMarkers 完成
-    window.loadKmlLayerFromFirestore = async function(kmlId) {
-        if (!kmlId) {
+      window.loadKmlLayerFromFirestore = async function(kmlId) {
+        if (window.currentKmlLayerId === kmlId) {
+          console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
+          return;
+        }
+          if (!kmlId) {
             console.log("未提供 KML ID，不載入。");
             window.clearAllKmlLayers();
             return;
@@ -347,6 +354,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const kmlData = doc.data();
 
             console.log(`正在載入 KML Features，圖層名稱: ${kmlData.name || kmlId}`);
+            
+              window.currentKmlLayerId = kmlId;
+            };
 
             // 從 kmlLayers/{kmlId}/features 子集合中獲取所有 GeoJSON features
             const featuresSubCollectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId).collection('features');
