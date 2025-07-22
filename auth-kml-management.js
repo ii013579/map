@@ -1,6 +1,7 @@
 ﻿// auth-kml-management.js v4.2.31
 
 document.addEventListener('DOMContentLoaded', () => {
+	  tryLoadPinnedKmlLayerWhenReady();  //載入預設圖層與圖釘狀態
     // 獲取所有相關的 DOM 元素
     const loginForm = document.getElementById('loginForm');
     const loggedInDashboard = document.getElementById('loggedInDashboard');
@@ -83,6 +84,29 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     
+    // 自動套用釘選圖層
+    function tryLoadPinnedKmlLayerWhenReady() {
+      const pinnedId = localStorage.getItem('pinnedKmlLayerId');
+      const kmlSelect = document.getElementById('kmlLayerSelect');
+      const pinBtn = document.getElementById('pinButton');
+    
+      if (!pinnedId || !kmlSelect) return;
+    
+      const option = Array.from(kmlSelect.options).find(opt => opt.value === pinnedId);
+      if (option) {
+        kmlSelect.value = pinnedId;
+    
+        if (typeof window.loadKmlLayerFromFirestore === 'function') {
+          window.loadKmlLayerFromFirestore(pinnedId);
+        }
+    
+        // ✅ 將圖釘變紅，啟用按鈕
+        if (pinBtn) {
+          pinBtn.classList.add('clicked');
+          pinBtn.removeAttribute('disabled');
+        }
+      }
+  
     // --- 整合 updateKmlLayerSelects ---
     const updateKmlLayerSelects = async () => {
       const kmlLayerSelect = document.getElementById('kmlLayerSelect');
