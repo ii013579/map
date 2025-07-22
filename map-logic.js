@@ -7,10 +7,7 @@ let navButtons = L.featureGroup(); // 用於儲存導航按鈕
 // 新增一個全局變數，用於儲存所有地圖上 KML Point Features 的數據，供搜尋使用
 window.allKmlFeatures = [];
 
-// 🔁 記錄目前已載入的圖層 ID，避免重複載入
-window.currentKmlLayerId = null;
-
-document.addEventListener('DOMContentLoaded', () => {
+Document.addEventListener('DOMContentLoaded', () => {
     // 初始化地圖
     map = L.map('map', {
       attributionControl: true,
@@ -327,37 +324,56 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // 全局函數：從 Firestore 載入 KML 圖層 (保留原版 logic，僅為了讓 auth-kml-management.js 找到)
-    // 實際的 KML features 處理會透過 window.addMarkers 完成
-      window.loadKmlLayerFromFirestore = async function(kmlId) {
-        if (window.currentKmlLayerId === kmlId) {
-          console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
+    // ✅ 避免重複讀取同一圖層
+    window.currentKmlLayerId = null;
+    
+    window.loadKmlLayerFromFirestore = async function(kmlId) {
+      if (window.currentKmlLayerId === kmlId) {
+        console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
+        return;
+      }
+    
+      if (!kmlId) {
+        console.log("未提供 KML ID，不載入。");
+        window.clearAllKmlLayers();
+        return;
+      }
+    
+      // ✅ 清空所有現有圖層、標記、導航按鈕
+      window.clearAllKmlLayers();
+    
+      try {
+        const doc = await db
+          .collection('artifacts')
+          .doc(appId)
+          .collection('public')
+          .doc('data')
+          .collection('kmlLayers')
+          .doc(kmlId)
+          .get();
+    
+        if (!doc.exists) {
+          console.error('KML 圖層文檔未找到 ID:', kmlId);
+          showMessage('錯誤', '找不到指定的 KML 圖層資料。');
           return;
         }
-          if (!kmlId) {
-            console.log("未提供 KML ID，不載入。");
-            window.clearAllKmlLayers();
-            return;
+    
+        const kmlData = doc.data();
+        console.log(`正在載入 KML Features，圖層名稱: ${kmlData.name || kmlId}`);
+    
+        // ✅ 呼叫你既有邏輯來畫圖層（例如 addMarkers）
+        if (typeof window.addMarkers === 'function') {
+          window.addMarkers(kmlData); // 假設你是用這個函數來處理點位
         }
-
-        // 移除現有 KML 圖層和所有標記 (包括導航按鈕)
-        window.clearAllKmlLayers();
-
-        try {
-            // 從 Firestore 獲取 KML 文件的元數據
-            const doc = await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId).get();
-            if (!doc.exists) {
-                console.error('KML 圖層文檔未找到 ID:', kmlId);
-                showMessage('錯誤', '找不到指定的 KML 圖層資料。');
-                return;
-            }
-            const kmlData = doc.data();
-
-            console.log(`正在載入 KML Features，圖層名稱: ${kmlData.name || kmlId}`);
-            
-              window.currentKmlLayerId = kmlId;
-            };
-
+    
+        // ✅ 記錄目前已載入的圖層 ID（避免下次重複載入）
+        window.currentKmlLayerId = kmlId;
+    
+      } catch (error) {
+        console.error("載入 KML 圖層失敗：", error);
+        showMessage('錯誤', '載入圖層時發生錯誤。');
+      }
+    };
             // 從 kmlLayers/{kmlId}/features 子集合中獲取所有 GeoJSON features
             const featuresSubCollectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId).collection('features');
             const querySnapshot = await featuresSubCollectionRef.get();
