@@ -7,7 +7,7 @@ let navButtons = L.featureGroup(); // 用於儲存導航按鈕
 // 新增一個全局變數，用於儲存所有地圖上 KML Point Features 的數據，供搜尋使用
 window.allKmlFeatures = [];
 
-Document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
     // 初始化地圖
     map = L.map('map', {
       attributionControl: true,

@@ -1,4 +1,4 @@
-﻿// auth-kml-management.js v4.2.31
+﻿// auth-kml-management.js
 
 document.addEventListener('DOMContentLoaded', () => {
 	  tryLoadPinnedKmlLayerWhenReady();  //載入預設圖層與圖釘狀態
@@ -106,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
           pinBtn.removeAttribute('disabled');
         }
       }
+    };
   
     // --- 整合 updateKmlLayerSelects ---
     const updateKmlLayerSelects = async () => {
