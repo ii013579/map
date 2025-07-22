@@ -554,5 +554,5 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
           pinBtn.removeAttribute('disabled');
         }
       }
-    }
+    };
 });
