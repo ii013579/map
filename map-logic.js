@@ -533,44 +533,26 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
     });
 
     // *** 自動載入釘選的 KML 圖層：延遲直到 Firebase 初始化完成 ***
-    window.tryLoadPinnedKmlLayerWhenReady = async function () {
-      const pinnedKmlId = localStorage.getItem('pinnedKmlLayerId');
-      if (!pinnedKmlId) {
-        console.log("⚠ 沒有釘選的 KML 圖層。");
-        return;
-      }
-    
-      const checkReady = () =>
-        typeof firebase !== 'undefined' &&
-        typeof db !== 'undefined' &&
-        typeof appId !== 'undefined' &&
-        typeof window.loadKmlLayerFromFirestore === 'function';
-    
-      let retries = 0;
-      const maxRetries = 20;
-      const delay = 300;
-    
-      while (!checkReady()) {
-        if (++retries > maxRetries) {
-          console.error("⛔ 無法載入釘選的 KML 圖層：Firebase 尚未初始化。");
-          return;
-        }
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    
-      console.log(`✅ 偵測到釘選的 KML 圖層 ID：${pinnedKmlId}，嘗試載入...`);
-      await window.loadKmlLayerFromFirestore(pinnedKmlId);
-    
-      // ✅ UI 同步：讓選單顯示正確值，圖釘變紅
+    function tryLoadPinnedKmlLayerWhenReady() {
+      const pinnedId = localStorage.getItem('pinnedKmlLayerId');
       const kmlSelect = document.getElementById('kmlLayerSelect');
-      if (kmlSelect) {
-        kmlSelect.value = pinnedKmlId;
-      }
+      const pinBtn = document.getElementById('pinButton');
     
-      const pinButton = document.getElementById('pinButton');
-      if (pinButton) {
-        pinButton.classList.add('clicked'); // 紅色圖釘
-        pinButton.removeAttribute('disabled');
+      if (!pinnedId || !kmlSelect) return;
+    
+      const option = Array.from(kmlSelect.options).find(opt => opt.value === pinnedId);
+      if (option) {
+        kmlSelect.value = pinnedId;
+    
+        if (typeof window.loadKmlLayerFromFirestore === 'function') {
+          window.loadKmlLayerFromFirestore(pinnedId);
+        }
+    
+        // ✅ 設定圖釘按鈕為紅色狀態
+        if (pinBtn) {
+          pinBtn.classList.add('clicked');
+          pinBtn.removeAttribute('disabled');
+        }
       }
-    };    
+    }
 });

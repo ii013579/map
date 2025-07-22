@@ -970,5 +970,4 @@ document.addEventListener('DOMContentLoaded', () => {
         buttonText: '確定'
       });
     }
-  });
 });
