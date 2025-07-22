@@ -324,74 +324,6 @@ Document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // ✅ 避免重複讀取同一圖層
-window.currentKmlLayerId = null;
-
-window.loadKmlLayerFromFirestore = async function(kmlId) {
-  if (window.currentKmlLayerId === kmlId) {
-    console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
-    return;
-  }
-
-  if (!kmlId) {
-    console.log("未提供 KML ID，不載入。");
-    window.clearAllKmlLayers();
-    return;
-  }
-
-  window.clearAllKmlLayers();
-
-  try {
-    // 1️⃣ 取得圖層主文件（名稱、基本資料）
-    const docRef = db
-      .collection('artifacts')
-      .doc(appId)
-      .collection('public')
-      .doc('data')
-      .collection('kmlLayers')
-      .doc(kmlId);
-
-    const doc = await docRef.get();
-
-    if (!doc.exists) {
-      console.error('KML 圖層文檔未找到 ID:', kmlId);
-      showMessage('錯誤', '找不到指定的 KML 圖層資料。');
-      return;
-    }
-
-    const kmlData = doc.data();
-    console.log(`正在載入 KML Features，圖層名稱: ${kmlData.name || kmlId}`);
-
-    // 2️⃣ 取得 features 子集合
-    const featuresRef = docRef.collection('features');
-    const querySnapshot = await featuresRef.get();
-
-    const loadedFeatures = [];
-
-    if (querySnapshot.empty) {
-      console.log(`KML 圖層 "${kmlData.name}" 的 features 子集合為空。`);
-    } else {
-      querySnapshot.forEach(featureDoc => {
-        const feature = featureDoc.data();
-        if (feature.geometry && feature.geometry.coordinates && feature.properties) {
-          loadedFeatures.push(feature);
-        } else {
-          console.warn('正在跳過來自 Firestore 的無效 feature:', feature);
-        }
-      });
-    }
-
-    // 3️⃣ 更新全域變數並顯示圖層
-    window.allKmlFeatures = loadedFeatures;
-    window.addMarkers(window.allKmlFeatures);
-
-    // 4️⃣ 自動調整地圖視角
-    if (window.allKmlFeatures.length > 0 && markers.getLayers().length > 0 && markers.getBounds().isValid()) {
-      map.fitBounds(markers.getBounds());
-    } else {
-      console.warn("地理要素存在，但其邊界對於地圖視圖不適用，或地圖上沒有圖層可適合。");
-    }
-
     // ✅ 最後設定目前已載入的圖層 ID（避免下次重複載入）
     window.currentKmlLayerId = null;
     
@@ -531,28 +463,4 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
       // 清除導航按鈕
       navButtons.clearLayers();
     });
-
-    // *** 自動載入釘選的 KML 圖層：延遲直到 Firebase 初始化完成 ***
-    function tryLoadPinnedKmlLayerWhenReady() {
-      const pinnedId = localStorage.getItem('pinnedKmlLayerId');
-      const kmlSelect = document.getElementById('kmlLayerSelect');
-      const pinBtn = document.getElementById('pinButton');
-    
-      if (!pinnedId || !kmlSelect) return;
-    
-      const option = Array.from(kmlSelect.options).find(opt => opt.value === pinnedId);
-      if (option) {
-        kmlSelect.value = pinnedId;
-    
-        if (typeof window.loadKmlLayerFromFirestore === 'function') {
-          window.loadKmlLayerFromFirestore(pinnedId);
-        }
-    
-        // ✅ 設定圖釘按鈕為紅色狀態
-        if (pinBtn) {
-          pinBtn.classList.add('clicked');
-          pinBtn.removeAttribute('disabled');
-        }
-      }
-    };
 });
