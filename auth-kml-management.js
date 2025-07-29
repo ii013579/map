@@ -800,7 +800,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-
     // 事件監聽器：刪除 KML
     deleteSelectedKmlBtn.addEventListener('click', async () => {
         const kmlIdToDelete = kmlLayerSelectDashboard.value;
