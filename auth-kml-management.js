@@ -643,8 +643,56 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(`KML XML 解析錯誤: ${errorText}。請確保您的 KML 檔案是有效的 XML。`);
                 }
 
-                const geojson = toGeoJSON.kml(kmlDoc); // <-- 將 KML 轉換為 GeoJSON (JSON 格式)
-                const parsedFeatures = geojson.features || [];
+                const geojson = toGeoJSON.kml(kmlDoc); // 將 KML 轉換為 GeoJSON (JSON 格式)
+
+                // --- 新增：深度複製 GeoJSON 並標準化其坐標深度 ---
+                // 這是必要的，因為 Firestore 不支援巢狀陣列，某些複雜的GeoJSON結構可能導致問題
+                const standardizedGeojson = JSON.parse(JSON.stringify(geojson)); // 深度複製
+
+                standardizedGeojson.features = standardizedGeojson.features.map(feature => {
+                    if (feature.geometry && feature.geometry.coordinates) {
+                        switch (feature.geometry.type) {
+                            case 'Point':
+                                // Point: [x, y]
+                                // 確保座標是單層的 [x,y]
+                                if (Array.isArray(feature.geometry.coordinates) && Array.isArray(feature.geometry.coordinates[0]) && typeof feature.geometry.coordinates[0][0] !== 'undefined') {
+                                    feature.geometry.coordinates = feature.geometry.coordinates[0];
+                                }
+                                break;
+                            case 'LineString':
+                                // LineString: [[x1, y1], [x2, y2], ...]
+                                // 確保座標是二維陣列
+                                if (Array.isArray(feature.geometry.coordinates) && Array.isArray(feature.geometry.coordinates[0]) && Array.isArray(feature.geometry.coordinates[0][0])) {
+                                    feature.geometry.coordinates = feature.geometry.coordinates.flat(1); // 扁平化一層
+                                }
+                                break;
+                            case 'Polygon':
+                                // Polygon: [[[x1, y1], ...], [[x_hole1, y_hole1], ...]]
+                                // 確保座標是三維陣列，並且不要有過多的嵌套
+                                // 如果出現四層嵌套，則扁平化一層。這通常發生在 MultiPolygon 錯誤轉換為 Polygon 或 Polygon 內部環結構不標準時
+                                if (Array.isArray(feature.geometry.coordinates) && feature.geometry.coordinates.length > 0 &&
+                                    Array.isArray(feature.geometry.coordinates[0]) && feature.geometry.coordinates[0].length > 0 &&
+                                    Array.isArray(feature.geometry.coordinates[0][0]) && feature.geometry.coordinates[0][0].length > 0 &&
+                                    Array.isArray(feature.geometry.coordinates[0][0][0])) {
+                                    
+                                    feature.geometry.coordinates = feature.geometry.coordinates.map(ring => ring.flat(1));
+                                }
+                                break;
+                            case 'MultiPoint':
+                            case 'MultiLineString':
+                            case 'MultiPolygon':
+                                // 對於 Multi-geometry 類型，GeoJSON 規範本身就允許更高的嵌套
+                                // 但如果 toGeoJSON 轉換產生了超出規範或 Firestore 限制的嵌套，此處需要更具體的處理
+                                // 目前此處不做額外扁平化，因為這類型的頂層陣列通常直接包裝多個幾何單元
+                                // 如果遇到此類型的錯誤，可能需要將其拆分為單個 Point/LineString/Polygon
+                                break;
+                        }
+                    }
+                    return feature;
+                });
+                // --- 新增結束 ---
+
+                const parsedFeatures = standardizedGeojson.features || []; // <-- 使用標準化後的 GeoJSON
 
                 console.log('--- KML 檔案解析結果 (parsedFeatures) ---');
                 console.log(`已解析出 ${parsedFeatures.length} 個地理要素。`);
@@ -706,7 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // 直接更新主 KML 圖層文件，包含新的 geojsonContent
                     await kmlLayerDocRef.update({
-                        geojsonContent: geojson, // <-- 儲存完整的 GeoJSON 物件
+                        geojsonContent: standardizedGeojson, // <-- 儲存標準化後的 GeoJSON 物件
                         uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
                         uploadedBy: auth.currentUser.email || auth.currentUser.uid,
                         uploadedByRole: window.currentUserRole
@@ -717,7 +765,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // 沒有找到相同名稱的圖層，新增一個
                     kmlLayerDocRef = await kmlLayersCollectionRef.add({
                         name: fileName,
-                        geojsonContent: geojson, // <-- 儲存完整的 GeoJSON 物件
+                        geojsonContent: standardizedGeojson, // <-- 儲存標準化後的 GeoJSON 物件
                         uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
                         uploadedBy: auth.currentUser.email || auth.currentUser.uid,
                         uploadedByRole: window.currentUserRole
