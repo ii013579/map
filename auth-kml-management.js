@@ -646,6 +646,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const geojson = toGeoJSON.kml(kmlDoc); // 將 KML 轉換為 GeoJSON (JSON 格式)
 
                 // --- 新增：深度複製 GeoJSON 並標準化其坐標深度 ---
+                const standardizedGeojson = JSON.parse(JSON.stringify(geojson)); // 深度複製
+
+                // --- 新增診斷日誌：標準化前和標準化後 GeoJSON 結構的差異 ---
+                console.log('--- 原始 GeoJSON (標準化前) ---');
+                console.log(JSON.stringify(geojson, null, 2)); // 輸出漂亮的 JSON 格式
+                              
+                console.log('--- 標準化後的 GeoJSON (即將上傳) ---');
+                console.log(JSON.stringify(standardizedGeojson, null, 2)); // 輸出漂亮的 JSON 格式
+                // --- 診斷日誌結束 ---
+
+                const parsedFeatures = standardizedGeojson.features || []; // <-- 使用標準化後的 GeoJSON
+
+
+                // --- 新增：深度複製 GeoJSON 並標準化其坐標深度 ---
                 // 這是必要的，因為 Firestore 不支援巢狀陣列，某些複雜的GeoJSON結構可能導致問題
                 const standardizedGeojson = JSON.parse(JSON.stringify(geojson)); // 深度複製
 
