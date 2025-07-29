@@ -613,11 +613,19 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadKmlSubmitBtnDashboard.addEventListener('click', async () => {
         const file = hiddenKmlFileInput.files[0];
         if (!file) {
-            showMessage('提示', '請先選擇 KML 檔案。');
+            window.showMessageCustom({
+                title: '提示',
+                message: '請先選擇 KML 檔案。',
+                buttonText: '確定'
+            });
             return;
         }
         if (!auth.currentUser || (window.currentUserRole !== 'owner' && window.currentUserRole !== 'editor')) {
-            showMessage('錯誤', '您沒有權限上傳 KML，請登入或等待管理員審核。');
+            window.showMessageCustom({
+                title: '錯誤',
+                message: '您沒有權限上傳 KML，請登入或等待管理員審核。',
+                buttonText: '確定'
+            });
             return;
         }
 
@@ -635,11 +643,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(`KML XML 解析錯誤: ${errorText}。請確保您的 KML 檔案是有效的 XML。`);
                 }
 
-                const geojson = toGeoJSON.kml(kmlDoc); 
-                const parsedFeatures = geojson.features || []; 
+                const geojson = toGeoJSON.kml(kmlDoc); // <-- 將 KML 轉換為 GeoJSON (JSON 格式)
+                const parsedFeatures = geojson.features || [];
 
                 console.log('--- KML 檔案解析結果 (parsedFeatures) ---');
-                console.log(`已解析出 ${parsedFeatures.length} 個地理要素。`); 
+                console.log(`已解析出 ${parsedFeatures.length} 個地理要素。`);
                 if (parsedFeatures.length === 0) {
                     console.warn('togeojson.kml() 未能從 KML 檔案中識別出任何地理要素。請確認 KML 包含 <Placemark> 內的 <Point>, <LineString>, <Polygon> 及其有效座標和名稱。');
                 } else {
@@ -654,13 +662,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                 if (parsedFeatures.length === 0) {
-                    showMessage('KML 載入', 'KML 檔案中沒有找到任何可顯示的地理要素 (點、線、多邊形)。請確認 KML 檔案內容包含 <Placemark> 及其有效的地理要素。');
+                    window.showMessageCustom({
+                        title: 'KML 載入',
+                        message: 'KML 檔案中沒有找到任何可顯示的地理要素 (點、線、多邊形)。請確認 KML 檔案內容包含 <Placemark> 及其有效的地理要素。',
+                        buttonText: '確定'
+                    });
                     console.warn("KML 檔案不包含任何可用的 Point、LineString 或 Polygon 類型 feature。");
                     return;
                 }
 
                 const kmlLayersCollectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers');
-                
+
                 // 查詢是否存在相同名稱的 KML 圖層
                 const existingKmlQuery = await kmlLayersCollectionRef.where('name', '==', fileName).get();
                 let kmlLayerDocRef;
@@ -674,7 +686,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     );
 
                     if (!confirmOverwrite) {
-                        showMessage('已取消', 'KML 檔案上傳已取消。');
+                        window.showMessageCustom({
+                            title: '已取消',
+                            message: 'KML 檔案上傳已取消。',
+                            buttonText: '確定',
+                            autoClose: true,
+                            autoCloseDelay: 3000
+                        });
                         hiddenKmlFileInput.value = '';
                         selectedKmlFileNameDashboard.textContent = '尚未選擇檔案';
                         uploadKmlSubmitBtnDashboard.disabled = true;
@@ -686,27 +704,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     isOverwriting = true;
                     console.log(`找到相同名稱的 KML 圖層 "${fileName}"，使用者確認覆蓋。ID: ${kmlLayerDocRef.id}`);
 
-                    // 刪除現有 features 子集合的資料
-                    const oldFeaturesSnapshot = await kmlLayersCollectionRef.doc(kmlLayerDocRef.id).collection('features').get();
-                    const deleteBatch = db.batch();
-                    oldFeaturesSnapshot.forEach(doc => {
-                        deleteBatch.delete(doc.ref);
-                    });
-                    await deleteBatch.commit();
-                    console.log(`已從子集合中刪除 ${oldFeaturesSnapshot.size} 個 features。`);
-
-                    // 更新主 KML 圖層文件的元數據
+                    // 直接更新主 KML 圖層文件，包含新的 geojsonContent
                     await kmlLayerDocRef.update({
+                        geojsonContent: geojson, // <-- 儲存完整的 GeoJSON 物件
                         uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
                         uploadedBy: auth.currentUser.email || auth.currentUser.uid,
                         uploadedByRole: window.currentUserRole
                     });
-                    console.log(`已更新主 KML 圖層文件 ${kmlLayerDocRef.id} 的元數據。`);
+                    console.log(`已更新主 KML 圖層文件 ${kmlLayerDocRef.id} 的元數據和 GeoJSON 內容。`);
 
                 } else {
                     // 沒有找到相同名稱的圖層，新增一個
                     kmlLayerDocRef = await kmlLayersCollectionRef.add({
                         name: fileName,
+                        geojsonContent: geojson, // <-- 儲存完整的 GeoJSON 物件
                         uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
                         uploadedBy: auth.currentUser.email || auth.currentUser.uid,
                         uploadedByRole: window.currentUserRole
@@ -714,50 +725,51 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log(`沒有找到相同名稱的 KML 圖層，已新增一個。ID: ${kmlLayerDocRef.id}`);
                 }
 
-                const featuresSubCollectionRef = kmlLayersCollectionRef.doc(kmlLayerDocRef.id).collection('features');
-                const batch = db.batch();
-                let addedCount = 0;
-                console.log(`開始批量寫入 ${parsedFeatures.length} 個 features 到 ${kmlLayerDocRef.id} 的子集合。`);
-                for (const f of parsedFeatures) {
-                    if (f.geometry && f.properties && f.geometry.coordinates) {
-                        batch.set(featuresSubCollectionRef.doc(), {
-                            geometry: f.geometry,
-                            properties: f.properties
-                        });
-                        addedCount++;
-                    } else {
-                        console.warn("上傳時跳過無效或無座標的 feature:", f.geometry ? f.geometry.type : '無幾何資訊', f);
-                    }
-                }
-                await batch.commit();
-                console.log(`批量提交成功。已添加 ${addedCount} 個 features。`);
-
-                const successMessage = isOverwriting ? 
-                    `KML 檔案 "${fileName}" 已成功覆蓋並儲存 ${addedCount} 個地理要素。` :
-                    `KML 檔案 "${fileName}" 已成功上傳並儲存 ${addedCount} 個地理要素。`;
-                showMessage('成功', successMessage);
+                const successMessage = isOverwriting ?
+                    `KML 檔案 "${fileName}" 已成功覆蓋並儲存 ${parsedFeatures.length} 個地理要素。` :
+                    `KML 檔案 "${fileName}" 已成功上傳並儲存 ${parsedFeatures.length} 個地理要素。`;
+                window.showMessageCustom({
+                    title: '成功',
+                    message: successMessage,
+                    buttonText: '確定',
+                    autoClose: true,
+                    autoCloseDelay: 3000
+                });
                 hiddenKmlFileInput.value = '';
                 selectedKmlFileNameDashboard.textContent = '尚未選擇檔案';
                 uploadKmlSubmitBtnDashboard.disabled = true;
                 updateKmlLayerSelects(); // 重新整理 KML 選單
             } catch (error) {
                 console.error("處理 KML 檔案或上傳到 Firebase 時出錯:", error);
-                showMessage('KML 處理錯誤', `處理 KML 檔案或上傳時發生錯誤：${error.message}`);
+                window.showMessageCustom({
+                    title: 'KML 處理錯誤',
+                    message: `處理 KML 檔案或上傳時發生錯誤：${error.message}`,
+                    buttonText: '確定'
+                });
             }
         };
         reader.readAsText(file);
     });
 
 
+
     // 事件監聽器：刪除 KML
     deleteSelectedKmlBtn.addEventListener('click', async () => {
         const kmlIdToDelete = kmlLayerSelectDashboard.value;
         if (!kmlIdToDelete) {
-            showMessage('提示', '請先選擇要刪除的 KML 圖層。');
+            window.showMessageCustom({
+                title: '提示',
+                message: '請先選擇要刪除的 KML 圖層。',
+                buttonText: '確定'
+            });
             return;
         }
         if (!auth.currentUser || (window.currentUserRole !== 'owner' && window.currentUserRole !== 'editor')) {
-            showMessage('錯誤', '您沒有權限刪除 KML。');
+            window.showMessageCustom({
+                title: '錯誤',
+                message: '您沒有權限刪除 KML。',
+                buttonText: '確定'
+            });
             return;
         }
 
@@ -774,33 +786,39 @@ document.addEventListener('DOMContentLoaded', () => {
             const kmlLayerDocRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlIdToDelete);
             const kmlDoc = await kmlLayerDocRef.get();
             if (!kmlDoc.exists) {
-                showMessage('錯誤', '找不到該 KML 圖層。');
+                window.showMessageCustom({
+                    title: '錯誤',
+                    message: '找不到該 KML 圖層。',
+                    buttonText: '確定'
+                });
                 return;
             }
             const kmlData = kmlDoc.data();
             const fileName = kmlData.name;
+            // 由於 now GeoJSON 存在於主文件本身，計算地理要素數量
+            const featureCount = (kmlData.geojsonContent && kmlData.geojsonContent.features) ? kmlData.geojsonContent.features.length : 0;
 
-            const featuresSubCollectionRef = kmlLayerDocRef.collection('features');
-            const featuresSnapshot = await featuresSubCollectionRef.get();
-            const batch = db.batch();
-            let deletedFeaturesCount = 0;
-            featuresSnapshot.forEach(docRef => {
-                batch.delete(docRef.ref);
-                deletedFeaturesCount++;
-            });
-            await batch.commit();
-            console.log(`已從子集合中刪除 ${deletedFeaturesCount} 個 features。`);
-
+            // 只需刪除父 KML 文件
             await kmlLayerDocRef.delete();
             console.log(`已刪除父 KML 圖層文檔: ${kmlIdToDelete}`);
 
-            showMessage('成功', `KML 圖層 "${fileName}" 已成功刪除，共刪除 ${deletedFeaturesCount} 個地理要素。`);
+            window.showMessageCustom({
+                title: '成功',
+                message: `KML 圖層 "${fileName}" 已成功刪除，共包含 ${featureCount} 個地理要素。`,
+                buttonText: '確定',
+                autoClose: true,
+                autoCloseDelay: 3000
+            });
             updateKmlLayerSelects();
-            window.clearAllKmlLayers();
+            window.clearAllKmlLayers(); // 清除地圖上的 KML 圖層
         }
         catch (error) {
             console.error("刪除 KML 失敗:", error);
-            showMessage('刪除失敗', `刪除 KML 圖層時發生錯誤: ${error.message}`);
+            window.showMessageCustom({
+                title: '刪除失敗',
+                message: `刪除 KML 圖層時發生錯誤: ${error.message}`,
+                buttonText: '確定'
+            });
         }
     });
 
