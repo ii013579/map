@@ -220,7 +220,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 每次添加新圖層前，先清除舊的 GeoJSON 圖層和自定義點標記
-        // clearAllKmlLayers 已經在 loadKmlLayerFromFirestore 中呼叫，但這裡再次確保
         if (geoJsonLayers) {
             geoJsonLayers.clearLayers();
         } else {
@@ -250,29 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (linePolygonFeatures.length > 0) {
             L.geoJSON(linePolygonFeatures, {
                 onEachFeature: function(feature, layer) {
-                    // 為每個 feature 綁定彈出窗口 (Popup)
-                    let popupContent = '';
-                    if (feature.properties) {
-                        popupContent += `<strong>名稱:</strong> ${feature.properties.name || '未命名'}<br>`;
-                        if (feature.properties.description) {
-                            popupContent += `<strong>描述:</strong> ${feature.properties.description}<br>`;
-                        }
-                        if (feature.properties.address) {
-                            popupContent += `<strong>地址:</strong> ${feature.properties.address}<br>`;
-                        }
-                        // 遍歷所有屬性並添加到彈出窗口，除了已處理的
-                        for (const key in feature.properties) {
-                            if (feature.properties.hasOwnProperty(key) &&
-                                key !== 'name' && key !== 'description' && key !== 'address') {
-                                popupContent += `<strong>${key}:</strong> ${feature.properties[key]}<br>`;
-                            }
-                        }
-                    }
-
-                    // 如果有彈出窗口內容，則綁定
-                    if (popupContent) {
-                        layer.bindPopup(popupContent);
-                    }
+                    // 此處已移除彈出視窗綁定邏輯
                 },
                 // 自定義 LineString 和 Polygon 樣式
                 style: function(feature) {
@@ -344,26 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
                 
-                // 為圓點標記綁定彈出窗口內容
-                let popupContent = '';
-                if (f.properties) {
-                    popupContent += `<strong>名稱:</strong> ${f.properties.name || '未命名'}<br>`;
-                    if (f.properties.description) {
-                        popupContent += `<strong>描述:</strong> ${f.properties.description}<br>`;
-                    }
-                    if (f.properties.address) {
-                        popupContent += `<strong>地址:</strong> ${f.properties.address}<br>`;
-                    }
-                    for (const key in f.properties) {
-                        if (f.properties.hasOwnProperty(key) &&
-                            key !== 'name' && key !== 'description' && key !== 'address') {
-                            popupContent += `<strong>${key}:</strong> ${f.properties[key]}<br>`;
-                        }
-                    }
-                }
-                if (popupContent) {
-                    dot.bindPopup(popupContent);
-                }
+                // 此處已移除 Point 標記的彈出視窗綁定邏輯
 
                 // 將圓點和文字標籤添加到 'markers' featureGroup 中
                 markers.addLayer(dot);
