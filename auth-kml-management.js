@@ -609,6 +609,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+// **新增：通用的 GeoJSON 座標標準化函數**
+function normalizeCoordinates(coords, geometryType) {
+    if (!Array.isArray(coords)) {
+        // 如果不是陣列，對於點可能就是一個數字，或無效值，嘗試轉為點
+        return [0, 0]; // 預設為安全點
+    }
+
+    // 扁平化所有內部陣列，只保留數字，然後重建到正確的 GeoJSON 深度
+    if (geometryType === 'Point') {
+        // Point: [lon, lat]
+        let flattened = coords.flat(Infinity).filter(val => typeof val === 'number');
+        return flattened.slice(0, 2); // 確保是 [經度, 緯度]
+    } else if (geometryType === 'LineString' || geometryType === 'MultiPoint') {
+        // LineString: [[lon, lat], ...]
+        // MultiPoint: [[lon, lat], ...] (每個元素都是一個點)
+        return coords.map(pair => {
+            let flattenedPair = Array.isArray(pair) ? pair.flat(Infinity).filter(val => typeof val === 'number') : [0, 0];
+            return flattenedPair.slice(0, 2); // 確保每個元素都是 [經度, 緯度]
+        }).filter(pair => pair.length === 2 && typeof pair[0] === 'number' && typeof pair[1] === 'number'); // 過濾掉無效的座標對
+    } else if (geometryType === 'Polygon' || geometryType === 'MultiLineString') {
+        // Polygon: [[[lon, lat], ...], ...] (環陣列)
+        // MultiLineString: [[[lon, lat], ...], ...] (線陣列)
+        return coords.map(ringOrLine => {
+            if (!Array.isArray(ringOrLine)) {
+                console.warn(`Malformed ring/line in ${geometryType}:`, ringOrLine);
+                return []; // 無效的環/線
+            }
+            return ringOrLine.map(pair => {
+                let flattenedPair = Array.isArray(pair) ? pair.flat(Infinity).filter(val => typeof val === 'number') : [0, 0];
+                return flattenedPair.slice(0, 2);
+            }).filter(pair => pair.length === 2 && typeof pair[0] === 'number' && typeof pair[1] === 'number');
+        }).filter(ringOrLine => Array.isArray(ringOrLine) && ringOrLine.length > 0 && ringOrLine.every(p => p.length === 2)); // 過濾掉空或無效的環/線
+    } else if (geometryType === 'MultiPolygon') {
+        // MultiPolygon: [[[[lon, lat], ...], ...], ...] (多個多邊形陣列)
+        return coords.map(polygon => {
+            if (!Array.isArray(polygon)) {
+                console.warn(`Malformed polygon in MultiPolygon:`, polygon);
+                return []; // 無效的多邊形
+            }
+            return polygon.map(ring => {
+                if (!Array.isArray(ring)) {
+                    console.warn(`Malformed ring in MultiPolygon's polygon:`, ring);
+                    return []; // 無效的環
+                }
+                return ring.map(pair => {
+                    let flattenedPair = Array.isArray(pair) ? pair.flat(Infinity).filter(val => typeof val === 'number') : [0, 0];
+                    return flattenedPair.slice(0, 2);
+                }).filter(pair => pair.length === 2 && typeof pair[0] === 'number' && typeof pair[1] === 'number');
+            }).filter(ring => Array.isArray(ring) && ring.length > 0 && ring.every(p => p.length === 2));
+        }).filter(polygon => Array.isArray(polygon) && polygon.length > 0 && polygon.every(r => Array.isArray(r) && r.length > 0));
+    }
+    return coords; // 如果類型未處理或未知，則原樣返回
+}
+
+
     // 實際執行上傳 KML 的函數
     uploadKmlSubmitBtnDashboard.addEventListener('click', async () => {
         const file = hiddenKmlFileInput.files[0];
@@ -645,52 +700,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const geojson = toGeoJSON.kml(kmlDoc); // 將 KML 轉換為 GeoJSON (JSON 格式)
 
-                // --- 新增：深度複製 GeoJSON 並標準化其坐標深度 ---
+                // --- 深度複製 GeoJSON 並標準化其坐標深度 ---
                 // 這是必要的，因為 Firestore 不支援巢狀陣列，某些複雜的GeoJSON結構可能導致問題
                 const standardizedGeojson = JSON.parse(JSON.stringify(geojson)); // 深度複製
 
+                // --- 診斷日誌：標準化前 GeoJSON 結構 (可選，調試完成後可移除) ---
+                console.log('--- 原始 GeoJSON (標準化前) ---');
+                console.log(JSON.stringify(geojson, null, 2)); // 輸出漂亮的 JSON 格式
+                // --- 診斷日誌結束 ---
+
                 standardizedGeojson.features = standardizedGeojson.features.map(feature => {
                     if (feature.geometry && feature.geometry.coordinates) {
-                        switch (feature.geometry.type) {
-                            case 'Point':
-                                // Point: [x, y]
-                                // 確保座標是單層的 [x,y]
-                                if (Array.isArray(feature.geometry.coordinates) && Array.isArray(feature.geometry.coordinates[0]) && typeof feature.geometry.coordinates[0][0] !== 'undefined') {
-                                    feature.geometry.coordinates = feature.geometry.coordinates[0];
-                                }
-                                break;
-                            case 'LineString':
-                                // LineString: [[x1, y1], [x2, y2], ...]
-                                // 確保座標是二維陣列
-                                if (Array.isArray(feature.geometry.coordinates) && Array.isArray(feature.geometry.coordinates[0]) && Array.isArray(feature.geometry.coordinates[0][0])) {
-                                    feature.geometry.coordinates = feature.geometry.coordinates.flat(1); // 扁平化一層
-                                }
-                                break;
-                            case 'Polygon':
-                                // Polygon: [[[x1, y1], ...], [[x_hole1, y_hole1], ...]]
-                                // 確保座標是三維陣列，並且不要有過多的嵌套
-                                // 如果出現四層嵌套，則扁平化一層。這通常發生在 MultiPolygon 錯誤轉換為 Polygon 或 Polygon 內部環結構不標準時
-                                if (Array.isArray(feature.geometry.coordinates) && feature.geometry.coordinates.length > 0 &&
-                                    Array.isArray(feature.geometry.coordinates[0]) && feature.geometry.coordinates[0].length > 0 &&
-                                    Array.isArray(feature.geometry.coordinates[0][0]) && feature.geometry.coordinates[0][0].length > 0 &&
-                                    Array.isArray(feature.geometry.coordinates[0][0][0])) {
-                                    
-                                    feature.geometry.coordinates = feature.geometry.coordinates.map(ring => ring.flat(1));
-                                }
-                                break;
-                            case 'MultiPoint':
-                            case 'MultiLineString':
-                            case 'MultiPolygon':
-                                // 對於 Multi-geometry 類型，GeoJSON 規範本身就允許更高的嵌套
-                                // 但如果 toGeoJSON 轉換產生了超出規範或 Firestore 限制的嵌套，此處需要更具體的處理
-                                // 目前此處不做額外扁平化，因為這類型的頂層陣列通常直接包裝多個幾何單元
-                                // 如果遇到此類型的錯誤，可能需要將其拆分為單個 Point/LineString/Polygon
-                                break;
-                        }
+                        // 使用新的 normalizeCoordinates 函式處理所有幾何類型
+                        feature.geometry.coordinates = normalizeCoordinates(feature.geometry.coordinates, feature.geometry.type);
                     }
                     return feature;
                 });
-                // --- 新增結束 ---
+
+                // --- 診斷日誌：標準化後 GeoJSON 結構 (即將上傳，可選，調試完成後可移除) ---
+                console.log('--- 標準化後的 GeoJSON (即將上傳) ---');
+                console.log(JSON.stringify(standardizedGeojson, null, 2)); // 輸出漂亮的 JSON 格式
+                // --- 診斷日誌結束 ---
 
                 const parsedFeatures = standardizedGeojson.features || []; // <-- 使用標準化後的 GeoJSON
 
@@ -798,8 +828,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         reader.readAsText(file);
     });
-
-
     // 事件監聽器：刪除 KML
     deleteSelectedKmlBtn.addEventListener('click', async () => {
         const kmlIdToDelete = kmlLayerSelectDashboard.value;
@@ -957,6 +985,7 @@ document.addEventListener('DOMContentLoaded', () => {
             refreshUserList();
         }
     });
+    
         // ===== 圖釘按鈕邏輯（改用 img + 背景顏色）=====
 
   const kmlLayerSelect = document.getElementById('kmlLayerSelect');
