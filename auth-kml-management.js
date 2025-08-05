@@ -665,6 +665,62 @@ function normalizeCoordinates(coords, geometryType) {
 
 
     // 實際執行上傳 KML 的函數
+// **新增：通用的 GeoJSON 座標標準化函數**
+function normalizeCoordinates(coords, geometryType) {
+    if (!Array.isArray(coords)) {
+        // 如果不是陣列，對於點可能就是一個數字，或無效值，嘗試轉為點
+        return [0, 0]; // 預設為安全點
+    }
+
+    // 扁平化所有內部陣列，只保留數字，然後重建到正確的 GeoJSON 深度
+    if (geometryType === 'Point') {
+        // Point: [lon, lat]
+        let flattened = coords.flat(Infinity).filter(val => typeof val === 'number');
+        return flattened.slice(0, 2); // 確保是 [經度, 緯度]
+    } else if (geometryType === 'LineString' || geometryType === 'MultiPoint') {
+        // LineString: [[lon, lat], ...]
+        // MultiPoint: [[lon, lat], ...] (每個元素都是一個點)
+        return coords.map(pair => {
+            let flattenedPair = Array.isArray(pair) ? pair.flat(Infinity).filter(val => typeof val === 'number') : [0, 0];
+            return flattenedPair.slice(0, 2); // 確保每個元素都是 [經度, 緯度]
+        }).filter(pair => pair.length === 2 && typeof pair[0] === 'number' && typeof pair[1] === 'number'); // 過濾掉無效的座標對
+    } else if (geometryType === 'Polygon' || geometryType === 'MultiLineString') {
+        // Polygon: [[[lon, lat], ...], ...] (環陣列)
+        // MultiLineString: [[[lon, lat], ...], ...] (線陣列)
+        return coords.map(ringOrLine => {
+            if (!Array.isArray(ringOrLine)) {
+                console.warn(`Malformed ring/line in ${geometryType}:`, ringOrLine);
+                return []; // 無效的環/線
+            }
+            return ringOrLine.map(pair => {
+                let flattenedPair = Array.isArray(pair) ? pair.flat(Infinity).filter(val => typeof val === 'number') : [0, 0];
+                return flattenedPair.slice(0, 2);
+            }).filter(pair => pair.length === 2 && typeof pair[0] === 'number' && typeof pair[1] === 'number');
+        }).filter(ringOrLine => Array.isArray(ringOrLine) && ringOrLine.length > 0 && ringOrLine.every(p => p.length === 2)); // 過濾掉空或無效的環/線
+    } else if (geometryType === 'MultiPolygon') {
+        // MultiPolygon: [[[[lon, lat], ...], ...], ...] (多個多邊形陣列)
+        return coords.map(polygon => {
+            if (!Array.isArray(polygon)) {
+                console.warn(`Malformed polygon in MultiPolygon:`, polygon);
+                return []; // 無效的多邊形
+            }
+            return polygon.map(ring => {
+                if (!Array.isArray(ring)) {
+                    console.warn(`Malformed ring in MultiPolygon's polygon:`, ring);
+                    return []; // 無效的環
+                }
+                return ring.map(pair => {
+                    let flattenedPair = Array.isArray(pair) ? pair.flat(Infinity).filter(val => typeof val === 'number') : [0, 0];
+                    return flattenedPair.slice(0, 2);
+                }).filter(pair => pair.length === 2 && typeof pair[0] === 'number' && typeof pair[1] === 'number');
+            }).filter(ring => Array.isArray(ring) && ring.length > 0 && ring.every(p => p.length === 2));
+        }).filter(polygon => Array.isArray(polygon) && polygon.length > 0 && polygon.every(r => Array.isArray(r) && r.length > 0));
+    }
+    return coords; // 如果類型未處理或未知，則原樣返回
+}
+
+
+    // 實際執行上傳 KML 的函數
     uploadKmlSubmitBtnDashboard.addEventListener('click', async () => {
         const file = hiddenKmlFileInput.files[0];
         if (!file) {
@@ -698,26 +754,52 @@ function normalizeCoordinates(coords, geometryType) {
                     throw new Error(`KML XML 解析錯誤: ${errorText}。請確保您的 KML 檔案是有效的 XML。`);
                 }
 
-                const geojson = toGeoJSON.kml(kmlDoc); // 將 KML 轉換為 GeoJSON (JSON 格式)
-
-                // --- 深度複製 GeoJSON 並標準化其坐標深度 ---
-                // 這是必要的，因為 Firestore 不支援巢狀陣列，某些複雜的GeoJSON結構可能導致問題
-                const standardizedGeojson = JSON.parse(JSON.stringify(geojson)); // 深度複製
-
-                // --- 診斷日誌：標準化前 GeoJSON 結構 (可選，調試完成後可移除) ---
+                let geojson = toGeoJSON.kml(kmlDoc); // 將 KML 轉換為 GeoJSON (JSON 格式)
+                
+                // --- 診斷日誌：標準化前 GeoJSON 結構 ---
                 console.log('--- 原始 GeoJSON (標準化前) ---');
                 console.log(JSON.stringify(geojson, null, 2)); // 輸出漂亮的 JSON 格式
                 // --- 診斷日誌結束 ---
 
+                // **新增預處理邏輯：處理 GeometryCollection 類型**
+                let flattenedFeatures = [];
+                geojson.features.forEach(feature => {
+                    // 如果是 GeometryCollection，則將其拆解成多個獨立的 Feature
+                    if (feature.geometry && feature.geometry.type === 'GeometryCollection') {
+                        feature.geometry.geometries.forEach(geometry => {
+                            if (geometry && geometry.coordinates) {
+                                flattenedFeatures.push({
+                                    ...feature, // 複製原始 feature 的所有屬性 (例如 properties)
+                                    geometry: { // 替換為單一 geometry
+                                        type: geometry.type,
+                                        coordinates: geometry.coordinates
+                                    }
+                                });
+                            }
+                        });
+                    } else {
+                        // 如果不是 GeometryCollection，則直接保留
+                        flattenedFeatures.push(feature);
+                    }
+                });
+
+                // 將新的扁平化 features 陣列賦回 geojson 物件
+                const standardizedGeojson = {
+                    ...geojson,
+                    features: flattenedFeatures
+                };
+
+
+                // --- 深度複製 GeoJSON 並標準化其坐標深度 ---
                 standardizedGeojson.features = standardizedGeojson.features.map(feature => {
                     if (feature.geometry && feature.geometry.coordinates) {
-                        // 使用新的 normalizeCoordinates 函式處理所有幾何類型
+                        // 使用 normalizeCoordinates 函式處理所有幾何類型
                         feature.geometry.coordinates = normalizeCoordinates(feature.geometry.coordinates, feature.geometry.type);
                     }
                     return feature;
                 });
 
-                // --- 診斷日誌：標準化後 GeoJSON 結構 (即將上傳，可選，調試完成後可移除) ---
+                // --- 診斷日誌：標準化後 GeoJSON 結構 (即將上傳) ---
                 console.log('--- 標準化後的 GeoJSON (即將上傳) ---');
                 console.log(JSON.stringify(standardizedGeojson, null, 2)); // 輸出漂亮的 JSON 格式
                 // --- 診斷日誌結束 ---
@@ -738,6 +820,7 @@ function normalizeCoordinates(coords, geometryType) {
                 }
                 console.log('--- KML 檔案解析結果結束 ---');
 
+                // ... (後續的 Firestore 上傳邏輯保持不變) ...
 
                 if (parsedFeatures.length === 0) {
                     window.showMessageCustom({
@@ -828,6 +911,7 @@ function normalizeCoordinates(coords, geometryType) {
         };
         reader.readAsText(file);
     });
+
     // 事件監聽器：刪除 KML
     deleteSelectedKmlBtn.addEventListener('click', async () => {
         const kmlIdToDelete = kmlLayerSelectDashboard.value;
