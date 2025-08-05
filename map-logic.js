@@ -211,6 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 將 markers 和 navButtons 添加到地圖
     markers.addTo(map);
     navButtons.addTo(map);
+    geoJsonLayers.addTo(map);
 
     // 全局函數：添加標記到地圖 (現在支援 Point, LineString, Polygon)
     window.addGeoJsonLayers = function(geojsonFeatures) {
