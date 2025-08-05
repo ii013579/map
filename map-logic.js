@@ -338,16 +338,19 @@ document.addEventListener('DOMContentLoaded', () => {
     
 // 載入 KML 圖層
 window.loadKmlLayerFromFirestore = async function(kmlId) {
+    // 確保 window.markers 是一個有效的 L.featureGroup
+    if (!window.markers) {
+        window.markers = L.featureGroup().addTo(map);
+        console.log("初始化 window.markers 為新的 L.featureGroup。");
+    }
+
     // 避免重複載入相同的 KML 圖層
     if (window.currentKmlLayerId === kmlId) {
         console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
-        return;
-    }
-
-    // 如果沒有提供 KML ID，則清除地圖上的所有 KML 圖層
-    if (!kmlId) {
-        console.log("未提供 KML ID，不載入。");
-        window.clearAllKmlLayers(); // 清除地圖上的 KML 圖層
+        // 儘管如此，我們還是要確保地圖視角正確
+        if (window.markers.getLayers().length > 0) {
+            map.fitBounds(window.markers.getBounds());
+        }
         return;
     }
 
@@ -378,10 +381,8 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
         const kmlData = doc.data();
         console.log(`正在載入 KML Features，圖層名稱: ${kmlData.name || kmlId}`);
 
-        // 2️⃣ 從文件中取得 GeoJSON 資料
         let geojson = kmlData.geojsonContent;
 
-        // **重要修正**：檢查並解析 GeoJSON 字串
         if (typeof geojson === 'string') {
             try {
                 geojson = JSON.parse(geojson);
@@ -417,17 +418,23 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             console.warn(`從 KML 圖層 "${kmlData.name}" 中跳過了 ${geojson.features.length - loadedFeatures.length} 個無效 features。`);
         }
 
-        // 3️⃣ 更新全域變數並顯示圖層
         window.allKmlFeatures = loadedFeatures;
         
-        // 修正: 確保在 addGeoJsonLayers 之後再嘗試 fitBounds
-        window.addGeoJsonLayers(window.allKmlFeatures);
+        // **修正點 1**: 清除舊圖層，然後創建新的 L.geoJSON 圖層
+        window.markers.clearLayers();
+        const geojsonLayer = L.geoJSON(geojson);
+        geojsonLayer.addTo(window.markers);
+        
+        // 修正點 2: 移除 window.addGeoJsonLayers 函數的呼叫
+        // 因為我們已經將 features 直接加入 markers 圖層群組中，不再需要它了
 
+        console.log(`已添加 ${window.markers.getLayers().length} 個 GeoJSON features 到地圖。`);
+        
         // 4️⃣ 自動調整地圖視角以包含所有標記
-        // 修正: 確認 markers 是一個有效的 L.featureGroup 且包含圖層
-        if (window.allKmlFeatures.length > 0 && window.markers && window.markers.getLayers().length > 0) {
+        // 修正: 檢查 markers 中是否有任何圖層
+        if (window.markers.getLayers().length > 0) {
             const bounds = window.markers.getBounds();
-            // 修正: 檢查邊界是否有效，避免在無效邊界上呼叫 fitBounds
+            // 修正: 檢查邊界是否有效
             if (bounds.isValid()) {
                 map.fitBounds(bounds);
             } else {
@@ -437,7 +444,6 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             console.warn("地圖上沒有圖層可適合。");
         }
 
-        // ✅ 最後設定目前已載入的圖層 ID（避免下次重複載入）
         window.currentKmlLayerId = kmlId;
 
     } catch (error) {
