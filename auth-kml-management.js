@@ -770,8 +770,6 @@ uploadKmlSubmitBtnDashboard.addEventListener('click', async () => {
             }
             console.log('--- KML 檔案解析結果結束 ---');
 
-            // ... (後續的 Firestore 上傳邏輯保持不變) ...
-
             if (parsedFeatures.length === 0) {
                 window.showMessageCustom({
                     title: 'KML 載入',
@@ -788,6 +786,9 @@ uploadKmlSubmitBtnDashboard.addEventListener('click', async () => {
             const existingKmlQuery = await kmlLayersCollectionRef.where('name', '==', fileName).get();
             let kmlLayerDocRef;
             let isOverwriting = false;
+
+            // **修正點：將 GeoJSON 物件轉換為 JSON 字串**
+            const geojsonContentString = JSON.stringify(standardizedGeojson);
 
             if (!existingKmlQuery.empty) {
                 // 找到相同名稱的圖層，詢問是否覆蓋
@@ -817,7 +818,7 @@ uploadKmlSubmitBtnDashboard.addEventListener('click', async () => {
 
                 // 直接更新主 KML 圖層文件，包含新的 geojsonContent
                 await kmlLayerDocRef.update({
-                    geojsonContent: standardizedGeojson, // <-- 儲存標準化後的 GeoJSON 物件
+                    geojsonContent: geojsonContentString, // <-- 儲存 JSON 字串
                     uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
                     uploadedBy: auth.currentUser.email || auth.currentUser.uid,
                     uploadedByRole: window.currentUserRole
@@ -828,7 +829,7 @@ uploadKmlSubmitBtnDashboard.addEventListener('click', async () => {
                 // 沒有找到相同名稱的圖層，新增一個
                 kmlLayerDocRef = await kmlLayersCollectionRef.add({
                     name: fileName,
-                    geojsonContent: standardizedGeojson, // <-- 儲存標準化後的 GeoJSON 物件
+                    geojsonContent: geojsonContentString, // <-- 儲存 JSON 字串
                     uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
                     uploadedBy: auth.currentUser.email || auth.currentUser.uid,
                     uploadedByRole: window.currentUserRole
@@ -861,7 +862,6 @@ uploadKmlSubmitBtnDashboard.addEventListener('click', async () => {
     };
     reader.readAsText(file);
 });
-
 
     // 事件監聽器：刪除 KML
     deleteSelectedKmlBtn.addEventListener('click', async () => {
