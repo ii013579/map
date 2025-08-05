@@ -409,7 +409,6 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             return;
         }
 
-        // 過濾掉沒有有效 geometry 或 properties 的 features
         const loadedFeatures = geojson.features.filter(f =>
             f.geometry && f.geometry.coordinates && f.properties
         );
@@ -418,23 +417,67 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             console.warn(`從 KML 圖層 "${kmlData.name}" 中跳過了 ${geojson.features.length - loadedFeatures.length} 個無效 features。`);
         }
 
+        // 3️⃣ 更新全域變數並顯示圖層
         window.allKmlFeatures = loadedFeatures;
         
-        // **修正點 1**: 清除舊圖層，然後創建新的 L.geoJSON 圖層
+        // **修正點**: 清除舊圖層，並使用 L.geoJSON 創建新圖層時，加入自訂行為
         window.markers.clearLayers();
-        const geojsonLayer = L.geoJSON(geojson);
-        geojsonLayer.addTo(window.markers);
         
-        // 修正點 2: 移除 window.addGeoJsonLayers 函數的呼叫
-        // 因為我們已經將 features 直接加入 markers 圖層群組中，不再需要它了
+        const geojsonLayer = L.geoJSON(geojson, {
+            // 這個選項可以針對每種幾何類型做處理
+            onEachFeature: function(feature, layer) {
+                // 如果是 Polygon 或 LineString，加入滑鼠點擊事件
+                if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'LineString') {
+                    layer.on('click', function() {
+                        const featureName = feature.properties.name || '未命名地圖要素';
+                        const featureDescription = feature.properties.description || '';
+                        window.showFeatureDetails({
+                            name: featureName,
+                            description: featureDescription
+                        });
+                        // 您可以在這裡加入高亮顯示邏輯
+                    });
+                }
+                
+                // 如果是 Point，則加入自訂的點擊行為
+                if (feature.geometry.type === 'Point') {
+                    // 點擊事件
+                    layer.on('click', (e) => {
+                        const name = feature.properties.name || '未命名地點';
+                        const description = feature.properties.description || '無描述';
+                        const latlng = e.latlng;
+                        
+                        // 呼叫您原本處理點擊的函數
+                        window.createNavButton(latlng, name);
+                        window.showFeatureDetails({
+                            name: name,
+                            description: description
+                        });
+                    });
+                }
+            },
+            
+            // 這個選項可以針對 Point 類型做自訂顯示
+            pointToLayer: function(feature, latlng) {
+                // 回復 Point 為紅點的顯示方式
+                return L.circleMarker(latlng, {
+                    radius: 6,
+                    fillColor: "#FF0000", // 紅色
+                    color: "#000",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+            }
+        });
+        
+        geojsonLayer.addTo(window.markers);
 
         console.log(`已添加 ${window.markers.getLayers().length} 個 GeoJSON features 到地圖。`);
         
         // 4️⃣ 自動調整地圖視角以包含所有標記
-        // 修正: 檢查 markers 中是否有任何圖層
         if (window.markers.getLayers().length > 0) {
             const bounds = window.markers.getBounds();
-            // 修正: 檢查邊界是否有效
             if (bounds.isValid()) {
                 map.fitBounds(bounds);
             } else {
@@ -455,7 +498,6 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
         });
     }
 };
-
     // 全局函數：清除所有 KML 圖層、標記和導航按鈕
     window.clearAllKmlLayers = function() {
         if (markers) {
