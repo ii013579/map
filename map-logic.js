@@ -246,53 +246,49 @@ window.addGeoJsonLayers = function(geojsonFeatures) {
         // 其他未知的幾何類型將被忽略
     });
 
-    // 處理 LineString 和 Polygon features
-    if (linePolygonFeatures.length > 0) {
-        L.geoJSON(linePolygonFeatures, {
-            // **修正點**: 在 onEachFeature 中加入點擊事件處理邏輯
-            onEachFeature: function(feature, layer) {
-                layer.on('click', function(e) {
-                    // 清除舊的導航按鈕
-                    if (navButtons) {
-                        navButtons.clearLayers();
-                    }
-
-                    const featureName = feature.properties.name || '未命名地圖要素';
-                    const featureDescription = feature.properties.description || '';
-
-                    window.showFeatureDetails({
-                        name: featureName,
-                        description: featureDescription
-                    });
-
-                    // 根據幾何類型計算中心點
-                    let centerPoint = null;
-                    if (feature.geometry.type === 'Polygon') {
-                        centerPoint = window.getPolygonCentroid(feature.geometry.coordinates[0]);
-                    } else if (feature.geometry.type === 'LineString') {
-                        centerPoint = window.getLineStringMidpoint(feature.geometry.coordinates);
-                    }
-
-                    // 如果成功計算出中心點，則創建導航按鈕
-                    if (centerPoint) {
-                        const centerLatLng = L.latLng(centerPoint[1], centerPoint[0]);
-                        window.createNavButton(centerLatLng, featureName);
-                    }
-                });
-            },
-            // 自定義 LineString 和 Polygon 樣式
-            style: function(feature) {
-                switch (feature.geometry.type) {
-                    case 'LineString':
-                        return { color: '#FF0000', weight: 3, opacity: 0.8 }; // 紅色線
-                    case 'Polygon':
-                        return { color: '#0000FF', weight: 2, opacity: 0.6, fillOpacity: 0.3 }; // 藍色多邊形
-                    default:
-                        return {}; // 默認樣式
+// 處理 LineString 和 Polygon features
+if (linePolygonFeatures.length > 0) {
+    L.geoJSON(linePolygonFeatures, {
+        onEachFeature: function(feature, layer) {
+            layer.on('click', function(e) {
+                // 清除舊的導航按鈕
+                if (navButtons) {
+                    navButtons.clearLayers();
                 }
+
+                const featureName = feature.properties.name || '未命名地圖要素';
+                
+                // **修正點**: 移除呼叫不存在的 window.showFeatureDetails 函式，以避免 TypeError 錯誤
+                // 如果您想重新啟用此功能，請自行定義 window.showFeatureDetails 函式
+
+                // 根據幾何類型計算中心點
+                let centerPoint = null;
+                if (feature.geometry.type === 'Polygon') {
+                    centerPoint = window.getPolygonCentroid(feature.geometry.coordinates[0]);
+                } else if (feature.geometry.type === 'LineString') {
+                    centerPoint = window.getLineStringMidpoint(feature.geometry.coordinates);
+                }
+
+                // 如果成功計算出中心點，則創建導航按鈕
+                if (centerPoint) {
+                    const centerLatLng = L.latLng(centerPoint[1], centerPoint[0]);
+                    window.createNavButton(centerLatLng, featureName);
+                }
+            });
+        },
+        // 自定義 LineString 和 Polygon 樣式
+        style: function(feature) {
+            switch (feature.geometry.type) {
+                case 'LineString':
+                    return { color: '#FF0000', weight: 3, opacity: 0.8 }; // 紅色線
+                case 'Polygon':
+                    return { color: '#0000FF', weight: 2, opacity: 0.6, fillOpacity: 0.3 }; // 藍色多邊形
+                default:
+                    return {}; // 默認樣式
             }
-        }).addTo(geoJsonLayers); // 將線和多邊形添加到 geoJsonLayers
-    }
+        }
+    }).addTo(geoJsonLayers); // 將線和多邊形添加到 geoJsonLayers
+}
 
     // 處理 Point features (使用您原有的自定義樣式和行為)
     pointFeatures.forEach(f => {
