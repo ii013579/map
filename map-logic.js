@@ -337,6 +337,15 @@ window.onMapClick = function(latlng, feature) {
         if (centerPoint) {
             const centerLatLng = L.latLng(centerPoint[1], centerPoint[0]);
             window.createNavButton(centerLatLng, featureName);
+            // **新增的偵錯程式碼**
+            // 由於導航按鈕是最後被創建的，它應該是 navButtons 圖層中的唯一元素
+            setTimeout(() => {
+                const navLayer = navButtons.getLayers()[0];
+                if (navLayer) {
+                    const navDomElement = navLayer.getElement();
+                    console.log('偵錯：導航按鈕的 DOM 元素是:', navDomElement);
+                }
+            }, 100);
         }
     }
 };
