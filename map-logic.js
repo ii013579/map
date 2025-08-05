@@ -341,6 +341,10 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
     // 避免重複載入相同的 KML 圖層
     if (window.currentKmlLayerId === kmlId) {
         console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
+        // 儘管如此，我們還是要確保地圖視角正確
+        if (geojsonLayers.getLayers().length > 0) {
+            map.fitBounds(geojsonLayers.getBounds());
+        }
         return;
     }
 
@@ -380,7 +384,6 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
 
         let geojson = kmlData.geojsonContent;
 
-        // **修正點**：檢查並解析 GeoJSON 字串
         if (typeof geojson === 'string') {
             try {
                 geojson = JSON.parse(geojson);
@@ -407,14 +410,24 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             return;
         }
 
-        // 3️⃣ 更新全域變數並顯示圖層
-        window.allKmlFeatures = geojson.features; // 儲存所有 features，供搜尋使用
-        window.addGeoJsonLayers(window.allKmlFeatures); // 呼叫您原有的函式來處理不同類型的 features
+        window.allKmlFeatures = geojson.features;
+        window.addGeoJsonLayers(window.allKmlFeatures);
         
-        // 4️⃣ 自動調整地圖視角以包含所有標記
-        // 這段邏輯將由您原有的程式碼處理
-        
-        // ✅ 最後設定目前已載入的圖層 ID（避免下次重複載入）
+        // **修正點**：加回地圖自動縮放的邏輯
+        // 確保地圖上有圖層，且邊界有效，再呼叫 fitBounds
+        if (geojsonLayers && geojsonLayers.getLayers().length > 0) {
+            const bounds = geojsonLayers.getBounds();
+            if (bounds && bounds.isValid()) {
+                map.fitBounds(bounds, {
+                    padding: L.point(50, 50) // 添加一些邊距，避免圖層貼近邊緣
+                });
+            } else {
+                console.warn("地理要素存在，但其邊界對於地圖視圖不適用。");
+            }
+        } else {
+            console.warn("地圖上沒有圖層可適合。");
+        }
+
         window.currentKmlLayerId = kmlId;
 
     } catch (error) {
