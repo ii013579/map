@@ -213,126 +213,172 @@ document.addEventListener('DOMContentLoaded', () => {
     navButtons.addTo(map);
     geoJsonLayers.addTo(map);
 
-    // 全局函數：添加標記到地圖 (現在支援 Point, LineString, Polygon)
-    window.addGeoJsonLayers = function(geojsonFeatures) {
-        if (!map) {
-            console.error("地圖尚未初始化。");
-            return;
-        }
+// 全局函數：添加標記到地圖 (現在支援 Point, LineString, Polygon)
+window.addGeoJsonLayers = function(geojsonFeatures) {
+    if (!map) {
+        console.error("地圖尚未初始化。");
+        return;
+    }
 
-        // 每次添加新圖層前，先清除舊的 GeoJSON 圖層和自定義點標記
-        if (geoJsonLayers) {
-            geoJsonLayers.clearLayers();
-        } else {
-            geoJsonLayers = L.featureGroup().addTo(map);
-        }
-        
-        if (markers) {
-            markers.clearLayers(); // 清除所有為點位創建的自定義圓點和文字標籤
-        } else {
-            markers = L.featureGroup().addTo(map);
-        }
-        
-        const linePolygonFeatures = [];
-        const pointFeatures = [];
+    // 每次添加新圖層前，先清除舊的 GeoJSON 圖層和自定義點標記
+    if (geoJsonLayers) {
+        geoJsonLayers.clearLayers();
+    } else {
+        geoJsonLayers = L.featureGroup().addTo(map);
+    }
+    
+    if (markers) {
+        markers.clearLayers(); // 清除所有為點位創建的自定義圓點和文字標籤
+    } else {
+        markers = L.featureGroup().addTo(map);
+    }
+    
+    const linePolygonFeatures = [];
+    const pointFeatures = [];
 
-        // 將 features 分類
-        geojsonFeatures.forEach(feature => {
-            if (feature.geometry && feature.geometry.type === 'Point') {
-                pointFeatures.push(feature);
-            } else if (feature.geometry && (feature.geometry.type === 'LineString' || feature.geometry.type === 'Polygon')) {
-                linePolygonFeatures.push(feature);
-            }
-            // 其他未知的幾何類型將被忽略
-        });
+    // 將 features 分類
+    geojsonFeatures.forEach(feature => {
+        if (feature.geometry && feature.geometry.type === 'Point') {
+            pointFeatures.push(feature);
+        } else if (feature.geometry && (feature.geometry.type === 'LineString' || feature.geometry.type === 'Polygon')) {
+            linePolygonFeatures.push(feature);
+        }
+        // 其他未知的幾何類型將被忽略
+    });
 
-        // 處理 LineString 和 Polygon features
-        if (linePolygonFeatures.length > 0) {
-            L.geoJSON(linePolygonFeatures, {
-                onEachFeature: function(feature, layer) {
-                    // 此處已移除彈出視窗綁定邏輯
-                },
-                // 自定義 LineString 和 Polygon 樣式
-                style: function(feature) {
-                    switch (feature.geometry.type) {
-                        case 'LineString':
-                            return { color: '#FF0000', weight: 3, opacity: 0.8 }; // 紅色線
-                        case 'Polygon':
-                            return { color: '#0000FF', weight: 2, opacity: 0.6, fillOpacity: 0.3 }; // 藍色多邊形
-                        default:
-                            return {}; // 默認樣式
+    // 處理 LineString 和 Polygon features
+    if (linePolygonFeatures.length > 0) {
+        L.geoJSON(linePolygonFeatures, {
+            // **修正點**: 在 onEachFeature 中加入點擊事件處理邏輯
+            onEachFeature: function(feature, layer) {
+                layer.on('click', function(e) {
+                    // 清除舊的導航按鈕
+                    if (navButtons) {
+                        navButtons.clearLayers();
                     }
-                }
-            }).addTo(geoJsonLayers); // 將線和多邊形添加到 geoJsonLayers
-        }
 
-        // 處理 Point features (使用您原有的自定義樣式和行為)
-        pointFeatures.forEach(f => {
-            if (f.geometry && f.geometry.coordinates) {
-                const [lon, lat] = f.geometry.coordinates;
-                const latlng = L.latLng(lat, lon);
-                const name = f.properties ? (f.properties.name || '未命名') : '未命名';
-                const labelId = `label-${lat}-${lon}`.replace(/\./g, '_'); // 確保唯一 ID
+                    const featureName = feature.properties.name || '未命名地圖要素';
+                    const featureDescription = feature.properties.description || '';
 
-                // 自定義圓點圖標
-                const dotIcon = L.divIcon({
-                    className: 'custom-dot-icon',
-                    iconSize: [16, 16],
-                    iconAnchor: [8, 8]
-                });
-
-                // 圓點標記
-                const dot = L.marker(latlng, {
-                    icon: dotIcon,
-                    interactive: true
-                });
-
-                // 文字標籤標記
-                const label = L.marker(latlng, { // 標籤與圓點使用相同座標
-                    icon: L.divIcon({
-                        className: 'marker-label',
-                        html: `<span id="${labelId}">${name}</span>`,
-                        iconSize: [null, null],
-                        iconAnchor: [0, 0] // 標籤錨點，可依需求調整
-                    }),
-                    interactive: false, // 標籤本身不互動
-                    zIndexOffset: 1000 // 確保標籤在圓點上方
-                });
-
-                // 為圓點標記綁定點擊事件
-                dot.on('click', (e) => {
-                    L.DomEvent.stopPropagation(e); // 阻止事件冒泡到地圖本身
-
-                    // 清除所有高亮文字
-                    document.querySelectorAll('.marker-label span.label-active').forEach(el => {
-                        el.classList.remove('label-active');
+                    window.showFeatureDetails({
+                        name: featureName,
+                        description: featureDescription
                     });
-                    
-                    // 套用高亮到當前 label
-                    const target = document.getElementById(labelId);
-                    if (target) {
-                        target.classList.add('label-active');
+
+                    // 根據幾何類型計算中心點
+                    let centerPoint = null;
+                    if (feature.geometry.type === 'Polygon') {
+                        centerPoint = window.getPolygonCentroid(feature.geometry.coordinates[0]);
+                    } else if (feature.geometry.type === 'LineString') {
+                        centerPoint = window.getLineStringMidpoint(feature.geometry.coordinates);
                     }
 
-                    // 顯示導航按鈕 (假設 window.createNavButton 是您目前使用的函式名)
-                    if (typeof window.createNavButton === 'function') {
-                        window.createNavButton(latlng, name);
-                    } else {
-                        console.warn('createNavButton 函式未定義或不可用。');
+                    // 如果成功計算出中心點，則創建導航按鈕
+                    if (centerPoint) {
+                        const centerLatLng = L.latLng(centerPoint[1], centerPoint[0]);
+                        window.createNavButton(centerLatLng, featureName);
                     }
+                });
+            },
+            // 自定義 LineString 和 Polygon 樣式
+            style: function(feature) {
+                switch (feature.geometry.type) {
+                    case 'LineString':
+                        return { color: '#FF0000', weight: 3, opacity: 0.8 }; // 紅色線
+                    case 'Polygon':
+                        return { color: '#0000FF', weight: 2, opacity: 0.6, fillOpacity: 0.3 }; // 藍色多邊形
+                    default:
+                        return {}; // 默認樣式
+                }
+            }
+        }).addTo(geoJsonLayers); // 將線和多邊形添加到 geoJsonLayers
+    }
+
+    // 處理 Point features (使用您原有的自定義樣式和行為)
+    pointFeatures.forEach(f => {
+        if (f.geometry && f.geometry.coordinates) {
+            const [lon, lat] = f.geometry.coordinates;
+            const latlng = L.latLng(lat, lon);
+            const name = f.properties ? (f.properties.name || '未命名') : '未命名';
+            const labelId = `label-${lat}-${lon}`.replace(/\./g, '_'); // 確保唯一 ID
+
+            // 自定義圓點圖標
+            const dotIcon = L.divIcon({
+                className: 'custom-dot-icon',
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+            });
+
+            // 圓點標記
+            const dot = L.marker(latlng, {
+                icon: dotIcon,
+                interactive: true
+            });
+
+            // 文字標籤標記
+            const label = L.marker(latlng, {
+                icon: L.divIcon({
+                    className: 'marker-label',
+                    html: `<span id="${labelId}">${name}</span>`,
+                    iconSize: [null, null],
+                    iconAnchor: [0, 0]
+                }),
+                interactive: false,
+                zIndexOffset: 1000
+            });
+
+            // 為圓點標記綁定點擊事件
+            dot.on('click', (e) => {
+                L.DomEvent.stopPropagation(e);
+
+                document.querySelectorAll('.marker-label span.label-active').forEach(el => {
+                    el.classList.remove('label-active');
                 });
                 
-                // 此處已移除 Point 標記的彈出視窗綁定邏輯
+                const target = document.getElementById(labelId);
+                if (target) {
+                    target.classList.add('label-active');
+                }
 
-                // 將圓點和文字標籤添加到 'markers' featureGroup 中
-                markers.addLayer(dot);
-                markers.addLayer(label);
-                console.log(`添加 Point: ${name} (Lat: ${latlng.lat}, Lng: ${latlng.lng})`);
-            }
-        });
+                if (typeof window.createNavButton === 'function') {
+                    window.createNavButton(latlng, name);
+                } else {
+                    console.warn('createNavButton 函式未定義或不可用。');
+                }
+            });
+            
+            markers.addLayer(dot);
+            markers.addLayer(label);
+            console.log(`添加 Point: ${name} (Lat: ${latlng.lat}, Lng: ${latlng.lng})`);
+        }
+    });
 
-        console.log(`已添加 ${geojsonFeatures.length} 個 GeoJSON features 到地圖 (${pointFeatures.length} 點, ${linePolygonFeatures.length} 線/多邊形)。`);
-    };
+    console.log(`已添加 ${geojsonFeatures.length} 個 GeoJSON features 到地圖 (${pointFeatures.length} 點, ${linePolygonFeatures.length} 線/多邊形)。`);
+};
+
+// **新增輔助函式**: 計算多邊形的中心點
+window.getPolygonCentroid = function(coords) {
+    let centroid = [0, 0];
+    let count = 0;
+    
+    coords.forEach(point => {
+        centroid[0] += point[0];
+        centroid[1] += point[1];
+        count++;
+    });
+
+    if (count > 0) {
+        centroid[0] /= count;
+        centroid[1] /= count;
+    }
+    return centroid;
+};
+
+// **新增輔助函式**: 計算線段的中點
+window.getLineStringMidpoint = function(coords) {
+    const midIndex = Math.floor(coords.length / 2);
+    return coords[midIndex];
+};
 
     // ✅ 最後設定目前已載入的圖層 ID（避免下次重複載入）
     window.currentKmlLayerId = null;
