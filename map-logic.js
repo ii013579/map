@@ -336,60 +336,76 @@ document.addEventListener('DOMContentLoaded', () => {
     // ✅ 最後設定目前已載入的圖層 ID（避免下次重複載入）
     window.currentKmlLayerId = null;
     
+// 載入 KML 圖層
     window.loadKmlLayerFromFirestore = async function(kmlId) {
-      // 避免重複載入相同的 KML 圖層
-      if (window.currentKmlLayerId === kmlId) {
+    // 避免重複載入相同的 KML 圖層
+    if (window.currentKmlLayerId === kmlId) {
         console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
         return;
-      }
+    }
 
-      // 如果沒有提供 KML ID，則清除地圖上的所有 KML 圖層
-      if (!kmlId) {
+    // 如果沒有提供 KML ID，則清除地圖上的所有 KML 圖層
+    if (!kmlId) {
         console.log("未提供 KML ID，不載入。");
         window.clearAllKmlLayers(); // 清除地圖上的 KML 圖層
         return;
-      }
+    }
 
-      // 在載入新圖層之前，先清除地圖上已有的所有 KML 圖層
-      window.clearAllKmlLayers();
+    // 在載入新圖層之前，先清除地圖上已有的所有 KML 圖層
+    window.clearAllKmlLayers();
 
-      try {
-        // 1️⃣ 取得圖層主文件（包含名稱、基本資料、以及完整的 geojsonContent）
+    try {
         const docRef = db
-          .collection('artifacts')
-          .doc(appId)
-          .collection('public')
-          .doc('data')
-          .collection('kmlLayers')
-          .doc(kmlId);
+            .collection('artifacts')
+            .doc(appId)
+            .collection('public')
+            .doc('data')
+            .collection('kmlLayers')
+            .doc(kmlId);
 
-        const doc = await docRef.get(); // <-- 只讀取一個文件！
+        const doc = await docRef.get();
 
         if (!doc.exists) {
-          console.error('KML 圖層文檔未找到 ID:', kmlId);
-          window.showMessageCustom({
-            title: '錯誤',
-            message: '找不到指定的 KML 圖層資料。',
-            buttonText: '確定'
-          });
-          return;
+            console.error('KML 圖層文檔未找到 ID:', kmlId);
+            window.showMessageCustom({
+                title: '錯誤',
+                message: '找不到指定的 KML 圖層資料。',
+                buttonText: '確定'
+            });
+            return;
         }
 
         const kmlData = doc.data();
         console.log(`正在載入 KML Features，圖層名稱: ${kmlData.name || kmlId}`);
 
-        // 2️⃣ 直接從文件中取得完整的 GeoJSON 物件
-        const geojson = kmlData.geojsonContent;
+        // 2️⃣ 從文件中取得 GeoJSON 資料
+        let geojson = kmlData.geojsonContent;
+
+        // **重要修正**：檢查並解析 GeoJSON 字串
+        // 這是解決「沒有有效的 geojsonContent」錯誤的關鍵步驟
+        if (typeof geojson === 'string') {
+            try {
+                geojson = JSON.parse(geojson);
+            } catch (parseError) {
+                console.error("解析 geojsonContent 字串時發生錯誤:", parseError);
+                window.showMessageCustom({
+                    title: '載入錯誤',
+                    message: `無法解析 KML 圖層 "${kmlData.name || kmlId}" 的地理資料。`,
+                    buttonText: '確定'
+                });
+                return;
+            }
+        }
 
         if (!geojson || !geojson.features || geojson.features.length === 0) {
             console.warn(`KML 圖層 "${kmlData.name}" 沒有有效的 geojsonContent 或 features 為空。`);
             window.showMessageCustom({
-              title: '載入警示',
-              message: 'KML 圖層載入完成但未發現有效地圖元素。',
-              buttonText: '確定'
+                title: '載入警示',
+                message: 'KML 圖層載入完成但未發現有效地圖元素。',
+                buttonText: '確定'
             });
-            window.allKmlFeatures = []; // 清空之前的 features
-            window.currentKmlLayerId = kmlId; // 即使沒有 features，也標記為已載入
+            window.allKmlFeatures = [];
+            window.currentKmlLayerId = kmlId;
             return;
         }
 
@@ -402,30 +418,29 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn(`從 KML 圖層 "${kmlData.name}" 中跳過了 ${geojson.features.length - loadedFeatures.length} 個無效 features。`);
         }
 
-        // 3️⃣ 更新全域變數並顯示圖層 
+        // 3️⃣ 更新全域變數並顯示圖層
         window.allKmlFeatures = loadedFeatures;
-        window.addGeoJsonLayers(window.allKmlFeatures); // 呼叫 addGeoJsonLayers 函數來在地圖上顯示所有 features
+        window.addGeoJsonLayers(window.allKmlFeatures);
 
         // 4️⃣ 自動調整地圖視角以包含所有標記
-        // 確保 markers featureGroup 有有效的圖層且邊界有效
         if (window.allKmlFeatures.length > 0 && markers.getLayers().length > 0 && markers.getBounds().isValid()) {
-          map.fitBounds(markers.getBounds());
+            map.fitBounds(markers.getBounds());
         } else {
-          console.warn("地理要素存在，但其邊界對於地圖視圖不適用，或地圖上沒有圖層可適合。");
+            console.warn("地理要素存在，但其邊界對於地圖視圖不適用，或地圖上沒有圖層可適合。");
         }
 
         // ✅ 最後設定目前已載入的圖層 ID（避免下次重複載入）
         window.currentKmlLayerId = kmlId;
 
-      } catch (error) {
+    } catch (error) {
         console.error("獲取 KML Features 或載入 KML 時出錯:", error);
         window.showMessageCustom({
             title: '錯誤',
             message: `無法載入 KML 圖層: ${error.message}。請確認 Firebase 安全規則已正確設定，允許讀取 /artifacts/{appId}/public/data/kmlLayers。`,
             buttonText: '確定'
         });
-      }
-    };
+    }
+};
 
 
     // 全局函數：清除所有 KML 圖層、標記和導航按鈕
