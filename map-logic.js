@@ -1,4 +1,4 @@
-// map-logic.js
+﻿// map-logic.js
 
 let map;
 let markers = L.featureGroup(); // 用於儲存所有自定義點標記 (圓點和文字標籤)
@@ -341,9 +341,13 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
     // 避免重複載入相同的 KML 圖層
     if (window.currentKmlLayerId === kmlId) {
         console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
-        // 儘管如此，我們還是要確保地圖視角正確
-        if (geojsonLayers.getLayers().length > 0) {
-            map.fitBounds(geojsonLayers.getBounds());
+        // 確保在有圖層的情況下，也能重新執行縮放邏輯
+        if (geoJsonLayers && geoJsonLayers.getLayers().length > 0 || markers && markers.getLayers().length > 0) {
+            const allLayers = L.featureGroup([geoJsonLayers, markers]);
+            const bounds = allLayers.getBounds();
+            if (bounds && bounds.isValid()) {
+                map.fitBounds(bounds, { padding: L.point(50, 50) });
+            }
         }
         return;
     }
@@ -384,6 +388,7 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
 
         let geojson = kmlData.geojsonContent;
 
+        // **修正點 1**: 檢查並解析 GeoJSON 字串
         if (typeof geojson === 'string') {
             try {
                 geojson = JSON.parse(geojson);
@@ -397,7 +402,7 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
                 return;
             }
         }
-        
+
         if (!geojson || !geojson.features || geojson.features.length === 0) {
             console.warn(`KML 圖層 "${kmlData.name}" 沒有有效的 geojsonContent 或 features 為空。`);
             window.showMessageCustom({
@@ -410,16 +415,28 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             return;
         }
 
-        window.allKmlFeatures = geojson.features;
+        // 過濾掉沒有有效 geometry 或 properties 的 features
+        const loadedFeatures = geojson.features.filter(f =>
+            f.geometry && f.geometry.coordinates && f.properties
+        );
+
+        if (loadedFeatures.length !== geojson.features.length) {
+            console.warn(`從 KML 圖層 "${kmlData.name}" 中跳過了 ${geojson.features.length - loadedFeatures.length} 個無效 features。`);
+        }
+
+        // 3️⃣ 更新全域變數並顯示圖層
+        window.allKmlFeatures = loadedFeatures;
         window.addGeoJsonLayers(window.allKmlFeatures);
+
+        // **修正點 2**: 重新調整自動縮放邏輯，讓它同時考慮所有 GeoJSON 圖層和點標記
+        // 將所有圖層合併到一個臨時的 FeatureGroup 中，然後計算邊界
+        const allLayers = L.featureGroup([geoJsonLayers, markers]);
         
-        // **修正點**：加回地圖自動縮放的邏輯
-        // 確保地圖上有圖層，且邊界有效，再呼叫 fitBounds
-        if (geojsonLayers && geojsonLayers.getLayers().length > 0) {
-            const bounds = geojsonLayers.getBounds();
+        if (allLayers.getLayers().length > 0) {
+            const bounds = allLayers.getBounds();
             if (bounds && bounds.isValid()) {
                 map.fitBounds(bounds, {
-                    padding: L.point(50, 50) // 添加一些邊距，避免圖層貼近邊緣
+                    padding: L.point(50, 50) // 添加一些邊距，讓圖層不會貼近邊緣
                 });
             } else {
                 console.warn("地理要素存在，但其邊界對於地圖視圖不適用。");
@@ -427,7 +444,7 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
         } else {
             console.warn("地圖上沒有圖層可適合。");
         }
-
+        
         window.currentKmlLayerId = kmlId;
 
     } catch (error) {
