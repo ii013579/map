@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.currentKmlLayerId = null;
     
 // 載入 KML 圖層
-    window.loadKmlLayerFromFirestore = async function(kmlId) {
+window.loadKmlLayerFromFirestore = async function(kmlId) {
     // 避免重複載入相同的 KML 圖層
     if (window.currentKmlLayerId === kmlId) {
         console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
@@ -382,7 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let geojson = kmlData.geojsonContent;
 
         // **重要修正**：檢查並解析 GeoJSON 字串
-        // 這是解決「沒有有效的 geojsonContent」錯誤的關鍵步驟
         if (typeof geojson === 'string') {
             try {
                 geojson = JSON.parse(geojson);
@@ -420,13 +419,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 3️⃣ 更新全域變數並顯示圖層
         window.allKmlFeatures = loadedFeatures;
+        
+        // 修正: 確保在 addGeoJsonLayers 之後再嘗試 fitBounds
         window.addGeoJsonLayers(window.allKmlFeatures);
 
         // 4️⃣ 自動調整地圖視角以包含所有標記
-        if (window.allKmlFeatures.length > 0 && markers.getLayers().length > 0 && markers.getBounds().isValid()) {
-            map.fitBounds(markers.getBounds());
+        // 修正: 確認 markers 是一個有效的 L.featureGroup 且包含圖層
+        if (window.allKmlFeatures.length > 0 && window.markers && window.markers.getLayers().length > 0) {
+            const bounds = window.markers.getBounds();
+            // 修正: 檢查邊界是否有效，避免在無效邊界上呼叫 fitBounds
+            if (bounds.isValid()) {
+                map.fitBounds(bounds);
+            } else {
+                console.warn("地理要素存在，但其邊界對於地圖視圖不適用。");
+            }
         } else {
-            console.warn("地理要素存在，但其邊界對於地圖視圖不適用，或地圖上沒有圖層可適合。");
+            console.warn("地圖上沒有圖層可適合。");
         }
 
         // ✅ 最後設定目前已載入的圖層 ID（避免下次重複載入）
@@ -441,7 +449,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 };
-
 
     // 全局函數：清除所有 KML 圖層、標記和導航按鈕
     window.clearAllKmlLayers = function() {
