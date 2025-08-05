@@ -612,55 +612,61 @@ document.addEventListener('DOMContentLoaded', () => {
 // **新增：通用的 GeoJSON 座標標準化函數**
 function normalizeCoordinates(coords, geometryType) {
     if (!Array.isArray(coords)) {
-        // 如果不是陣列，對於點可能就是一個數字，或無效值，嘗試轉為點
-        return [0, 0]; // 預設為安全點
+        return [];
     }
 
-    // 扁平化所有內部陣列，只保留數字，然後重建到正確的 GeoJSON 深度
     if (geometryType === 'Point') {
-        // Point: [lon, lat]
-        let flattened = coords.flat(Infinity).filter(val => typeof val === 'number');
-        return flattened.slice(0, 2); // 確保是 [經度, 緯度]
-    } else if (geometryType === 'LineString' || geometryType === 'MultiPoint') {
-        // LineString: [[lon, lat], ...]
-        // MultiPoint: [[lon, lat], ...] (每個元素都是一個點)
+        const flattened = coords.flat(Infinity).filter(val => typeof val === 'number');
+        return flattened.slice(0, 2);
+    }
+
+    if (geometryType === 'LineString' || geometryType === 'MultiPoint') {
         return coords.map(pair => {
-            let flattenedPair = Array.isArray(pair) ? pair.flat(Infinity).filter(val => typeof val === 'number') : [0, 0];
-            return flattenedPair.slice(0, 2); // 確保每個元素都是 [經度, 緯度]
-        }).filter(pair => pair.length === 2 && typeof pair[0] === 'number' && typeof pair[1] === 'number'); // 過濾掉無效的座標對
-    } else if (geometryType === 'Polygon' || geometryType === 'MultiLineString') {
-        // Polygon: [[[lon, lat], ...], ...] (環陣列)
-        // MultiLineString: [[[lon, lat], ...], ...] (線陣列)
-        return coords.map(ringOrLine => {
-            if (!Array.isArray(ringOrLine)) {
-                console.warn(`Malformed ring/line in ${geometryType}:`, ringOrLine);
-                return []; // 無效的環/線
+            const flattenedPair = Array.isArray(pair) ? pair.flat(Infinity).filter(val => typeof val === 'number') : [];
+            return flattenedPair.slice(0, 2);
+        }).filter(pair => pair.length === 2);
+    }
+
+    // 修正後的 Polygon 和 MultiLineString 處理邏輯
+    if (geometryType === 'Polygon' || geometryType === 'MultiLineString') {
+        return coords.map(ring => {
+            if (!Array.isArray(ring)) {
+                console.warn(`Malformed ring/line in ${geometryType}:`, ring);
+                return [];
             }
-            return ringOrLine.map(pair => {
-                let flattenedPair = Array.isArray(pair) ? pair.flat(Infinity).filter(val => typeof val === 'number') : [0, 0];
+            return ring.map(pair => {
+                const flattenedPair = Array.isArray(pair) ? pair.flat(Infinity).filter(val => typeof val === 'number') : [];
                 return flattenedPair.slice(0, 2);
-            }).filter(pair => pair.length === 2 && typeof pair[0] === 'number' && typeof pair[1] === 'number');
-        }).filter(ringOrLine => Array.isArray(ringOrLine) && ringOrLine.length > 0 && ringOrLine.every(p => p.length === 2)); // 過濾掉空或無效的環/線
-    } else if (geometryType === 'MultiPolygon') {
-        // MultiPolygon: [[[[lon, lat], ...], ...], ...] (多個多邊形陣列)
+            }).filter(pair => pair.length === 2);
+        }).filter(ring => ring.length > 0);
+    }
+
+    // 修正後的 MultiPolygon 處理邏輯
+    if (geometryType === 'MultiPolygon') {
         return coords.map(polygon => {
             if (!Array.isArray(polygon)) {
                 console.warn(`Malformed polygon in MultiPolygon:`, polygon);
-                return []; // 無效的多邊形
+                return [];
             }
             return polygon.map(ring => {
                 if (!Array.isArray(ring)) {
                     console.warn(`Malformed ring in MultiPolygon's polygon:`, ring);
-                    return []; // 無效的環
+                    return [];
                 }
                 return ring.map(pair => {
-                    let flattenedPair = Array.isArray(pair) ? pair.flat(Infinity).filter(val => typeof val === 'number') : [0, 0];
+                    const flattenedPair = Array.isArray(pair) ? pair.flat(Infinity).filter(val => typeof val === 'number') : [];
                     return flattenedPair.slice(0, 2);
-                }).filter(pair => pair.length === 2 && typeof pair[0] === 'number' && typeof pair[1] === 'number');
-            }).filter(ring => Array.isArray(ring) && ring.length > 0 && ring.every(p => p.length === 2));
-        }).filter(polygon => Array.isArray(polygon) && polygon.length > 0 && polygon.every(r => Array.isArray(r) && r.length > 0));
+                }).filter(pair => pair.length === 2);
+            }).filter(ring => ring.length > 0);
+        }).filter(polygon => polygon.length > 0);
     }
-    return coords; // 如果類型未處理或未知，則原樣返回
+    
+    // 如果類型未處理或未知，則原樣返回（但經過基礎驗證）
+    if (coords.length > 0 && typeof coords[0] === 'number') {
+        return coords.slice(0, 2);
+    }
+    
+    return coords;
 }
 
 
