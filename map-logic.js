@@ -249,9 +249,26 @@ window.addGeoJsonLayers = function(geojsonFeatures) {
     if (linePolygonFeatures.length > 0) {
         L.geoJSON(linePolygonFeatures, {
             onEachFeature: function(feature, layer) {
-                // 為多邊形和線段綁定點擊事件，並儲存其屬性
+                // **修正點 1**: 強制將多邊形圖層移到最底層
+                layer.bringToBack();
+    
                 layer.on('click', function(e) {
-                    window.onMapClick(e.latlng, feature);
+                    // **修正點 2**: 阻止點擊事件冒泡，避免與其他圖層或地圖點擊事件衝突
+                    L.DomEvent.stopPropagation(e);
+    
+                    const featureName = feature.properties.name || '未命名地圖要素';
+                    
+                    let centerPoint = null;
+                    if (feature.geometry.type === 'Polygon') {
+                        centerPoint = window.getPolygonCentroid(feature.geometry.coordinates[0]);
+                    } else if (feature.geometry.type === 'LineString') {
+                        centerPoint = window.getLineStringMidpoint(feature.geometry.coordinates);
+                    }
+    
+                    if (centerPoint) {
+                        const centerLatLng = L.latLng(centerPoint[1], centerPoint[0]);
+                        window.createNavButton(centerLatLng, featureName);
+                    }
                 });
             },
             style: function(feature) {
@@ -266,7 +283,7 @@ window.addGeoJsonLayers = function(geojsonFeatures) {
             }
         }).addTo(geoJsonLayers);
     }
-
+    
     // 處理 Point features (使用您原有的自定義樣式和行為)
     pointFeatures.forEach(f => {
         if (f.geometry && f.geometry.coordinates) {
