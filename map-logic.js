@@ -518,14 +518,20 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
     
     // 全局函數：創建導航按鈕
     window.createNavButton = function(latlng, name) {
-        navButtons.clearLayers();
-
-        // 使用通用的 Google Maps 查詢 URL，現代手機會自動識別並提供開啟地圖應用的選項。
-        const googleMapsUrl = `http://maps.google.com/maps?q=${latlng.lat},${latlng.lng}`;
-
-
+        if (!map) {
+            console.error("地圖尚未初始化。");
+            return;
+        }
+    
+        // 每次建立新按鈕前，先清除舊的導航按鈕
+        if (navButtons) {
+            navButtons.clearLayers();
+        }
+    
+        const googleMapsUrl = `http://maps.google.com/?q=${latlng.lat},${latlng.lng}`;
+    
         const buttonHtml = `
-            <div class="nav-button-content" onclick="window.open('${googleMapsUrl}', '_blank'); event.stopPropagation();">
+            <div class="nav-button-content">
                 <img src="https://i0.wp.com/canadasafetycouncil.org/wp-content/uploads/2018/08/offroad.png" alt="導航" />
             </div>
         `;
@@ -535,19 +541,24 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             iconSize: [50, 50],
             iconAnchor: [25, 25]
         });
-
-       const navMarker = L.marker(latlng, {
-           icon: buttonIcon,
-           zIndexOffset: 2000, // **修正點 1**: 將 zIndexOffset 提高到 2000，確保按鈕永遠在最上層
-           interactive: true
-       }).addTo(navButtons);
-   
-       // **修正點 2**: 在建立按鈕後，平移地圖中心到按鈕的位置，確保用戶能看到
-       map.panTo(latlng, {
-           duration: 0.5 // 平移動畫時間
-       });
-
-
+    
+        const navMarker = L.marker(latlng, {
+            icon: buttonIcon,
+            zIndexOffset: 2000,
+            interactive: true
+        }).addTo(navButtons);
+    
+        // 在標記上綁定點擊事件，開啟導航
+        navMarker.on('click', function(e) {
+            L.DomEvent.stopPropagation(e); // 阻止事件冒泡到地圖
+            window.open(googleMapsUrl, '_blank');
+        });
+    
+        // 平移地圖中心到按鈕的位置，確保用戶能看到
+        map.panTo(latlng, {
+            duration: 0.5
+        });
+    
         console.log(`已為 ${name} 在 ${latlng.lat}, ${latlng.lng} 創建導航按鈕。`);
     };
 
