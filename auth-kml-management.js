@@ -1,4 +1,4 @@
-﻿// auth-kml-management.js
+﻿// auth-kml-management.js v4.2.37 - Refactored for unified pinning logic with localStorage and removed firebaseConfig.
 
 document.addEventListener('DOMContentLoaded', () => {
     // 獲取所有相關的 DOM 元素
@@ -309,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         '確認刪除用戶',
                         `確定要刪除用戶 ${nicknameToDelete} (${uidToDelete.substring(0,6)}...) 嗎？此操作不可逆！`
                     );
-    
+
                     if (!confirmDelete) return;
     
                     try {
