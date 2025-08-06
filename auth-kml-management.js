@@ -1,4 +1,4 @@
-﻿// auth-kml-management.js v4.2.38 - 修正圖釘按鈕的初始狀態和啟用/禁用邏輯
+﻿// auth-kml-management.js v4.2.39 - 修復圖釘按鈕的邏輯缺陷
 
 document.addEventListener('DOMContentLoaded', () => {
     // 獲取所有相關的 DOM 元素
@@ -49,8 +49,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- KML 圖層選擇變更處理，現在完全負責圖釘按鈕的狀態管理 ---
     const handleKmlLayerSelectChange = () => {
         const kmlId = kmlLayerSelect?.value;
-        currentPinnedKmlId = localStorage.getItem('pinnedKmlId') || null;
-        const isPinned = currentPinnedKmlId === kmlId;
+        const pinnedId = localStorage.getItem('pinnedKmlId');
+        currentPinnedKmlId = pinnedId;
+        const isPinned = pinnedId === kmlId;
 
         if (pinKmlLayerBtn) {
             if (kmlId) {
@@ -76,27 +77,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // 自動套用釘選圖層
     const tryLoadPinnedKmlLayerWhenReady = () => {
         const pinnedId = localStorage.getItem('pinnedKmlId');
-        if (!pinnedId) {
-            // 如果沒有釘選圖層，確保下拉選單為空並執行變更處理
-            kmlLayerSelect.value = "";
-            handleKmlLayerSelectChange();
-            return;
-        }
-        
         currentPinnedKmlId = pinnedId;
-        const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
         
-        if (option) {
-            kmlLayerSelect.value = pinnedId;
-            // 觸發變更事件以載入圖層並更新圖釘狀態
-            kmlLayerSelect.dispatchEvent(new Event('change'));
+        if (pinnedId) {
+            const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
+            if (option) {
+                kmlLayerSelect.value = pinnedId;
+            } else {
+                // 如果釘選的圖層不存在，清除釘選狀態
+                localStorage.removeItem('pinnedKmlId');
+                currentPinnedKmlId = null;
+                console.warn(`已釘選的 KML 圖層 ID ${pinnedId} 不存在，已清除釘選狀態。`);
+                kmlLayerSelect.value = "";
+            }
         } else {
-            // 如果釘選的圖層在列表中找不到，則清除釘選狀態並執行變更處理
-            localStorage.removeItem('pinnedKmlId');
-            currentPinnedKmlId = null;
             kmlLayerSelect.value = "";
-            handleKmlLayerSelectChange();
         }
+        // 確保在任何情況下都觸發一次變更事件來同步 UI 狀態
+        kmlLayerSelect.dispatchEvent(new Event('change'));
     };
 
     // --- 整合 updateKmlLayerSelects ---
@@ -167,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 deleteSelectedKmlBtn.disabled = false;
             }
             
-            // 處理釘選圖層
+            // 處理釘選圖層並確保 UI 同步
             tryLoadPinnedKmlLayerWhenReady();
         } catch (error) {
             console.error("更新 KML 圖層列表時出錯:", error);
@@ -845,22 +843,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (pinKmlLayerBtn) {
-        // 頁面載入時，先確保按鈕是禁用的
-        pinKmlLayerBtn.setAttribute('disabled', 'true');
-        
         pinKmlLayerBtn.addEventListener('click', () => {
             const selectedKmlId = kmlLayerSelect.value;
             if (!selectedKmlId) {
                 window.showMessage('釘選失敗', '請先從下拉選單中選擇一個 KML 圖層才能釘選。');
                 return;
             }
-
+            
+            // 處理釘選邏輯
             try {
                 localStorage.setItem('pinnedKmlId', selectedKmlId);
-                console.log(`已將 KML 圖層 ID: ${selectedKmlId} 釘選到 localStorage。`);
-
-                currentPinnedKmlId = selectedKmlId;
+                currentPinnedKmlId = selectedKmlId; // 更新全局變數
                 pinKmlLayerBtn.classList.add('pinned');
+                console.log(`已將 KML 圖層 ID: ${selectedKmlId} 釘選到 localStorage。`);
 
                 const selectedOption = kmlLayerSelect.options[kmlLayerSelect.selectedIndex];
                 const kmlLayerName = selectedOption ? selectedOption.textContent : selectedKmlId;
@@ -880,5 +875,4 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.error('找不到 id 為 "pinKmlLayerBtn" 的圖釘按鈕，釘選功能無法啟用。');
     }
-
 }); // DOMContentLoaded 結束
