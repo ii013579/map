@@ -1,4 +1,4 @@
-﻿// auth-kml-management.js v4.2.46 - 修正重複讀取問題
+﻿// auth-kml-management.js v4.2.47 - 增加圖層快取功能
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
@@ -32,6 +32,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentKmlLayers = [];
     let registrationCodeTimer = null;
     let currentPinnedKmlId = null;
+    
+    // === 新增：全域圖層快取物件 ===
+    window.kmlLayerCache = {};
 
     const getRoleDisplayName = (role) => {
         switch (role) {
@@ -62,19 +65,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // --- 修正後的 KML 圖層選擇處理函數 ---
     const handleKmlLayerSelectChange = () => {
         const kmlId = kmlLayerSelect?.value;
         
         updatePinButtonState();
 
-        if (kmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
-            window.loadKmlLayerFromFirestore(kmlId);
+        if (kmlId) {
+            // 在載入前，檢查快取中是否有資料
+            if (window.kmlLayerCache[kmlId] && typeof window.loadKmlLayerFromCache === 'function') {
+                console.log(`從快取載入圖層：${kmlId}`);
+                window.loadKmlLayerFromCache(kmlId);
+            } else if (typeof window.loadKmlLayerFromFirestore === 'function') {
+                console.log(`快取中沒有資料，從 Firestore 載入圖層：${kmlId}`);
+                window.loadKmlLayerFromFirestore(kmlId);
+            }
         } else if (!kmlId && typeof window.clearAllKmlLayers === 'function') {
             window.clearAllKmlLayers();
         }
     };
 
-    // --- 載入釘選圖層（應用啟動時），已修正重複讀取問題 ---
     const tryLoadPinnedKmlLayerWhenReady = () => {
         const oldPinnedId = localStorage.getItem('pinnedKmlLayerId');
         if (oldPinnedId) {
@@ -90,11 +100,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
             if (option) {
                 kmlLayerSelect.value = pinnedId;
-                // 直接呼叫載入函數，避免再次觸發 change 事件
-                if (typeof window.loadKmlLayerFromFirestore === 'function') {
+                
+                // 載入釘選圖層時，同樣檢查快取
+                if (window.kmlLayerCache[pinnedId] && typeof window.loadKmlLayerFromCache === 'function') {
+                    console.log(`從快取載入釘選圖層：${pinnedId}`);
+                    window.loadKmlLayerFromCache(pinnedId);
+                } else if (typeof window.loadKmlLayerFromFirestore === 'function') {
+                    console.log(`快取中沒有資料，從 Firestore 載入釘選圖層：${pinnedId}`);
                     window.loadKmlLayerFromFirestore(pinnedId);
                 }
-                updatePinButtonState(); // 更新圖釘按鈕狀態
+
+                updatePinButtonState();
                 return;
             } else {
                 localStorage.removeItem('pinnedKmlId');
@@ -520,8 +536,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                     oneTimeCode: null,
                                     oneTimeCodeExpiry: null
                                 }, { merge: true });
-                                console.warn("一次性註冊碼已在 Firestore 中失效（前端嘗試操作）。");
-                                window.showMessage('註冊成功', `歡迎 ${reAuthUser.email} (${nickname})！您的帳號已成功註冊，正在等待審核。`);
+                                console.warn("前端嘗試使註冊碼失效時發生權限不足錯誤:", codeInvalidationError.message);
+                                window.showMessage(
+                                    '註冊待審核', 
+                                    `歡迎 ${reAuthUser.email} (${nickname})！您的帳號已成功註冊，正在等待審核。`
+                                );
                             } catch (codeInvalidationError) {
                                 console.warn("前端嘗試使註冊碼失效時發生權限不足錯誤:", codeInvalidationError.message);
                                 window.showMessage(
@@ -556,6 +575,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await auth.signOut();
             window.showMessage('登出成功', '用戶已登出。');
+            // 登出時清空快取
+            window.kmlLayerCache = {};
         } catch (error) {
             console.error("登出失敗:", error);
             window.showMessage('登出失敗', `登出時發生錯誤: ${error.message}`);
@@ -693,6 +714,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 await batch.commit();
                 console.log(`批量提交成功。已添加 ${addedCount} 個 features。`);
 
+                // 上傳或覆蓋成功後，清空快取以確保下次讀取的是最新版本
+                if (window.kmlLayerCache[kmlLayerDocRef.id]) {
+                    delete window.kmlLayerCache[kmlLayerDocRef.id];
+                    console.log(`已從快取中清除圖層 ${kmlLayerDocRef.id} 的資料。`);
+                }
+
                 const successMessage = isOverwriting ? 
                     `KML 檔案 "${fileName}" 已成功覆蓋並儲存 ${addedCount} 個地理要素。` :
                     `KML 檔案 "${fileName}" 已成功上傳並儲存 ${addedCount} 個地理要素。`;
@@ -753,6 +780,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             await kmlLayerDocRef.delete();
             console.log(`已刪除父 KML 圖層文檔: ${kmlIdToDelete}`);
+            
+            // 刪除成功後，清空快取
+            if (window.kmlLayerCache[kmlIdToDelete]) {
+                delete window.kmlLayerCache[kmlIdToDelete];
+                console.log(`已從快取中清除圖層 ${kmlIdToDelete} 的資料。`);
+            }
 
             window.showMessage('成功', `KML 圖層 "${fileName}" 已成功刪除，共刪除 ${deletedFeaturesCount} 個地理要素。`);
             await updateKmlLayerSelects();
@@ -825,16 +858,17 @@ document.addEventListener('DOMContentLoaded', () => {
             document.execCommand('copy');
             document.body.removeChild(tempInput);
 
-            window.showMessage('成功', `一次性註冊碼已生成並複製到剪貼簿，設定為 ${countdownSeconds} 秒後過期！`);
+            showMessage('成功', `一次性註冊碼已生成並複製到剪貼簿，設定為 ${countdownSeconds} 秒後過期！`);
         } catch (error) {
             console.error("生成註冊碼時出錯:", error);
-            window.showMessage('錯誤', `生成註冊碼失敗: ${error.message}`);
+            showMessage('錯誤', `生成註冊碼失敗: ${error.message}`);
         }
     });
 
+    // 事件監聽器：重新整理用戶列表 (Owner Only)
     refreshUsersBtn.addEventListener('click', () => {
         if (window.currentUserRole !== 'owner') {
-            window.showMessage('權限不足', '只有管理員才能查看或編輯使用者列表。');
+            showMessage('權限不足', '只有管理員才能查看或編輯使用者列表。');
             return;
         }
     
@@ -843,51 +877,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isVisible) {
             userListDiv.style.display = 'none';
         } else {
-            userListDiv.style.display = 'block';
             refreshUserList();
+            userListDiv.style.display = 'block';
         }
     });
-
-    if (kmlLayerSelect) {
-      kmlLayerSelect.addEventListener('change', handleKmlLayerSelectChange);
-    } else {
-      console.error('找不到 id 為 "kmlLayerSelect" 的下拉選單，KML 載入功能無法啟用。');
-    }
-
-    if (pinButton) {
-        pinButton.addEventListener('click', () => {
-            const selectedKmlId = kmlLayerSelect.value;
-            const currentPinnedId = localStorage.getItem('pinnedKmlId');
-
-            if (!selectedKmlId) {
-                window.showMessage('釘選失敗', '請先從下拉選單中選擇一個 KML 圖層才能釘選。');
-                return;
-            }
-            
-            if (currentPinnedId === selectedKmlId) {
-                localStorage.removeItem('pinnedKmlId');
-                window.showMessageCustom({
-                    title: '取消釘選',
-                    message: `「${kmlLayerSelect.options[kmlLayerSelect.selectedIndex]?.textContent || selectedKmlId}」已取消釘選，下次將不自動載入。`,
-                    buttonText: '確定',
-                    autoClose: true,
-                    autoCloseDelay: 3000
-                });
-            } else {
-                localStorage.setItem('pinnedKmlId', selectedKmlId);
-                const selectedOption = kmlLayerSelect.options[kmlLayerSelect.selectedIndex];
-                const kmlLayerName = selectedOption ? selectedOption.textContent : selectedKmlId;
-                window.showMessageCustom({
-                    title: '釘選成功',
-                    message: `「${kmlLayerName}」已釘選為預設圖層。`,
-                    buttonText: '確定',
-                    autoClose: true,
-                    autoCloseDelay: 3000
-                });
-            }
-            updatePinButtonState();
-        });
-    } else {
-        console.error('找不到 id 為 "pinButton" 的圖釘按鈕，釘選功能無法啟用。');
-    }
 });
