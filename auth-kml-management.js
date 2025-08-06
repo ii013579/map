@@ -1,4 +1,4 @@
-﻿// auth-kml-management.js v4.2.42 - 最終修正版，解決圖釘禁用問題
+﻿// auth-kml-management.js v4.2.45 - 最終修正版，完全匹配用戶的HTML和CSS
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logoutBtn');
     const loginMessage = document.getElementById('loginMessage');
     const userEmailDisplay = document.getElementById('userEmailDisplay');
-    const pinKmlLayerBtn = document.getElementById('pinKmlLayerBtn');
+    const pinButton = document.getElementById('pinButton');
     const kmlLayerSelect = document.getElementById('kmlLayerSelect');
 
     const uploadKmlSectionDashboard = document.getElementById('uploadKmlSectionDashboard');
@@ -43,24 +43,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- 圖釘按鈕狀態管理核心函數 (已強化) ---
-    // 這個函數現在更加健壯，確保在任何可能狀態下都能正確更新
+    // --- 圖釘按鈕狀態管理核心函數 (已強化且簡化，並使用 .clicked 類別) ---
     const updatePinButtonState = () => {
-        if (!pinKmlLayerBtn || !kmlLayerSelect) return;
+        if (!pinButton || !kmlLayerSelect) return;
 
         const kmlId = kmlLayerSelect.value;
         const pinnedId = localStorage.getItem('pinnedKmlId');
-
+        
+        // 1. 根據下拉選單是否有選取值來決定按鈕的啟用狀態
         if (kmlId) {
-            pinKmlLayerBtn.removeAttribute('disabled');
-            if (pinnedId === kmlId) {
-                pinKmlLayerBtn.classList.add('pinned');
-            } else {
-                pinKmlLayerBtn.classList.remove('pinned');
-            }
+            pinButton.removeAttribute('disabled');
         } else {
-            pinKmlLayerBtn.setAttribute('disabled', 'true');
-            pinKmlLayerBtn.classList.remove('pinned');
+            pinButton.setAttribute('disabled', 'true');
+        }
+
+        // 2. 根據是否為釘選狀態來切換 CSS 類別
+        if (kmlId && pinnedId === kmlId) {
+            pinButton.classList.add('clicked');
+        } else {
+            pinButton.classList.remove('clicked');
         }
     };
 
@@ -860,8 +861,8 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('找不到 id 為 "kmlLayerSelect" 的下拉選單，KML 載入功能無法啟用。');
     }
 
-    if (pinKmlLayerBtn) {
-        pinKmlLayerBtn.addEventListener('click', () => {
+    if (pinButton) {
+        pinButton.addEventListener('click', () => {
             const selectedKmlId = kmlLayerSelect.value;
             const currentPinnedId = localStorage.getItem('pinnedKmlId');
 
@@ -895,6 +896,6 @@ document.addEventListener('DOMContentLoaded', () => {
             updatePinButtonState();
         });
     } else {
-        console.error('找不到 id 為 "pinKmlLayerBtn" 的圖釘按鈕，釘選功能無法啟用。');
+        console.error('找不到 id 為 "pinButton" 的圖釘按鈕，釘選功能無法啟用。');
     }
 });
