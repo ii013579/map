@@ -1,4 +1,4 @@
-﻿// map-logic.js v4.2.47 - 整合快取和 MarkerCluster
+﻿// map-logic.js v4.2.48 - 修正圖層顯示錯誤
 
 // 全域變數初始化
 let map;
@@ -190,7 +190,8 @@ window.loadKmlLayerFromFirestore = async (kmlId) => {
 
 // 輔助函數：將 GeoJSON features 添加到地圖
 window.addGeoJsonLayers = (features) => {
-    window.clearAllKmlLayers();
+    // 移除此行，因為它會清除已載入的圖層
+    // window.clearAllKmlLayers(); 
     
     const pointFeatures = features.filter(f => f.geometry.type === 'Point');
     const nonPointFeatures = features.filter(f => f.geometry.type !== 'Point');
