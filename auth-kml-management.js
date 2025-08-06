@@ -1,4 +1,4 @@
-﻿// auth-kml-management.js v4.2.40 - 整合舊版圖釘功能並修復邏輯
+﻿// auth-kml-management.js v4.2.42 - 最終修正版，解決圖釘禁用問題
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
@@ -43,13 +43,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- 圖釘按鈕狀態管理核心函數 ---
+    // --- 圖釘按鈕狀態管理核心函數 (已強化) ---
+    // 這個函數現在更加健壯，確保在任何可能狀態下都能正確更新
     const updatePinButtonState = () => {
         if (!pinKmlLayerBtn || !kmlLayerSelect) return;
 
         const kmlId = kmlLayerSelect.value;
         const pinnedId = localStorage.getItem('pinnedKmlId');
-        
+
         if (kmlId) {
             pinKmlLayerBtn.removeAttribute('disabled');
             if (pinnedId === kmlId) {
@@ -67,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleKmlLayerSelectChange = () => {
         const kmlId = kmlLayerSelect?.value;
         
+        // 確保每次下拉選單改變時都同步圖釘狀態
         updatePinButtonState();
 
         if (kmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
@@ -78,7 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 載入釘選圖層（應用啟動時） ---
     const tryLoadPinnedKmlLayerWhenReady = () => {
-        // 檢查舊版使用的 localStorage 鍵，如果存在，則轉換到新鍵
         const oldPinnedId = localStorage.getItem('pinnedKmlLayerId');
         if (oldPinnedId) {
             localStorage.setItem('pinnedKmlId', oldPinnedId);
@@ -93,9 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
             if (option) {
                 kmlLayerSelect.value = pinnedId;
-                // 強制觸發一次 change 事件來載入圖層並更新按鈕狀態
                 kmlLayerSelect.dispatchEvent(new Event('change'));
-                return; // 如果找到釘選圖層，後續的處理交給 change 事件
+                return;
             } else {
                 localStorage.removeItem('pinnedKmlId');
                 currentPinnedKmlId = null;
@@ -103,11 +103,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // 如果沒有釘選圖層，或釘選圖層不存在，確保下拉選單為空且按鈕狀態正確
         if (kmlLayerSelect) {
             kmlLayerSelect.value = "";
-            updatePinButtonState();
         }
+        // 確保沒有釘選時，圖釘按鈕也能回到未釘選的初始狀態
+        updatePinButtonState();
         if (typeof window.clearAllKmlLayers === 'function') {
             window.clearAllKmlLayers();
         }
@@ -428,7 +428,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (window.currentUserRole === 'unapproved') {
                         window.showMessage('帳號審核中', '您的帳號正在等待管理員審核。在審核通過之前，您將無法上傳或刪除 KML。');
                     }
-                    updateKmlLayerSelects();
+                    await updateKmlLayerSelects();
+                    // 強制在任何 auth 狀態改變後更新圖釘狀態
+                    updatePinButtonState();
                 } else {
                     console.log("用戶數據不存在，為新註冊用戶創建預設數據。");
                     auth.signOut();
@@ -450,7 +452,9 @@ document.addEventListener('DOMContentLoaded', () => {
             userEmailDisplay.textContent = '';
             userEmailDisplay.style.display = 'none';
             window.currentUserRole = null;
-            updateKmlLayerSelects();
+            await updateKmlLayerSelects();
+            // 強制在登出後更新圖釘狀態
+            updatePinButtonState();
         }
     });
 
@@ -699,7 +703,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 hiddenKmlFileInput.value = '';
                 selectedKmlFileNameDashboard.textContent = '尚未選擇檔案';
                 uploadKmlSubmitBtnDashboard.disabled = true;
-                updateKmlLayerSelects();
+                await updateKmlLayerSelects();
+                // 確保上傳後圖釘狀態正確
+                updatePinButtonState();
             } catch (error) {
                 console.error("處理 KML 檔案或上傳到 Firebase 時出錯:", error);
                 window.showMessage('KML 處理錯誤', `處理 KML 檔案或上傳時發生錯誤：${error.message}`);
@@ -753,8 +759,10 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log(`已刪除父 KML 圖層文檔: ${kmlIdToDelete}`);
 
             window.showMessage('成功', `KML 圖層 "${fileName}" 已成功刪除，共刪除 ${deletedFeaturesCount} 個地理要素。`);
-            updateKmlLayerSelects();
+            await updateKmlLayerSelects();
             window.clearAllKmlLayers();
+            // 確保刪除後圖釘狀態正確
+            updatePinButtonState();
         }
         catch (error) {
             console.error("刪除 KML 失敗:", error);
