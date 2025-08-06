@@ -1,4 +1,4 @@
-﻿// auth-kml-management.js v4.2.45 - 最終修正版，完全匹配用戶的HTML和CSS
+﻿// auth-kml-management.js v4.2.46 - 修正重複讀取問題
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
@@ -43,21 +43,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- 圖釘按鈕狀態管理核心函數 (已強化且簡化，並使用 .clicked 類別) ---
     const updatePinButtonState = () => {
         if (!pinButton || !kmlLayerSelect) return;
 
         const kmlId = kmlLayerSelect.value;
         const pinnedId = localStorage.getItem('pinnedKmlId');
         
-        // 1. 根據下拉選單是否有選取值來決定按鈕的啟用狀態
         if (kmlId) {
             pinButton.removeAttribute('disabled');
         } else {
             pinButton.setAttribute('disabled', 'true');
         }
 
-        // 2. 根據是否為釘選狀態來切換 CSS 類別
         if (kmlId && pinnedId === kmlId) {
             pinButton.classList.add('clicked');
         } else {
@@ -65,11 +62,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- KML 圖層選擇變更處理 ---
     const handleKmlLayerSelectChange = () => {
         const kmlId = kmlLayerSelect?.value;
         
-        // 確保每次下拉選單改變時都同步圖釘狀態
         updatePinButtonState();
 
         if (kmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
@@ -79,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- 載入釘選圖層（應用啟動時） ---
+    // --- 載入釘選圖層（應用啟動時），已修正重複讀取問題 ---
     const tryLoadPinnedKmlLayerWhenReady = () => {
         const oldPinnedId = localStorage.getItem('pinnedKmlLayerId');
         if (oldPinnedId) {
@@ -95,7 +90,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
             if (option) {
                 kmlLayerSelect.value = pinnedId;
-                kmlLayerSelect.dispatchEvent(new Event('change'));
+                // 直接呼叫載入函數，避免再次觸發 change 事件
+                if (typeof window.loadKmlLayerFromFirestore === 'function') {
+                    window.loadKmlLayerFromFirestore(pinnedId);
+                }
+                updatePinButtonState(); // 更新圖釘按鈕狀態
                 return;
             } else {
                 localStorage.removeItem('pinnedKmlId');
@@ -107,7 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (kmlLayerSelect) {
             kmlLayerSelect.value = "";
         }
-        // 確保沒有釘選時，圖釘按鈕也能回到未釘選的初始狀態
         updatePinButtonState();
         if (typeof window.clearAllKmlLayers === 'function') {
             window.clearAllKmlLayers();
@@ -430,7 +428,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.showMessage('帳號審核中', '您的帳號正在等待管理員審核。在審核通過之前，您將無法上傳或刪除 KML。');
                     }
                     await updateKmlLayerSelects();
-                    // 強制在任何 auth 狀態改變後更新圖釘狀態
                     updatePinButtonState();
                 } else {
                     console.log("用戶數據不存在，為新註冊用戶創建預設數據。");
@@ -454,7 +451,6 @@ document.addEventListener('DOMContentLoaded', () => {
             userEmailDisplay.style.display = 'none';
             window.currentUserRole = null;
             await updateKmlLayerSelects();
-            // 強制在登出後更新圖釘狀態
             updatePinButtonState();
         }
     });
@@ -705,7 +701,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedKmlFileNameDashboard.textContent = '尚未選擇檔案';
                 uploadKmlSubmitBtnDashboard.disabled = true;
                 await updateKmlLayerSelects();
-                // 確保上傳後圖釘狀態正確
                 updatePinButtonState();
             } catch (error) {
                 console.error("處理 KML 檔案或上傳到 Firebase 時出錯:", error);
@@ -762,7 +757,6 @@ document.addEventListener('DOMContentLoaded', () => {
             window.showMessage('成功', `KML 圖層 "${fileName}" 已成功刪除，共刪除 ${deletedFeaturesCount} 個地理要素。`);
             await updateKmlLayerSelects();
             window.clearAllKmlLayers();
-            // 確保刪除後圖釘狀態正確
             updatePinButtonState();
         }
         catch (error) {
@@ -854,7 +848,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 初始化 KML 圖層下拉選單的事件監聽
     if (kmlLayerSelect) {
       kmlLayerSelect.addEventListener('change', handleKmlLayerSelectChange);
     } else {
@@ -892,7 +885,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     autoCloseDelay: 3000
                 });
             }
-            // 每次點擊後強制更新按鈕狀態，確保視覺與實際狀態同步
             updatePinButtonState();
         });
     } else {
