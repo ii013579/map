@@ -1,4 +1,4 @@
-﻿// map-logic.js - 修正圖層載入後立即被清除的邏輯錯誤
+﻿// map-logic.js v1.8
 
 // 全域變數初始化，確保它們在整個腳本中可被訪問
 let map;
@@ -6,7 +6,6 @@ let markers = L.featureGroup();
 let navButtons = L.featureGroup();
 let geoJsonLayers = L.featureGroup();
 window.allKmlFeatures = [];
-window.currentKmlLayerId = null;
 
 // DOM 載入完成後初始化地圖和控制項
 document.addEventListener('DOMContentLoaded', () => {
@@ -63,9 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     map.getPane('overlayPane').style.zIndex = 500;
 
     // 將縮放控制添加到地圖的右上角
-    L.control.zoom({
-        position: 'topright'
-    }).addTo(map);
+    L.control.zoom({ position: 'topright' }).addTo(map);
 
     // 自定義定位控制項
     const LocateMeControl = L.Control.extend({
@@ -194,14 +191,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 將自定義定位控制項添加到地圖的右上角
-    new LocateMeControl({
-        position: 'topright'
-    }).addTo(map);
+    new LocateMeControl({ position: 'topright' }).addTo(map);
 
     // 將基本圖層控制添加到地圖的右上角
-    const layerControl = L.control.layers(baseLayers, null, {
-        position: 'topright'
-    }).addTo(map);
+    const layerControl = L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
 
     // 監聽基本圖層變更事件，並在變更後自動隱藏圖層控制面板
     map.on('baselayerchange', function(e) {
@@ -240,10 +233,10 @@ window.addGeoJsonLayers = function(geojsonFeatures) {
         return;
     }
 
-    // 這裡的清除動作已經在 loadKmlLayerFromFirestore 中處理，因此不需要再次清除
-    // geoJsonLayers.clearLayers();
-    // markers.clearLayers();
-    // navButtons.clearLayers();
+    // 在載入新圖層前先清空
+    geoJsonLayers.clearLayers();
+    markers.clearLayers();
+    navButtons.clearLayers();
 
     const linePolygonFeatures = [];
     const pointFeatures = [];
@@ -262,13 +255,13 @@ window.addGeoJsonLayers = function(geojsonFeatures) {
             onEachFeature: function(feature, layer) {
                 // 強制將多邊形圖層移到最底層
                 layer.bringToBack();
-
+                
                 // 建立多邊形名稱標籤
                 if (feature.geometry.type === 'Polygon' && feature.properties.name) {
                     const featureName = feature.properties.name;
                     const centerPoint = window.getPolygonCentroid(feature.geometry.coordinates[0]);
                     const centerLatLng = L.latLng(centerPoint[1], centerPoint[0]);
-
+                    
                     const polygonLabelIcon = L.divIcon({
                         className: 'marker-label',
                         html: `<span>${featureName}</span>`,
@@ -282,12 +275,12 @@ window.addGeoJsonLayers = function(geojsonFeatures) {
                         zIndexOffset: 1000
                     }).addTo(geoJsonLayers);
                 }
-
+                
                 // 點擊事件處理
                 layer.on('click', function(e) {
                     L.DomEvent.stopPropagation(e);
                     const featureName = feature.properties.name || '未命名地圖要素';
-
+                    
                     let centerPoint = null;
                     if (feature.geometry.type === 'Polygon') {
                         centerPoint = window.getPolygonCentroid(feature.geometry.coordinates[0]);
@@ -304,18 +297,9 @@ window.addGeoJsonLayers = function(geojsonFeatures) {
             style: function(feature) {
                 switch (feature.geometry.type) {
                     case 'LineString':
-                        return {
-                            color: '#FF0000',
-                            weight: 3,
-                            opacity: 0.8
-                        };
+                        return { color: '#FF0000', weight: 3, opacity: 0.8 };
                     case 'Polygon':
-                        return {
-                            color: '#0000FF',
-                            weight: 2,
-                            opacity: 0.6,
-                            fillOpacity: 0.3
-                        };
+                        return { color: '#0000FF', weight: 2, opacity: 0.6, fillOpacity: 0.3 };
                     default:
                         return {};
                 }
@@ -366,7 +350,7 @@ window.addGeoJsonLayers = function(geojsonFeatures) {
                     window.createNavButton(latlng, name);
                 }
             });
-
+            
             markers.addLayer(dot);
             markers.addLayer(label);
         }
@@ -456,9 +440,7 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             const allLayers = L.featureGroup([geoJsonLayers, markers]);
             const bounds = allLayers.getBounds();
             if (bounds && bounds.isValid()) {
-                map.fitBounds(bounds, {
-                    padding: L.point(50, 50)
-                });
+                map.fitBounds(bounds, { padding: L.point(50, 50) });
             }
         }
         return;
@@ -526,21 +508,19 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
 
         window.allKmlFeatures = loadedFeatures;
         window.addGeoJsonLayers(window.allKmlFeatures);
-
+        
         const allLayers = L.featureGroup([geoJsonLayers, markers]);
         if (allLayers.getLayers().length > 0) {
             const bounds = allLayers.getBounds();
             if (bounds && bounds.isValid()) {
-                map.fitBounds(bounds, {
-                    padding: L.point(50, 50)
-                });
+                map.fitBounds(bounds, { padding: L.point(50, 50) });
             } else {
                 console.warn("地理要素存在，但其邊界對於地圖視圖不適用。");
             }
         } else {
             console.warn("地圖上沒有圖層可適合。");
         }
-
+        
         window.currentKmlLayerId = kmlId;
     } catch (error) {
         console.error("獲取 KML Features 或載入 KML 時出錯:", error);
