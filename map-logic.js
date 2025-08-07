@@ -1,4 +1,4 @@
-﻿// map-logic.js v1.8
+﻿// map-logic.js v1.8.1
 
 // 全域變數初始化，確保它們在整個腳本中可被訪問
 let map;
@@ -104,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
     
         _startTracking: function() {
+        	  this._firstViewCentered = false;
             if (!navigator.geolocation) {
                 alert("您的裝置不支援定位功能");
                 return;
@@ -120,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!this._firstViewCentered) {
                         map.setView(latlng, 16);
                         this._firstViewCentered = true;
+                        window.closeMessageCustom?.();
                     }
     
                     this._updateLocation(latlng, accuracy);
