@@ -203,8 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 this._button.style.backgroundColor = active ? 'red' : '';
                 this._button.style.color = active ? 'white' : '';
             }
-        }
-    },
+        },
 
     _onLocationFound: function(e) {
         window.closeMessageCustom();
