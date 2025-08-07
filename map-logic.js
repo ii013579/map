@@ -113,7 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 title: '定位中',
                 message: '正在追蹤您的位置...',
                 buttonText: '停止',
-                autoClose: false
+                autoClose: false,
+                onConfirm: () => this._stopTracking()
             });
     
             this._watchId = navigator.geolocation.watchPosition(
@@ -573,4 +574,5 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             buttonText: '確定'
         });
     }
+
 };
