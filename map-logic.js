@@ -66,96 +66,126 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 自定義定位控制項
     const LocateMeControl = L.Control.extend({
-        _userLocationMarker: null,
-        _userLocationCircle: null,
+    _userLocationMarker: null,
+    _userLocationCircle: null,
+    _watching: false,
+    _button: null,
 
-        onAdd: function(map) {
-            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-locate-me');
-            const button = L.DomUtil.create('a', '', container);
-            button.href = "#";
-            button.title = "顯示我的位置";
-            button.setAttribute("role", "button");
-            button.setAttribute("aria-label", "顯示我的位置");
-            button.innerHTML = `<span class="material-symbols-outlined" style="font-size: 24px; line-height: 30px;">my_location</span>`;
+    onAdd: function(map) {
+        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-locate-me');
+        const button = L.DomUtil.create('a', '', container);
+        button.href = "#";
+        button.title = "顯示我的位置";
+        button.setAttribute("role", "button");
+        button.setAttribute("aria-label", "顯示我的位置");
+        button.innerHTML = `<span class="material-symbols-outlined" style="font-size: 24px; line-height: 30px;">my_location</span>`;
 
-            L.DomEvent.on(button, 'click', this._locateUser, this);
+        this._button = button;
 
-            map.on('locationfound', this._onLocationFound, this);
-            map.on('locationerror', this._onLocationError, this);
+        L.DomEvent.on(button, 'click', this._toggleLocate.bind(this));
 
-            return container;
-        },
+        map.on('locationfound', this._onLocationFound, this);
+        map.on('locationerror', this._onLocationError, this);
 
-        onRemove: function(map) {
-            map.off('locationfound', this._onLocationFound, this);
-            map.off('locationerror', this._onLocationError, this);
+        return container;
+    },
+
+    onRemove: function(map) {
+        map.off('locationfound', this._onLocationFound, this);
+        map.off('locationerror', this._onLocationError, this);
+        this._clearLocationMarkers();
+    },
+
+    _toggleLocate: function(e) {
+        L.DomEvent.stopPropagation(e);
+        L.DomEvent.preventDefault(e);
+
+        if (this._watching) {
+            map.stopLocate();
+            this._watching = false;
             this._clearLocationMarkers();
-        },
-
-        _locateUser: function(e) {
-            L.DomEvent.stopPropagation(e);
-            L.DomEvent.preventDefault(e);
+            this._setButtonActive(false);
+            window.showMessageCustom({
+                title: '定位已停止',
+                message: '已停止位置追蹤。',
+                buttonText: '確定',
+                autoClose: true,
+                autoCloseDelay: 2000
+            });
+        } else {
             this._clearLocationMarkers();
             map.locate({
                 setView: true,
                 maxZoom: 16,
                 enableHighAccuracy: true,
-                watch: false
+                watch: true
             });
+            this._watching = true;
+            this._setButtonActive(true);
             window.showMessageCustom({
                 title: '定位中',
-                message: '正在獲取您的位置...',
-                buttonText: '取消',
+                message: '正在追蹤您的位置...',
+                buttonText: '停止',
                 autoClose: false
             });
-        },
+        }
+    },
 
-        _onLocationFound: function(e) {
-            this._clearLocationMarkers();
-            const radius = e.accuracy / 2;
-            this._userLocationMarker = L.marker(e.latlng, {
-                icon: L.divIcon({
-                    className: 'user-location-dot',
-                    iconSize: [16, 16],
-                    iconAnchor: [8, 8]
-                })
-            }).addTo(map);
-            this._userLocationCircle = L.circle(e.latlng, radius, {
-                color: '#1a73e8',
-                fillColor: '#1a73e8',
-                fillOpacity: 0.15,
-                weight: 2
-            }).addTo(map);
-            window.showMessageCustom({
-                title: '定位成功',
-                message: `您的位置已定位，誤差約 ${radius.toFixed(0)} 公尺。`,
-                buttonText: '確定',
-                autoClose: true,
-                autoCloseDelay: 3000
-            });
-        },
-
-        _onLocationError: function(e) {
-            this._clearLocationMarkers();
-            window.showMessageCustom({
-                title: '定位失敗',
-                message: `無法獲取您的位置: ${e.message}`,
-                buttonText: '確定'
-            });
-            console.error('Geolocation error:', e.message);
-        },
-
-        _clearLocationMarkers: function() {
-            if (this._userLocationMarker) {
-                map.removeLayer(this._userLocationMarker);
-                this._userLocationMarker = null;
-            }
-            if (this._userLocationCircle) {
-                map.removeLayer(this._userLocationCircle);
-                this._userLocationCircle = null;
+    _setButtonActive: function(isActive) {
+        if (this._button) {
+            if (isActive) {
+                this._button.style.backgroundColor = 'red';
+                this._button.style.color = 'white';
+            } else {
+                this._button.style.backgroundColor = '';
+                this._button.style.color = '';
             }
         }
-    });
+    },
+
+    _onLocationFound: function(e) {
+        this._clearLocationMarkers();
+        const radius = e.accuracy / 2;
+
+        this._userLocationMarker = L.marker(e.latlng, {
+            icon: L.divIcon({
+                className: 'user-location-dot',
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+            })
+        }).addTo(map);
+
+        this._userLocationCircle = L.circle(e.latlng, radius, {
+            color: '#1a73e8',
+            fillColor: '#1a73e8',
+            fillOpacity: 0.15,
+            weight: 2
+        }).addTo(map);
+    },
+
+    _onLocationError: function(e) {
+        this._clearLocationMarkers();
+        this._setButtonActive(false);
+        this._watching = false;
+        window.showMessageCustom({
+            title: '定位失敗',
+            message: `無法獲取您的位置: ${e.message}`,
+            buttonText: '確定'
+        });
+        console.error('Geolocation error:', e.message);
+    },
+
+    _clearLocationMarkers: function() {
+        if (this._userLocationMarker) {
+            map.removeLayer(this._userLocationMarker);
+            this._userLocationMarker = null;
+        }
+        if (this._userLocationCircle) {
+            map.removeLayer(this._userLocationCircle);
+            this._userLocationCircle = null;
+        }
+    }
+});
 
     // 處理自定義訊息框
     window.showMessageCustom = function({
@@ -432,17 +462,10 @@ window.clearAllKmlLayers = function() {
     console.log('所有 KML 圖層和相關數據已清除。');
 };
 
-// 載入 KML 圖層 (請確認這個函式有被調用)
+// 載入 KML 圖層
 window.loadKmlLayerFromFirestore = async function(kmlId) {
     if (window.currentKmlLayerId === kmlId) {
         console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
-        if (geoJsonLayers.getLayers().length > 0 || markers.getLayers().length > 0) {
-            const allLayers = L.featureGroup([geoJsonLayers, markers]);
-            const bounds = allLayers.getBounds();
-            if (bounds && bounds.isValid()) {
-                map.fitBounds(bounds, { padding: L.point(50, 50) });
-            }
-        }
         return;
     }
 
@@ -456,7 +479,7 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
 
     try {
         const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId);
-        const doc = await docRef.get();
+        const doc = await docRef.get(); // ✅ 唯一的一次讀取
 
         if (!doc.exists) {
             console.error('KML 圖層文檔未找到 ID:', kmlId);
@@ -469,7 +492,6 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
         }
 
         const kmlData = doc.data();
-        console.log(`正在載入 KML Features，圖層名稱: ${kmlData.name || kmlId}`);
 
         let geojson = kmlData.geojsonContent;
         if (typeof geojson === 'string') {
@@ -503,30 +525,24 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
         );
 
         if (loadedFeatures.length !== geojson.features.length) {
-            console.warn(`從 KML 圖層 "${kmlData.name}" 中跳過了 ${geojson.features.length - loadedFeatures.length} 個無效 features。`);
+            console.warn(`從 geojsonContent 中跳過了 ${geojson.features.length - loadedFeatures.length} 個無效 features。`);
         }
 
         window.allKmlFeatures = loadedFeatures;
-        window.addGeoJsonLayers(window.allKmlFeatures);
-        
-        const allLayers = L.featureGroup([geoJsonLayers, markers]);
-        if (allLayers.getLayers().length > 0) {
-            const bounds = allLayers.getBounds();
-            if (bounds && bounds.isValid()) {
-                map.fitBounds(bounds, { padding: L.point(50, 50) });
-            } else {
-                console.warn("地理要素存在，但其邊界對於地圖視圖不適用。");
-            }
-        } else {
-            console.warn("地圖上沒有圖層可適合。");
-        }
-        
         window.currentKmlLayerId = kmlId;
+
+        window.addGeoJsonLayers(loadedFeatures);
+
+        const allLayers = L.featureGroup([geoJsonLayers, markers]);
+        const bounds = allLayers.getBounds();
+        if (bounds && bounds.isValid()) {
+            map.fitBounds(bounds, { padding: L.point(50, 50) });
+        }
     } catch (error) {
-        console.error("獲取 KML Features 或載入 KML 時出錯:", error);
+        console.error("獲取 KML Features 時出錯:", error);
         window.showMessageCustom({
             title: '錯誤',
-            message: `無法載入 KML 圖層: ${error.message}。請確認 Firebase 安全規則已正確設定，允許讀取 /artifacts/{appId}/public/data/kmlLayers。`,
+            message: `無法載入 KML 圖層: ${error.message}`,
             buttonText: '確定'
         });
     }
