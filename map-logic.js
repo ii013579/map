@@ -203,52 +203,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 this._button.style.backgroundColor = active ? 'red' : '';
                 this._button.style.color = active ? 'white' : '';
             }
-        },
-
-    _onLocationFound: function(e) {
-        window.closeMessageCustom();
-        this._clearLocationMarkers();
-        const radius = e.accuracy / 2;
-
-        this._userLocationMarker = L.marker(e.latlng, {
-            icon: L.divIcon({
-                className: 'user-location-dot',
-                iconSize: [16, 16],
-                iconAnchor: [8, 8]
-            })
-        }).addTo(map);
-
-        this._userLocationCircle = L.circle(e.latlng, radius, {
-            color: '#1a73e8',
-            fillColor: '#1a73e8',
-            fillOpacity: 0.15,
-            weight: 2
-        }).addTo(map);
-    },
-
-    _onLocationError: function(e) {
-        this._clearLocationMarkers();
-        this._setButtonActive(false);
-        this._watching = false;
-        window.showMessageCustom({
-            title: '定位失敗',
-            message: `無法獲取您的位置: ${e.message}`,
-            buttonText: '確定'
-        });
-        console.error('Geolocation error:', e.message);
-    },
-
-    _clearLocationMarkers: function() {
-        if (this._userLocationMarker) {
-            map.removeLayer(this._userLocationMarker);
-            this._userLocationMarker = null;
         }
-        if (this._userLocationCircle) {
-            map.removeLayer(this._userLocationCircle);
-            this._userLocationCircle = null;
-        }
-    }
-});
+    });
 
     // 處理自定義訊息框
     window.showMessageCustom = function({
