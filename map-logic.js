@@ -69,8 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
         _userLocationMarker: null,
         _userLocationCircle: null,
         _watchId: null,
-        _button: null,
         _firstViewCentered: false,
+        _button: null,
     
         onAdd: function(map) {
             const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-locate-me');
@@ -83,7 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
             this._button = button;
             L.DomEvent.on(button, 'click', this._toggleLocate.bind(this));
-    
             return container;
         },
     
@@ -94,17 +93,14 @@ document.addEventListener('DOMContentLoaded', () => {
         _toggleLocate: function(e) {
             L.DomEvent.stopPropagation(e);
             L.DomEvent.preventDefault(e);
-    
             if (this._watchId) {
                 this._stopTracking();
-                return;
+            } else {
+                this._startTracking();
             }
-    
-            this._startTracking();
         },
     
         _startTracking: function() {
-        	  this._firstViewCentered = false;
             if (!navigator.geolocation) {
                 alert("您的裝置不支援定位功能");
                 return;
@@ -112,18 +108,27 @@ document.addEventListener('DOMContentLoaded', () => {
     
             this._firstViewCentered = false;
     
+            // 顯示「定位中」訊息
+            window.showMessageCustom({
+                title: '定位中',
+                message: '正在追蹤您的位置...',
+                buttonText: '停止',
+                autoClose: false
+            });
+    
             this._watchId = navigator.geolocation.watchPosition(
                 (pos) => {
                     const latlng = [pos.coords.latitude, pos.coords.longitude];
                     const accuracy = pos.coords.accuracy;
     
-                    // 第一次定位時移動畫面
+                    // ✅ 第一次定位時移動地圖視角，並關閉「定位中」訊息
                     if (!this._firstViewCentered) {
                         map.setView(latlng, 16);
                         this._firstViewCentered = true;
                         window.closeMessageCustom?.();
                     }
     
+                    // ✅ 更新藍點（不會干擾地圖操作）
                     this._updateLocation(latlng, accuracy);
                 },
                 (err) => {
@@ -143,13 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
             );
     
             this._setButtonActive(true);
-    
-            window.showMessageCustom({
-                title: '定位中',
-                message: '正在追蹤您的位置...',
-                buttonText: '停止',
-                autoClose: false
-            });
         },
     
         _stopTracking: function() {
@@ -160,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
             this._clearLocationMarkers();
             this._setButtonActive(false);
-            window.closeMessageCustom?.(); // 關閉訊息框
+            window.closeMessageCustom?.();
             window.showMessageCustom({
                 title: '定位已停止',
                 message: '位置追蹤已關閉。',
