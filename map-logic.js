@@ -66,79 +66,142 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 自定義定位控制項
     const LocateMeControl = L.Control.extend({
-    _userLocationMarker: null,
-    _userLocationCircle: null,
-    _watching: false,
-    _button: null,
-
-    onAdd: function(map) {
-        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-locate-me');
-        const button = L.DomUtil.create('a', '', container);
-        button.href = "#";
-        button.title = "顯示我的位置";
-        button.setAttribute("role", "button");
-        button.setAttribute("aria-label", "顯示我的位置");
-        button.innerHTML = `<span class="material-symbols-outlined" style="font-size: 24px; line-height: 30px;">my_location</span>`;
-
-        this._button = button;
-
-        L.DomEvent.on(button, 'click', this._toggleLocate.bind(this));
-
-        map.on('locationfound', this._onLocationFound, this);
-        map.on('locationerror', this._onLocationError, this);
-
-        return container;
-    },
-
-    onRemove: function(map) {
-        map.off('locationfound', this._onLocationFound, this);
-        map.off('locationerror', this._onLocationError, this);
-        this._clearLocationMarkers();
-    },
-
-    _toggleLocate: function(e) {
-        L.DomEvent.stopPropagation(e);
-        L.DomEvent.preventDefault(e);
-
-        if (this._watching) {
-            map.stopLocate();
-            this._watching = false;
-            this._clearLocationMarkers();
-            this._setButtonActive(false);
-            window.showMessageCustom({
-                title: '定位已停止',
-                message: '已停止位置追蹤。',
-                buttonText: '確定',
-                autoClose: true,
-                autoCloseDelay: 2000
-            });
-        } else {
-            this._clearLocationMarkers();
-            map.locate({
-                setView: true,
-                maxZoom: 16,
-                enableHighAccuracy: true,
-                watch: true
-            });
-            this._watching = true;
+        _userLocationMarker: null,
+        _userLocationCircle: null,
+        _watchId: null,
+        _button: null,
+        _firstViewCentered: false,
+    
+        onAdd: function(map) {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-locate-me');
+            const button = L.DomUtil.create('a', '', container);
+            button.href = "#";
+            button.title = "顯示我的位置";
+            button.setAttribute("role", "button");
+            button.setAttribute("aria-label", "顯示我的位置");
+            button.innerHTML = `<span class="material-symbols-outlined" style="font-size: 24px; line-height: 30px;">my_location</span>`;
+    
+            this._button = button;
+            L.DomEvent.on(button, 'click', this._toggleLocate.bind(this));
+    
+            return container;
+        },
+    
+        onRemove: function() {
+            this._stopTracking();
+        },
+    
+        _toggleLocate: function(e) {
+            L.DomEvent.stopPropagation(e);
+            L.DomEvent.preventDefault(e);
+    
+            if (this._watchId) {
+                this._stopTracking();
+                return;
+            }
+    
+            this._startTracking();
+        },
+    
+        _startTracking: function() {
+            if (!navigator.geolocation) {
+                alert("您的裝置不支援定位功能");
+                return;
+            }
+    
+            this._firstViewCentered = false;
+    
+            this._watchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const latlng = [pos.coords.latitude, pos.coords.longitude];
+                    const accuracy = pos.coords.accuracy;
+    
+                    // 第一次定位時移動畫面
+                    if (!this._firstViewCentered) {
+                        map.setView(latlng, 16);
+                        this._firstViewCentered = true;
+                    }
+    
+                    this._updateLocation(latlng, accuracy);
+                },
+                (err) => {
+                    console.error("定位失敗:", err.message);
+                    this._stopTracking();
+                    window.showMessageCustom({
+                        title: "定位失敗",
+                        message: err.message,
+                        buttonText: "確定"
+                    });
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 10000
+                }
+            );
+    
             this._setButtonActive(true);
+    
             window.showMessageCustom({
                 title: '定位中',
                 message: '正在追蹤您的位置...',
                 buttonText: '停止',
                 autoClose: false
             });
-        }
-    },
-
-    _setButtonActive: function(isActive) {
-        if (this._button) {
-            if (isActive) {
-                this._button.style.backgroundColor = 'red';
-                this._button.style.color = 'white';
-            } else {
-                this._button.style.backgroundColor = '';
-                this._button.style.color = '';
+        },
+    
+        _stopTracking: function() {
+            if (this._watchId !== null) {
+                navigator.geolocation.clearWatch(this._watchId);
+                this._watchId = null;
+            }
+    
+            this._clearLocationMarkers();
+            this._setButtonActive(false);
+            window.closeMessageCustom?.(); // 關閉訊息框
+            window.showMessageCustom({
+                title: '定位已停止',
+                message: '位置追蹤已關閉。',
+                buttonText: '確定',
+                autoClose: true,
+                autoCloseDelay: 2000
+            });
+        },
+    
+        _updateLocation: function(latlng, accuracy) {
+            this._clearLocationMarkers();
+    
+            this._userLocationMarker = L.marker(latlng, {
+                icon: L.divIcon({
+                    className: 'user-location-dot',
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8]
+                })
+            }).addTo(map);
+    
+            this._userLocationCircle = L.circle(latlng, accuracy / 2, {
+                color: '#1a73e8',
+                fillColor: '#1a73e8',
+                fillOpacity: 0.15,
+                weight: 2
+            }).addTo(map);
+        },
+    
+        _clearLocationMarkers: function() {
+            if (this._userLocationMarker) {
+                map.removeLayer(this._userLocationMarker);
+                this._userLocationMarker = null;
+            }
+            if (this._userLocationCircle) {
+                map.removeLayer(this._userLocationCircle);
+                this._userLocationCircle = null;
+            }
+        },
+    
+        _setButtonActive: function(active) {
+            if (this._button) {
+                this._button.style.backgroundColor = active ? 'red' : '';
+                this._button.style.color = active ? 'white' : '';
             }
         }
     },
