@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     _onLocationFound: function(e) {
+        window.closeMessageCustom();
         this._clearLocationMarkers();
         const radius = e.accuracy / 2;
 
@@ -197,6 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
         onClose = null
     }) {
         const overlay = document.querySelector('.message-box-overlay');
+        if (overlay) overlay.classList.remove('visible');
         const content = overlay.querySelector('.message-box-content');
         const header = content.querySelector('h3');
         const paragraph = content.querySelector('p');
@@ -217,6 +219,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 overlay.classList.remove('visible');
                 if (typeof onClose === 'function') onClose();
             }, autoCloseDelay);
+        }
+    };
+    
+        window.closeMessageCustom = function() {
+        const overlay = document.querySelector('.message-box-overlay');
+        if (overlay) {
+            overlay.classList.remove('visible');
         }
     };
 
