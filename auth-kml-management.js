@@ -67,7 +67,8 @@ const handleKmlLayerSelectChange = () => {
     updatePinButtonState();
 
     if (kmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
-        // 直接呼叫，讓 map-logic.js 自己判斷是否重複
+        // 先清掉，避免殘留造成 return
+        window.currentKmlLayerId = null;
         window.loadKmlLayerFromFirestore(kmlId);
     } else if (!kmlId && typeof window.clearAllKmlLayers === 'function') {
         window.clearAllKmlLayers();
@@ -83,7 +84,9 @@ const tryLoadPinnedKmlLayerWhenReady = () => {
         if (option) {
             kmlLayerSelect.value = pinnedId;
             if (typeof window.loadKmlLayerFromFirestore === 'function') {
-                window.loadKmlLayerFromFirestore(pinnedId); // 直接呼叫
+                // 同樣先清掉
+                window.currentKmlLayerId = null;
+                window.loadKmlLayerFromFirestore(pinnedId);
             }
             updatePinButtonState();
             return;
@@ -102,6 +105,7 @@ const tryLoadPinnedKmlLayerWhenReady = () => {
         window.clearAllKmlLayers();
     }
 };
+
 
     // ... 其餘程式碼保持不變 ...
 
