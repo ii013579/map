@@ -62,63 +62,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const handleKmlLayerSelectChange = () => {
-        const kmlId = kmlLayerSelect?.value;
-        updatePinButtonState();
+const handleKmlLayerSelectChange = () => {
+    const kmlId = kmlLayerSelect?.value;
+    updatePinButtonState();
 
-        if (kmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
-            // 🔒 避免重複讀取
-            if (window.currentKmlLayerId !== kmlId) {
-                window.loadKmlLayerFromFirestore(kmlId);
-            } else {
-                console.log(`⚡ 已載入過圖層 ${kmlId}，不再重複讀取`);
-            }
-        } else if (!kmlId && typeof window.clearAllKmlLayers === 'function') {
-            window.clearAllKmlLayers();
+    if (kmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
+        // 避免重複讀取，但保證第一次會載入
+        if (!window.currentKmlLayerId || window.currentKmlLayerId !== kmlId) {
+            window.loadKmlLayerFromFirestore(kmlId);
+        } else {
+            console.log(`⚡ 已載入過圖層 ${kmlId}，不再重複讀取`);
         }
-    };
+    } else if (!kmlId && typeof window.clearAllKmlLayers === 'function') {
+        window.clearAllKmlLayers();
+    }
+};
 
-    // --- 載入釘選圖層（應用啟動時），已修正重複讀取問題 ---
-    const tryLoadPinnedKmlLayerWhenReady = () => {
-        const oldPinnedId = localStorage.getItem('pinnedKmlLayerId');
-        if (oldPinnedId) {
-            localStorage.setItem('pinnedKmlId', oldPinnedId);
-            localStorage.removeItem('pinnedKmlLayerId');
-            console.log('已將舊的釘選狀態轉換為新格式。');
-        }
+const tryLoadPinnedKmlLayerWhenReady = () => {
+    const pinnedId = localStorage.getItem('pinnedKmlId');
+    currentPinnedKmlId = pinnedId;
 
-        const pinnedId = localStorage.getItem('pinnedKmlId');
-        currentPinnedKmlId = pinnedId;
-        
-        if (pinnedId && kmlLayerSelect) {
-            const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
-            if (option) {
-                kmlLayerSelect.value = pinnedId;
-                // 🔒 避免重複讀取
-                if (typeof window.loadKmlLayerFromFirestore === 'function') {
-                    if (window.currentKmlLayerId !== pinnedId) {
-                        window.loadKmlLayerFromFirestore(pinnedId);
-                    } else {
-                        console.log(`⚡ 已自動載入過圖層 ${pinnedId}，不再重複讀取`);
-                    }
+    if (pinnedId && kmlLayerSelect) {
+        const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
+        if (option) {
+            kmlLayerSelect.value = pinnedId;
+            if (typeof window.loadKmlLayerFromFirestore === 'function') {
+                if (!window.currentKmlLayerId || window.currentKmlLayerId !== pinnedId) {
+                    window.loadKmlLayerFromFirestore(pinnedId);
+                } else {
+                    console.log(`⚡ 已自動載入過圖層 ${pinnedId}，不再重複讀取`);
                 }
-                updatePinButtonState();
-                return;
-            } else {
-                localStorage.removeItem('pinnedKmlId');
-                currentPinnedKmlId = null;
-                console.warn(`已釘選的 KML 圖層 ID ${pinnedId} 不存在，已清除釘選狀態。`);
             }
+            updatePinButtonState();
+            return;
+        } else {
+            localStorage.removeItem('pinnedKmlId');
+            currentPinnedKmlId = null;
+            console.warn(`已釘選的 KML 圖層 ID ${pinnedId} 不存在，已清除釘選狀態。`);
         }
-        
-        if (kmlLayerSelect) {
-            kmlLayerSelect.value = "";
-        }
-        updatePinButtonState();
-        if (typeof window.clearAllKmlLayers === 'function') {
-            window.clearAllKmlLayers();
-        }
-    };
+    }
+
+    if (kmlLayerSelect) {
+        kmlLayerSelect.value = "";
+    }
+    updatePinButtonState();
+    if (typeof window.clearAllKmlLayers === 'function') {
+        window.clearAllKmlLayers();
+    }
+};
 
     // ... 其餘程式碼保持不變 ...
 
