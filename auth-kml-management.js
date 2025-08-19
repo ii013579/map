@@ -32,7 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentKmlLayers = [];
     let registrationCodeTimer = null;
     let currentPinnedKmlId = null;
-    let isInitialLoad = true; // 新增旗標，用於控制初始載入行為
 
     const getRoleDisplayName = (role) => {
         switch (role) {
@@ -49,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const kmlId = kmlLayerSelect.value;
         const pinnedId = localStorage.getItem('pinnedKmlId');
-
+        
         if (kmlId) {
             pinButton.removeAttribute('disabled');
         } else {
@@ -90,13 +89,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pinnedId && kmlLayerSelect) {
             const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
             if (option) {
-                // 修正：當找到釘選圖層時，直接設定值並立即載入
                 kmlLayerSelect.value = pinnedId;
+                // 直接呼叫載入函數，避免再次觸發 change 事件
                 if (typeof window.loadKmlLayerFromFirestore === 'function') {
                     window.loadKmlLayerFromFirestore(pinnedId);
                 }
                 updatePinButtonState(); // 更新圖釘按鈕狀態
-                return; // 修正：載入完成後立即返回，避免後續事件再次觸發
+                return;
             } else {
                 localStorage.removeItem('pinnedKmlId');
                 currentPinnedKmlId = null;
@@ -104,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // 如果沒有釘選圖層，也確保狀態正確
         if (kmlLayerSelect) {
             kmlLayerSelect.value = "";
         }
@@ -177,11 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 deleteSelectedKmlBtn.disabled = false;
             }
             
-            // 修正：僅在初始載入時調用，避免重複觸發
-            if (isInitialLoad) {
-                tryLoadPinnedKmlLayerWhenReady();
-                isInitialLoad = false;
-            }
+            tryLoadPinnedKmlLayerWhenReady();
         } catch (error) {
             console.error("更新 KML 圖層列表時出錯:", error);
             window.showMessage('錯誤', '無法載入 KML 圖層列表。');
@@ -681,15 +675,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log(`沒有找到相同名稱的 KML 圖層，已新增一個。ID: ${kmlLayerDocRef.id}`);
                 }
 
-                // 修正: 將 geojsonContent 直接儲存到主文檔中
-                await kmlLayerDocRef.set({
-                    geojsonContent: JSON.stringify(geojson),
-                }, { merge: true });
-
+               // const featuresSubCollectionRef = kmlLayersCollectionRef.doc(kmlLayerDocRef.id).collection('features');
+               // const batch = db.batch();
+               // let addedCount = 0;
+               // console.log(`開始批量寫入 ${parsedFeatures.length} 個 features 到 ${kmlLayerDocRef.id} 的子集合。`);
+               // for (const f of parsedFeatures) {
+               //     if (f.geometry && f.properties && f.geometry.coordinates) {
+               //         batch.set(featuresSubCollectionRef.doc(), {
+               //             geometry: f.geometry,
+               //             properties: f.properties
+               //         });
+               //         addedCount++;
+               //     } else {
+               //         console.warn("上傳時跳過無效或無座標的 feature:", f.geometry ? f.geometry.type : '無幾何資訊', f);
+               //     }
+               // }
+               // await batch.commit();
+               // console.log(`批量提交成功。已添加 ${addedCount} 個 features。`)
+               
                 const successMessage = isOverwriting ? 
-                    `KML 檔案 "${fileName}" 已成功覆蓋並儲存 ${parsedFeatures.length} 個地理要素。` :
-                    `KML 檔案 "${fileName}" 已成功上傳並儲存 ${parsedFeatures.length} 個地理要素。`;
-                window.showMessage('成功', successMessage);
+                    `KML 檔案 "${fileName}" 已成功覆蓋並儲存 ${addedCount} 個地理要素。` :
+                    `KML 檔案 "${fileName}" 已成功上傳並儲存 ${addedCount} 個地理要素。`;
+                Window.showMessage('成功', successMessage);
                 hiddenKmlFileInput.value = '';
                 selectedKmlFileNameDashboard.textContent = '尚未選擇檔案';
                 uploadKmlSubmitBtnDashboard.disabled = true;
@@ -733,11 +740,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const kmlData = kmlDoc.data();
             const fileName = kmlData.name;
 
-            // 修正: 刪除時不再需要處理子集合，只需刪除主文檔
+            const featuresSubCollectionRef = kmlLayerDocRef.collection('features');
+            const featuresSnapshot = await featuresSubCollectionRef.get();
+            const batch = db.batch();
+            let deletedFeaturesCount = 0;
+            featuresSnapshot.forEach(docRef => {
+                batch.delete(docRef.ref);
+                deletedFeaturesCount++;
+            });
+            await batch.commit();
+            console.log(`已從子集合中刪除 ${deletedFeaturesCount} 個 features。`);
+
             await kmlLayerDocRef.delete();
             console.log(`已刪除父 KML 圖層文檔: ${kmlIdToDelete}`);
 
-            window.showMessage('成功', `KML 圖層 "${fileName}" 已成功刪除。`);
+            window.showMessage('成功', `KML 圖層 "${fileName}" 已成功刪除，共刪除 ${deletedFeaturesCount} 個地理要素。`);
             await updateKmlLayerSelects();
             window.clearAllKmlLayers();
             updatePinButtonState();
