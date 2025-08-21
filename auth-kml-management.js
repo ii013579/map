@@ -91,14 +91,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const pinnedId = localStorage.getItem('pinnedKmlId');
         currentPinnedKmlId = pinnedId;
         
-        if (pinnedId && kmlLayerSelect) {
-            const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
-            if (option) {
-                kmlLayerSelect.value = pinnedId;
-                // 直接呼叫載入函數，避免再次觸發 change 事件
-                if (typeof window.loadKmlLayerFromFirestore === 'function') {
-                    window.loadKmlLayerFromFirestore(pinnedId);
-                }
+            if (pinnedId && kmlLayerSelect) {
+                const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
+                if (option) {
+                    kmlLayerSelect.value = pinnedId;
+                    // 🔍 加上重複讀取檢查，避免 pinned 載入多次
+                    if (typeof window.loadKmlLayerFromFirestore === 'function') {
+                        if (window.currentKmlLayerId === pinnedId) {
+                            console.log(`⚠️ 已載入圖層 ${pinnedId}，略過 pinned 初始化的重複讀取`);
+                        } else {
+                            window.loadKmlLayerFromFirestore(pinnedId);
+                        }
+                    }
                 updatePinButtonState(); // 更新圖釘按鈕狀態
                 return;
             } else {
