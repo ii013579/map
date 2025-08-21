@@ -675,28 +675,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log(`沒有找到相同名稱的 KML 圖層，已新增一個。ID: ${kmlLayerDocRef.id}`);
                 }
 
-                const featuresSubCollectionRef = kmlLayersCollectionRef.doc(kmlLayerDocRef.id).collection('features');
-                const batch = db.batch();
-                let addedCount = 0;
-                console.log(`開始批量寫入 ${parsedFeatures.length} 個 features 到 ${kmlLayerDocRef.id} 的子集合。`);
-                for (const f of parsedFeatures) {
-                    if (f.geometry && f.properties && f.geometry.coordinates) {
-                        batch.set(featuresSubCollectionRef.doc(), {
-                            geometry: f.geometry,
-                            properties: f.properties
-                        });
-                        addedCount++;
-                    } else {
-                        console.warn("上傳時跳過無效或無座標的 feature:", f.geometry ? f.geometry.type : '無幾何資訊', f);
-                    }
-                }
-                await batch.commit();
-                console.log(`批量提交成功。已添加 ${addedCount} 個 features。`);
-
+               // const featuresSubCollectionRef = kmlLayersCollectionRef.doc(kmlLayerDocRef.id).collection('features');
+               // const batch = db.batch();
+               // let addedCount = 0;
+               // console.log(`開始批量寫入 ${parsedFeatures.length} 個 features 到 ${kmlLayerDocRef.id} 的子集合。`);
+               // for (const f of parsedFeatures) {
+               //     if (f.geometry && f.properties && f.geometry.coordinates) {
+               //         batch.set(featuresSubCollectionRef.doc(), {
+               //             geometry: f.geometry,
+               //             properties: f.properties
+               //         });
+               //         addedCount++;
+               //     } else {
+               //         console.warn("上傳時跳過無效或無座標的 feature:", f.geometry ? f.geometry.type : '無幾何資訊', f);
+               //     }
+               // }
+               // await batch.commit();
+               // console.log(`批量提交成功。已添加 ${addedCount} 個 features。`)
+               
                 const successMessage = isOverwriting ? 
                     `KML 檔案 "${fileName}" 已成功覆蓋並儲存 ${addedCount} 個地理要素。` :
                     `KML 檔案 "${fileName}" 已成功上傳並儲存 ${addedCount} 個地理要素。`;
-                window.showMessage('成功', successMessage);
+                Window.showMessage('成功', successMessage);
                 hiddenKmlFileInput.value = '';
                 selectedKmlFileNameDashboard.textContent = '尚未選擇檔案';
                 uploadKmlSubmitBtnDashboard.disabled = true;
