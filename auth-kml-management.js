@@ -1,4 +1,4 @@
-﻿// auth-kml-management.js v1.9
+﻿// auth-kml-management.js v4.2.46 - 修正重複讀取問題
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
@@ -64,21 +64,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleKmlLayerSelectChange = () => {
         const kmlId = kmlLayerSelect?.value;
-    
+        
         updatePinButtonState();
-    
+
         if (kmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
-            // 🔍 避免初始化或重複選擇同一個圖層時，再次讀取 Firebase
-            if (window.currentKmlLayerId === kmlId) {
-                console.log(`⚠️ 已載入圖層 ${kmlId}，略過 change 觸發的重複讀取`);
-                return;
-            }
             window.loadKmlLayerFromFirestore(kmlId);
         } else if (!kmlId && typeof window.clearAllKmlLayers === 'function') {
             window.clearAllKmlLayers();
         }
     };
-    
+
     // --- 載入釘選圖層（應用啟動時），已修正重複讀取問題 ---
     const tryLoadPinnedKmlLayerWhenReady = () => {
         const oldPinnedId = localStorage.getItem('pinnedKmlLayerId');
