@@ -494,39 +494,37 @@ window.clearAllKmlLayers = function() {
 window.kmlCache = {};
 
 // 載入 KML 圖層
-// 建立全域快取
+// 全域快取與狀態
 window.kmlCache = {};
+window.loadingKmlId = null;
 
 window.loadKmlLayerFromFirestore = async function(kmlId) {
-    if (window.currentKmlLayerId === kmlId) {
-        console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
-        return;
-    }
-
     if (!kmlId) {
         console.log("未提供 KML ID，不載入。");
         window.clearAllKmlLayers();
         return;
     }
 
-    // 1️⃣ 如果快取有資料，直接用，不去 Firebase
+    // 🔒 避免同一圖層重複或同時載入
+    if (window.currentKmlLayerId === kmlId || window.loadingKmlId === kmlId) {
+        console.log(`⚠️ 圖層 ${kmlId} 已經載入或正在載入，略過重複讀取`);
+        return;
+    }
+    window.loadingKmlId = kmlId; // 標記為載入中
+
+    // ✅ 如果快取裡已有，直接載入，不去 Firestore
     if (window.kmlCache[kmlId]) {
         console.log(`⚡ 從快取載入圖層 ${kmlId}`);
         window.clearAllKmlLayers();
         window.allKmlFeatures = window.kmlCache[kmlId];
         window.currentKmlLayerId = kmlId;
         window.addGeoJsonLayers(window.kmlCache[kmlId]);
-
-        // ✅ 保持自動 zoom
-        const allLayers = L.featureGroup([geoJsonLayers, markers]);
-        const bounds = allLayers.getBounds();
-        if (bounds && bounds.isValid()) {
-            map.fitBounds(bounds, { padding: L.point(50, 50) });
-        }
+        fitToLayers(); // 保持自動 zoom
+        window.loadingKmlId = null;
         return;
     }
 
-    // 2️⃣ 沒有快取才去 Firestore
+    // 2️⃣ 沒有快取 → Firestore 讀取
     window.clearAllKmlLayers();
     try {
         const docRef = db.collection('artifacts').doc(appId)
@@ -535,32 +533,54 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
 
         if (!doc.exists) {
             console.error('KML 圖層文檔未找到 ID:', kmlId);
+            window.loadingKmlId = null;
             return;
         }
 
         let geojson = doc.data().geojsonContent;
         if (typeof geojson === 'string') {
-            geojson = JSON.parse(geojson);
+            try {
+                geojson = JSON.parse(geojson);
+            } catch (parseError) {
+                console.error("解析 geojsonContent 時出錯:", parseError);
+                window.loadingKmlId = null;
+                return;
+            }
+        }
+
+        if (!geojson || !geojson.features || geojson.features.length === 0) {
+            console.warn(`KML 圖層 "${doc.data().name}" 沒有有效的 features。`);
+            window.allKmlFeatures = [];
+            window.currentKmlLayerId = kmlId;
+            window.loadingKmlId = null;
+            return;
         }
 
         const loadedFeatures = geojson.features.filter(f =>
             f.geometry && f.geometry.coordinates && f.properties
         );
 
-        // ✅ 存到快取
+        // ✅ 存進快取
         window.kmlCache[kmlId] = loadedFeatures;
 
         window.allKmlFeatures = loadedFeatures;
         window.currentKmlLayerId = kmlId;
         window.addGeoJsonLayers(loadedFeatures);
+        fitToLayers();
 
-        // ✅ 保持自動 zoom
-        const allLayers = L.featureGroup([geoJsonLayers, markers]);
-        const bounds = allLayers.getBounds();
-        if (bounds && bounds.isValid()) {
-            map.fitBounds(bounds, { padding: L.point(50, 50) });
-        }
     } catch (error) {
         console.error("獲取 KML Features 時出錯:", error);
+    } finally {
+        // 無論成功或失敗，都要清掉 loading 狀態
+        window.loadingKmlId = null;
     }
 };
+
+// 🔧 輔助函式：縮放到目前圖層
+function fitToLayers() {
+    const allLayers = L.featureGroup([geoJsonLayers, markers]);
+    const bounds = allLayers.getBounds();
+    if (bounds && bounds.isValid()) {
+        map.fitBounds(bounds, { padding: L.point(50, 50) });
+    }
+}
