@@ -494,6 +494,9 @@ window.clearAllKmlLayers = function() {
 window.kmlCache = {};
 
 // 載入 KML 圖層
+// 建立全域快取
+window.kmlCache = {};
+
 window.loadKmlLayerFromFirestore = async function(kmlId) {
     if (window.currentKmlLayerId === kmlId) {
         console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
@@ -513,13 +516,21 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
         window.allKmlFeatures = window.kmlCache[kmlId];
         window.currentKmlLayerId = kmlId;
         window.addGeoJsonLayers(window.kmlCache[kmlId]);
+
+        // ✅ 保持自動 zoom
+        const allLayers = L.featureGroup([geoJsonLayers, markers]);
+        const bounds = allLayers.getBounds();
+        if (bounds && bounds.isValid()) {
+            map.fitBounds(bounds, { padding: L.point(50, 50) });
+        }
         return;
     }
 
     // 2️⃣ 沒有快取才去 Firestore
     window.clearAllKmlLayers();
     try {
-        const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId);
+        const docRef = db.collection('artifacts').doc(appId)
+            .collection('public').doc('data').collection('kmlLayers').doc(kmlId);
         const doc = await docRef.get();
 
         if (!doc.exists) {
@@ -543,6 +554,12 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
         window.currentKmlLayerId = kmlId;
         window.addGeoJsonLayers(loadedFeatures);
 
+        // ✅ 保持自動 zoom
+        const allLayers = L.featureGroup([geoJsonLayers, markers]);
+        const bounds = allLayers.getBounds();
+        if (bounds && bounds.isValid()) {
+            map.fitBounds(bounds, { padding: L.point(50, 50) });
+        }
     } catch (error) {
         console.error("獲取 KML Features 時出錯:", error);
     }
