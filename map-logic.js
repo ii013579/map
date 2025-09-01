@@ -490,6 +490,9 @@ window.clearAllKmlLayers = function() {
     console.log('所有 KML 圖層和相關數據已清除。');
 };
 
+// 建立全域快取
+window.kmlCache = {};
+
 // 載入 KML 圖層
 window.loadKmlLayerFromFirestore = async function(kmlId) {
     if (window.currentKmlLayerId === kmlId) {
@@ -503,76 +506,44 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
         return;
     }
 
-    window.clearAllKmlLayers();
+    // 1️⃣ 如果快取有資料，直接用，不去 Firebase
+    if (window.kmlCache[kmlId]) {
+        console.log(`⚡ 從快取載入圖層 ${kmlId}`);
+        window.clearAllKmlLayers();
+        window.allKmlFeatures = window.kmlCache[kmlId];
+        window.currentKmlLayerId = kmlId;
+        window.addGeoJsonLayers(window.kmlCache[kmlId]);
+        return;
+    }
 
+    // 2️⃣ 沒有快取才去 Firestore
+    window.clearAllKmlLayers();
     try {
         const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers').doc(kmlId);
-        const doc = await docRef.get(); // ✅ 唯一的一次讀取
+        const doc = await docRef.get();
 
         if (!doc.exists) {
             console.error('KML 圖層文檔未找到 ID:', kmlId);
-            window.showMessageCustom({
-                title: '錯誤',
-                message: '找不到指定的 KML 圖層資料。',
-                buttonText: '確定'
-            });
             return;
         }
 
-        const kmlData = doc.data();
-
-        let geojson = kmlData.geojsonContent;
+        let geojson = doc.data().geojsonContent;
         if (typeof geojson === 'string') {
-            try {
-                geojson = JSON.parse(geojson);
-            } catch (parseError) {
-                console.error("解析 geojsonContent 字串時發生錯誤:", parseError);
-                window.showMessageCustom({
-                    title: '載入錯誤',
-                    message: `無法解析 KML 圖層 "${kmlData.name || kmlId}" 的地理資料。`,
-                    buttonText: '確定'
-                });
-                return;
-            }
-        }
-
-        if (!geojson || !geojson.features || geojson.features.length === 0) {
-            console.warn(`KML 圖層 "${kmlData.name}" 沒有有效的 geojsonContent 或 features 為空。`);
-            window.showMessageCustom({
-                title: '載入警示',
-                message: 'KML 圖層載入完成但未發現有效地圖元素。',
-                buttonText: '確定'
-            });
-            window.allKmlFeatures = [];
-            window.currentKmlLayerId = kmlId;
-            return;
+            geojson = JSON.parse(geojson);
         }
 
         const loadedFeatures = geojson.features.filter(f =>
             f.geometry && f.geometry.coordinates && f.properties
         );
 
-        if (loadedFeatures.length !== geojson.features.length) {
-            console.warn(`從 geojsonContent 中跳過了 ${geojson.features.length - loadedFeatures.length} 個無效 features。`);
-        }
+        // ✅ 存到快取
+        window.kmlCache[kmlId] = loadedFeatures;
 
         window.allKmlFeatures = loadedFeatures;
         window.currentKmlLayerId = kmlId;
-
         window.addGeoJsonLayers(loadedFeatures);
 
-        const allLayers = L.featureGroup([geoJsonLayers, markers]);
-        const bounds = allLayers.getBounds();
-        if (bounds && bounds.isValid()) {
-            map.fitBounds(bounds, { padding: L.point(50, 50) });
-        }
     } catch (error) {
         console.error("獲取 KML Features 時出錯:", error);
-        window.showMessageCustom({
-            title: '錯誤',
-            message: `無法載入 KML 圖層: ${error.message}`,
-            buttonText: '確定'
-        });
     }
-
 };
