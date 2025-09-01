@@ -494,9 +494,9 @@ window.clearAllKmlLayers = function() {
 window.kmlCache = {};
 
 // 載入 KML 圖層
-// 全域快取與狀態
+// 全域快取與請求快取
 window.kmlCache = {};
-window.loadingKmlId = null;
+window.kmlRequestCache = {}; // 用來避免同一圖層多次發請求
 
 window.loadKmlLayerFromFirestore = async function(kmlId) {
     if (!kmlId) {
@@ -505,75 +505,71 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
         return;
     }
 
-    // 🔒 避免同一圖層重複或同時載入
-    if (window.currentKmlLayerId === kmlId || window.loadingKmlId === kmlId) {
-        console.log(`⚠️ 圖層 ${kmlId} 已經載入或正在載入，略過重複讀取`);
+    // ✅ 如果已經載入，直接跳過
+    if (window.currentKmlLayerId === kmlId) {
+        console.log(`⚠️ 圖層 ${kmlId} 已載入，略過重複讀取`);
         return;
     }
-    window.loadingKmlId = kmlId; // 標記為載入中
 
-    // ✅ 如果快取裡已有，直接載入，不去 Firestore
+    // ✅ 如果快取有資料，直接用
     if (window.kmlCache[kmlId]) {
         console.log(`⚡ 從快取載入圖層 ${kmlId}`);
         window.clearAllKmlLayers();
         window.allKmlFeatures = window.kmlCache[kmlId];
         window.currentKmlLayerId = kmlId;
         window.addGeoJsonLayers(window.kmlCache[kmlId]);
-        fitToLayers(); // 保持自動 zoom
-        window.loadingKmlId = null;
+        fitToLayers();
         return;
     }
 
-    // 2️⃣ 沒有快取 → Firestore 讀取
-    window.clearAllKmlLayers();
-    try {
-        const docRef = db.collection('artifacts').doc(appId)
-            .collection('public').doc('data').collection('kmlLayers').doc(kmlId);
-        const doc = await docRef.get();
+    // ✅ 如果已經有請求在進行，直接等它完成
+    if (window.kmlRequestCache[kmlId]) {
+        console.log(`⏳ 等待圖層 ${kmlId} 的請求完成...`);
+        await window.kmlRequestCache[kmlId];
+        return;
+    }
 
-        if (!doc.exists) {
-            console.error('KML 圖層文檔未找到 ID:', kmlId);
-            window.loadingKmlId = null;
-            return;
-        }
+    // 🚀 發送新的請求，存入請求快取
+    window.kmlRequestCache[kmlId] = (async () => {
+        try {
+            const docRef = db.collection('artifacts').doc(appId)
+                .collection('public').doc('data').collection('kmlLayers').doc(kmlId);
+            const doc = await docRef.get();
 
-        let geojson = doc.data().geojsonContent;
-        if (typeof geojson === 'string') {
-            try {
-                geojson = JSON.parse(geojson);
-            } catch (parseError) {
-                console.error("解析 geojsonContent 時出錯:", parseError);
-                window.loadingKmlId = null;
+            if (!doc.exists) {
+                console.error('KML 圖層文檔未找到 ID:', kmlId);
                 return;
             }
-        }
 
-        if (!geojson || !geojson.features || geojson.features.length === 0) {
-            console.warn(`KML 圖層 "${doc.data().name}" 沒有有效的 features。`);
-            window.allKmlFeatures = [];
+            let geojson = doc.data().geojsonContent;
+            if (typeof geojson === 'string') {
+                geojson = JSON.parse(geojson);
+            }
+
+            const loadedFeatures = (geojson.features || []).filter(f =>
+                f.geometry && f.geometry.coordinates && f.properties
+            );
+
+            // ✅ 存入快取
+            window.kmlCache[kmlId] = loadedFeatures;
+
+            // ✅ 更新狀態
+            window.clearAllKmlLayers();
+            window.allKmlFeatures = loadedFeatures;
             window.currentKmlLayerId = kmlId;
-            window.loadingKmlId = null;
-            return;
+            window.addGeoJsonLayers(loadedFeatures);
+            fitToLayers();
+
+        } catch (error) {
+            console.error("獲取 KML Features 時出錯:", error);
+        } finally {
+            // ❌ 移除請求快取（避免卡住）
+            delete window.kmlRequestCache[kmlId];
         }
+    })();
 
-        const loadedFeatures = geojson.features.filter(f =>
-            f.geometry && f.geometry.coordinates && f.properties
-        );
-
-        // ✅ 存進快取
-        window.kmlCache[kmlId] = loadedFeatures;
-
-        window.allKmlFeatures = loadedFeatures;
-        window.currentKmlLayerId = kmlId;
-        window.addGeoJsonLayers(loadedFeatures);
-        fitToLayers();
-
-    } catch (error) {
-        console.error("獲取 KML Features 時出錯:", error);
-    } finally {
-        // 無論成功或失敗，都要清掉 loading 狀態
-        window.loadingKmlId = null;
-    }
+    // 等待請求完成
+    await window.kmlRequestCache[kmlId];
 };
 
 // 🔧 輔助函式：縮放到目前圖層
