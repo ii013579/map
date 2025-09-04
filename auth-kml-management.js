@@ -32,8 +32,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentKmlLayers = [];
     let registrationCodeTimer = null;
     let currentPinnedKmlId = null;
-    // 圖層清單快取（只存 id 與 name）
-    Window.kmlListCache = null;
+    let kmlListInitialized = false;
+
+    document.getElementById('kmlLayerSelect').addEventListener('focus', async () => {
+      if (!kmlListInitialized) {
+        await updateKmlLayerSelects(); // ⚠️ 第一次才抓
+        kmlListInitialized = true;
+      }
+    });
+
+// 圖層清單快取（只存 id 與 name）
+    window.kmlListCache = null;
     window._kmlListLoading = null; // 防止併發抓取
 
     const getRoleDisplayName = (role) => {
