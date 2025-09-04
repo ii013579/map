@@ -34,16 +34,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPinnedKmlId = null;
     let kmlListInitialized = false;
 
-    document.getElementById('kmlLayerSelect').addEventListener('focus', async () => {
-      if (!kmlListInitialized) {
-        await updateKmlLayerSelects(); // ⚠️ 第一次才抓
-        kmlListInitialized = true;
-      }
-    });
-
 // 圖層清單快取（只存 id 與 name）
     window.kmlListCache = null;
-    window._kmlListLoading = null; // 防止併發抓取
+    window._kmlListLoading = null;
+
+// 首次展開下拉才載入清單
+    const kmlLayerSelect = document.getElementById('kmlLayerSelect');
+    if (kmlLayerSelect) {
+      kmlLayerSelect.addEventListener('focus', async () => {
+        if (!kmlListInitialized) {
+          await updateKmlLayerSelects(); // 第一次才去 Firestore 抓
+          kmlListInitialized = true;
+        }
+      });
+    }
 
     const getRoleDisplayName = (role) => {
         switch (role) {
