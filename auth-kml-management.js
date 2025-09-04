@@ -83,47 +83,33 @@ document.addEventListener('DOMContentLoaded', () => {
     };
        
     // --- 載入釘選圖層（應用啟動時），已修正重複讀取問題 ---
-    const tryLoadPinnedKmlLayerWhenReady = () => {
-        const oldPinnedId = localStorage.getItem('pinnedKmlLayerId');
-        if (oldPinnedId) {
-            localStorage.setItem('pinnedKmlId', oldPinnedId);
-            localStorage.removeItem('pinnedKmlLayerId');
-            console.log('已將舊的釘選狀態轉換為新格式。');
-        }
-
-        const pinnedId = localStorage.getItem('pinnedKmlId');
-        currentPinnedKmlId = pinnedId;
-        
-            if (pinnedId && kmlLayerSelect) {
-                const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
-                if (option) {
-                    kmlLayerSelect.value = pinnedId;
-                    // 🔍 加上重複讀取檢查，避免 pinned 載入多次
-                    if (typeof window.loadKmlLayerFromFirestore === 'function') {
-                        if (window.currentKmlLayerId === pinnedId) {
-                            console.log(`⚠️ 已載入圖層 ${pinnedId}，略過 pinned 初始化的重複讀取`);
-                        } else {
-                            window.loadKmlLayerFromFirestore(pinnedId);
-                        }
-                    }
-                updatePinButtonState(); // 更新圖釘按鈕狀態
-                return;
-            } else {
-                localStorage.removeItem('pinnedKmlId');
-                currentPinnedKmlId = null;
-                console.warn(`已釘選的 KML 圖層 ID ${pinnedId} 不存在，已清除釘選狀態。`);
-            }
-        }
-        
-        if (kmlLayerSelect) {
-            kmlLayerSelect.value = "";
-        }
-        updatePinButtonState();
-        if (typeof window.clearAllKmlLayers === 'function') {
-            window.clearAllKmlLayers();
-        }
-    };
-
+   function tryLoadPinnedKmlLayerWhenReady() {
+     const pinnedId = localStorage.getItem('pinnedKmlId');
+     const kmlLayerSelect = document.getElementById('kmlLayerSelect');
+   
+     if (pinnedId && kmlLayerSelect) {
+       const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
+       if (option) {
+         kmlLayerSelect.value = pinnedId;
+   
+         if (typeof window.loadKmlLayerFromFirestore === 'function') {
+           console.log(`🔖 發現已釘選圖層 ${pinnedId}，自動載入`);
+           window.loadKmlLayerFromFirestore(pinnedId); // ✅ 只有釘選時才自動載入
+         }
+   
+         updatePinButtonState(); // 更新圖釘按鈕狀態
+         return;
+       } else {
+         // 如果釘選的圖層不存在，清掉狀態
+         localStorage.removeItem('pinnedKmlId');
+         currentPinnedKmlId = null;
+         console.warn(`已釘選的 KML 圖層 ID ${pinnedId} 不存在，已清除釘選狀態。`);
+       }
+     } else {
+       console.log("無釘選圖層 → 等使用者操作才載入");
+     }
+   }
+   
 // 更新 KML 圖層下拉選單（有快取機制）
 const updateKmlLayerSelects = async (force = false) => {
   const kmlLayerSelect = document.getElementById('kmlLayerSelect');
@@ -464,7 +450,7 @@ const updateKmlLayerSelects = async (force = false) => {
                     if (window.currentUserRole === 'unapproved') {
                         window.showMessage('帳號審核中', '您的帳號正在等待管理員審核。在審核通過之前，您將無法上傳或刪除 KML。');
                     }
-                    await updateKmlLayerSelects();
+                    // await updateKmlLayerSelects(); 避免登入時就讀取 Firestore
                     updatePinButtonState();
                 } else {
                     console.log("用戶數據不存在，為新註冊用戶創建預設數據。");
@@ -487,7 +473,7 @@ const updateKmlLayerSelects = async (force = false) => {
             userEmailDisplay.textContent = '';
             userEmailDisplay.style.display = 'none';
             window.currentUserRole = null;
-            await updateKmlLayerSelects();
+            await updateKmlLayerSelects(true);
             updatePinButtonState();
         }
     });
