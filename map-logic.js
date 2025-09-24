@@ -544,6 +544,13 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             window.allKmlFeatures = cache.geojson.features;
             window.currentKmlLayerId = kmlId;
             window.addGeoJsonLayers(cache.geojson.features);
+            
+            const allLayers = L.featureGroup([geoJsonLayers, markers]);
+            const bounds = allLayers.getBounds();
+            if (bounds && bounds.isValid()) {
+                map.fitBounds(bounds, { padding: L.point(50, 50) });
+            }
+            
             return;
         }
 
