@@ -490,22 +490,31 @@ window.clearAllKmlLayers = function() {
     console.log('所有 KML 圖層和相關數據已清除。');
 };
 
-// 載入 KML 圖層（含 localStorage 快取 + uploadTime 驗證）
+// 全域鎖，避免重複觸發
+window.isLoadingKml = false;
+
+// 載入 KML 圖層（localStorage 快取 + uploadTime 驗證 + zoom + 防重複讀取）
 window.loadKmlLayerFromFirestore = async function(kmlId) {
-    if (window.currentKmlLayerId === kmlId) {
-        console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
+    if (window.isLoadingKml) {
+        console.log("⚠️ 已有 KML 正在載入，略過重複呼叫");
         return;
     }
-
-    if (!kmlId) {
-        console.log("未提供 KML ID，不載入。");
-        window.clearAllKmlLayers();
-        return;
-    }
-
-    window.clearAllKmlLayers();
+    window.isLoadingKml = true; // 🔒 鎖住，避免重複讀取
 
     try {
+        if (window.currentKmlLayerId === kmlId) {
+            console.log(`✅ 已載入圖層 ${kmlId}，略過重複讀取`);
+            return;
+        }
+
+        if (!kmlId) {
+            console.log("未提供 KML ID，不載入。");
+            window.clearAllKmlLayers();
+            return;
+        }
+
+        window.clearAllKmlLayers();
+
         const docRef = db.collection('artifacts').doc(appId)
             .collection('public').doc('data')
             .collection('kmlLayers').doc(kmlId);
@@ -538,19 +547,19 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
         const kmlData = doc.data();
         const serverUploadTime = kmlData.uploadTime?.toMillis?.() || 0;
 
-        // ✅ 如果快取存在而且沒更新 → 用快取，不再讀取 geojsonContent
+        // ✅ 快取存在且沒有更新 → 直接用快取
         if (cache && cache.uploadTime === serverUploadTime) {
             console.log(`⚡ 從快取載入圖層 ${kmlId}`);
             window.allKmlFeatures = cache.geojson.features;
             window.currentKmlLayerId = kmlId;
             window.addGeoJsonLayers(cache.geojson.features);
-            
+
+            // 📌 zoom in（即使是快取也要跑）
             const allLayers = L.featureGroup([geoJsonLayers, markers]);
             const bounds = allLayers.getBounds();
             if (bounds && bounds.isValid()) {
                 map.fitBounds(bounds, { padding: L.point(50, 50) });
             }
-            
             return;
         }
 
@@ -600,7 +609,7 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             uploadTime: serverUploadTime
         }));
 
-        // ✅ 自動調整地圖範圍
+        // ✅ zoom in
         const allLayers = L.featureGroup([geoJsonLayers, markers]);
         const bounds = allLayers.getBounds();
         if (bounds && bounds.isValid()) {
@@ -615,5 +624,7 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             message: `無法載入 KML 圖層: ${error.message}`,
             buttonText: '確定'
         });
+    } finally {
+        window.isLoadingKml = false; // 🔓 解鎖
     }
 };
