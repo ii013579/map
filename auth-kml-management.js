@@ -4,7 +4,7 @@
 // - 支援 roles: owner, editor, user, unapproved
 // - 支援 registrationCodes 存於 artifacts/{appId}/public/data/registrationCodes/{code}
 // =======================================================
-
+// ==
 /* globals firebase, loadKmlLayerList, loadKmlLayerData, map */ 
 
 firebase.initializeApp(firebaseConfig);
