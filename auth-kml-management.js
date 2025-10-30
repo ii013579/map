@@ -7,9 +7,7 @@
 // ==
 /* globals firebase, loadKmlLayerList, loadKmlLayerData, map */ 
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const auth = firebase.auth();
+const { db, storage, auth } = window.firebaseConfig;
 
 let currentUser = null;
 let currentUserDoc = null; // firestore users/{uid} doc data
