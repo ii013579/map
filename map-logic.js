@@ -1,6 +1,6 @@
-// =======================================================
-// map-logic.js v2.0 ª©¥»
-// Firestore ¹Ï¼h²M³æ + ³æ¼h§Ö¨ú¾÷¨î
+ï»¿// =======================================================
+// map-logic.js v2.0 ç‰ˆæœ¬
+// Firestore åœ–å±¤æ¸…å–® + å–®å±¤å¿«å–æ©Ÿåˆ¶
 // =======================================================
 // ==
 
@@ -12,21 +12,21 @@ document.addEventListener("DOMContentLoaded", function() {
 
     L.control.zoom({ position: "bottomright" }).addTo(map);
 
-    // ¸ü¤J©³¹Ï
+    // è¼‰å…¥åº•åœ–
     L.tileLayer("https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
         maxZoom: 19,
         subdomains: ["mt0", "mt1", "mt2", "mt3"]
     }).addTo(map);
 
-    // ªì©l¤Æ¥ş°ì¹Ï¼hÅÜ¼Æ
+    // åˆå§‹åŒ–å…¨åŸŸåœ–å±¤è®Šæ•¸
     window.geoJsonLayers = L.layerGroup().addTo(map);
     window.markers = L.layerGroup().addTo(map);
 
-    console.log("? ¦a¹Ïªì©l¤Æ§¹¦¨");
+    console.log("? åœ°åœ–åˆå§‹åŒ–å®Œæˆ");
 });
 
 // =======================================================
-// GeoJSON ³B²z»P¼Ë¦¡³]©w
+// GeoJSON è™•ç†èˆ‡æ¨£å¼è¨­å®š
 // =======================================================
 
 window.addGeoJsonLayers = function(features) {
@@ -65,18 +65,18 @@ window.addGeoJsonLayers = function(features) {
     });
 
     window.geoJsonLayers.addLayer(geoJsonLayer);
-    console.log(`?? ¤w¥[¤J ${features.length} ­Ó¦a¹Ï¤¸¯À`);
+    console.log(`?? å·²åŠ å…¥ ${features.length} å€‹åœ°åœ–å…ƒç´ `);
 };
 
-// ²M°£©Ò¦³¹Ï¼h
+// æ¸…é™¤æ‰€æœ‰åœ–å±¤
 window.clearAllKmlLayers = function() {
     window.geoJsonLayers.clearLayers();
     window.markers.clearLayers();
-    console.log("?? ©Ò¦³¹Ï¼h¤w²M°£");
+    console.log("?? æ‰€æœ‰åœ–å±¤å·²æ¸…é™¤");
 };
 
 // =======================================================
-// v2.0: Firestore ¹Ï¼h²M³æ + ³æ¼h§Ö¨ú
+// v2.0: Firestore åœ–å±¤æ¸…å–® + å–®å±¤å¿«å–
 // =======================================================
 
 window.isLoadingKml = false;
@@ -84,25 +84,25 @@ window.kmlLayerList = [];
 window.currentKmlLayerId = null;
 
 /**
- * ¤@¦¸©Ê¸ü¤J KML ¹Ï¼h²M³æ¡]¥u¥´ Firestore 1 ¦¸¡^
+ * ä¸€æ¬¡æ€§è¼‰å…¥ KML åœ–å±¤æ¸…å–®ï¼ˆåªæ‰“ Firestore 1 æ¬¡ï¼‰
  */
 window.loadKmlLayerList = async function() {
     try {
         const listRef = db.collection("artifacts").doc(appId)
             .collection("public").doc("data")
-            .doc("kmlList"); // ? ³æ¤@¤å¥ó¡A¦s©Ò¦³¹Ï¼h¸ê°T
+            .doc("kmlList"); // ? å–®ä¸€æ–‡ä»¶ï¼Œå­˜æ‰€æœ‰åœ–å±¤è³‡è¨Š
 
         const doc = await listRef.get();
         if (!doc.exists) {
-            console.error("? §ä¤£¨ì¹Ï¼h²M³æ¤å¥ó");
+            console.error("? æ‰¾ä¸åˆ°åœ–å±¤æ¸…å–®æ–‡ä»¶");
             return;
         }
 
         const data = doc.data();
         window.kmlLayerList = data.layers || [];
-        console.log(`?? ¤w¸ü¤J¹Ï¼h²M³æ¡A¦@ ${window.kmlLayerList.length} ¼h`);
+        console.log(`?? å·²è¼‰å…¥åœ–å±¤æ¸…å–®ï¼Œå…± ${window.kmlLayerList.length} å±¤`);
 
-        // ¦Û°Ê¶ñ¤J¤U©Ô¿ï³æ
+        // è‡ªå‹•å¡«å…¥ä¸‹æ‹‰é¸å–®
         const select = document.getElementById("kmlLayerSelect");
         if (select) {
             select.innerHTML = "";
@@ -115,16 +115,16 @@ window.loadKmlLayerList = async function() {
         }
 
     } catch (err) {
-        console.error("Åª¨ú¹Ï¼h²M³æ¥¢±Ñ:", err);
+        console.error("è®€å–åœ–å±¤æ¸…å–®å¤±æ•—:", err);
     }
 };
 
 /**
- * ¸ü¤J³æ¤@¹Ï¼h¡]§t localStorage §Ö¨ú + uploadTime ÅçÃÒ¡^
+ * è¼‰å…¥å–®ä¸€åœ–å±¤ï¼ˆå« localStorage å¿«å– + uploadTime é©—è­‰ï¼‰
  */
 window.loadKmlLayerData = async function(kmlId) {
     if (window.isLoadingKml) {
-        console.log("?? ¹Ï¼h¸ü¤J¤¤¡A²¤¹L­«½Æ©I¥s");
+        console.log("?? åœ–å±¤è¼‰å…¥ä¸­ï¼Œç•¥éé‡è¤‡å‘¼å«");
         return;
     }
     window.isLoadingKml = true;
@@ -139,26 +139,26 @@ window.loadKmlLayerData = async function(kmlId) {
             try { cache = JSON.parse(cacheRaw); } catch { cache = null; }
         }
 
-        // ±q²M³æ§ä¥X metadata¡]¥]§t uploadTime¡^
+        // å¾æ¸…å–®æ‰¾å‡º metadataï¼ˆåŒ…å« uploadTimeï¼‰
         const meta = window.kmlLayerList.find(l => l.id === kmlId);
         const serverUploadTime = meta?.uploadTime || 0;
 
-        // ? ¦³§Ö¨ú¥B®É¶¡¤@­P ¡÷ ª½±µ¥Î
+        // ? æœ‰å¿«å–ä¸”æ™‚é–“ä¸€è‡´ â†’ ç›´æ¥ç”¨
         if (cache && cache.uploadTime === serverUploadTime) {
-            console.log(`? ±q§Ö¨ú¸ü¤J¹Ï¼h ${kmlId}`);
+            console.log(`? å¾å¿«å–è¼‰å…¥åœ–å±¤ ${kmlId}`);
             window.addGeoJsonLayers(cache.geojson.features);
             fitMapToCurrentLayers();
             return;
         }
 
-        // ? ¨S§Ö¨ú©Îª©¥»¤£²Å ¡÷ ±q Firestore ¤U¸ü
+        // ? æ²’å¿«å–æˆ–ç‰ˆæœ¬ä¸ç¬¦ â†’ å¾ Firestore ä¸‹è¼‰
         const docRef = db.collection("artifacts").doc(appId)
             .collection("public").doc("data")
             .collection("kmlLayers").doc(kmlId);
 
         const doc = await docRef.get();
         if (!doc.exists) {
-            console.error("§ä¤£¨ì¹Ï¼h¤å¥ó:", kmlId);
+            console.error("æ‰¾ä¸åˆ°åœ–å±¤æ–‡ä»¶:", kmlId);
             return;
         }
 
@@ -169,30 +169,30 @@ window.loadKmlLayerData = async function(kmlId) {
         }
 
         if (!geojson || !geojson.features) {
-            console.warn("¹Ï¼h¨S¦³ features:", kmlId);
+            console.warn("åœ–å±¤æ²’æœ‰ features:", kmlId);
             return;
         }
 
-        // ¥[¤J¦a¹Ï
+        // åŠ å…¥åœ°åœ–
         window.addGeoJsonLayers(geojson.features);
         fitMapToCurrentLayers();
 
-        // ¦s¤J§Ö¨ú
+        // å­˜å…¥å¿«å–
         localStorage.setItem(cacheKey, JSON.stringify({
             geojson,
             uploadTime: serverUploadTime
         }));
 
-        console.log(`?? ¤w¸ü¤J Firestore: ${kmlId}`);
+        console.log(`?? å·²è¼‰å…¥ Firestore: ${kmlId}`);
     } catch (err) {
-        console.error("¸ü¤J¹Ï¼h®É¥X¿ù:", err);
+        console.error("è¼‰å…¥åœ–å±¤æ™‚å‡ºéŒ¯:", err);
     } finally {
         window.isLoadingKml = false;
     }
 };
 
 /**
- * ½Õ¾ã¦a¹Ï½d³ò
+ * èª¿æ•´åœ°åœ–ç¯„åœ
  */
 function fitMapToCurrentLayers() {
     const allLayers = L.featureGroup([geoJsonLayers, markers]);

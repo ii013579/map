@@ -1,8 +1,8 @@
-// =======================================================
+ï»¿// =======================================================
 // auth-kml-management.js v2.1
-// - ·f°t map-logic.js v2.0
-// - ¤ä´© roles: owner, editor, user, unapproved
-// - ¤ä´© registrationCodes ¦s©ó artifacts/{appId}/public/data/registrationCodes/{code}
+// - æ­é… map-logic.js v2.0
+// - æ”¯æ´ roles: owner, editor, user, unapproved
+// - æ”¯æ´ registrationCodes å­˜æ–¼ artifacts/{appId}/public/data/registrationCodes/{code}
 // =======================================================
 // ==
 /* globals firebase, loadKmlLayerList, loadKmlLayerData, map */ 
@@ -13,7 +13,7 @@ const auth = firebase.auth();
 
 let currentUser = null;
 let currentUserDoc = null; // firestore users/{uid} doc data
-let appId = "defaultApp";   // ¥i«ö§A»İ¨D­×§ï
+let appId = "defaultApp";   // å¯æŒ‰ä½ éœ€æ±‚ä¿®æ”¹
 let kmlListCache = [];     // local runtime cache of kmlList entries
 
 // utility: role check shortcuts
@@ -37,7 +37,7 @@ function canDeleteLayer(layerDoc) {
 auth.onAuthStateChanged(async (user) => {
   if (user) {
     currentUser = user;
-    console.log(`?? ¤wµn¤J¡G${user.email}`);
+    console.log(`?? å·²ç™»å…¥ï¼š${user.email}`);
 
     // load or create user doc if not exist
     await ensureUserDoc(user);
@@ -51,7 +51,7 @@ auth.onAuthStateChanged(async (user) => {
 
     updateUIAfterLogin();
   } else {
-    console.log("?? ¨Ï¥ÎªÌµn¥X©Î¥¼µn¤J");
+    console.log("?? ä½¿ç”¨è€…ç™»å‡ºæˆ–æœªç™»å…¥");
     currentUser = null;
     currentUserDoc = null;
     clearLoggedInUI();
@@ -75,13 +75,13 @@ async function ensureUserDoc(user) {
       };
       await userRef.set(newDoc);
       currentUserDoc = newDoc;
-      console.log("?? «Ø¥ß·s¨Ï¥ÎªÌ¤å¥ó¡]¥¼¼f®Ö¡^");
+      console.log("?? å»ºç«‹æ–°ä½¿ç”¨è€…æ–‡ä»¶ï¼ˆæœªå¯©æ ¸ï¼‰");
     } else {
       currentUserDoc = doc.data();
-      console.log("?? ¸ü¤J¨Ï¥ÎªÌ¤å¥ó", currentUserDoc);
+      console.log("?? è¼‰å…¥ä½¿ç”¨è€…æ–‡ä»¶", currentUserDoc);
     }
   } catch (err) {
-    console.error("Åª¨ú/«Ø¥ß¨Ï¥ÎªÌ¤å¥ó¥¢±Ñ¡G", err);
+    console.error("è®€å–/å»ºç«‹ä½¿ç”¨è€…æ–‡ä»¶å¤±æ•—ï¼š", err);
   }
 }
 
@@ -131,27 +131,27 @@ async function loadUserPinnedLayers(uid) {
       }
     }
   } catch (err) {
-    console.error("Åª pinned ¥¢±Ñ¡G", err);
+    console.error("è®€ pinned å¤±æ•—ï¼š", err);
   }
 }
 
 // =======================================================
-// handleKmlUpload (¤W¶Ç¨Ã§ó·s kmlList)
+// handleKmlUpload (ä¸Šå‚³ä¸¦æ›´æ–° kmlList)
 //  - editors can upload; owner can upload
 // =======================================================
 async function handleKmlUpload(fileInput) {
   if (!currentUser || !currentUserDoc) {
-    showMessageCustom("½Ğ¥ıµn¤J", "error");
+    showMessageCustom("è«‹å…ˆç™»å…¥", "error");
     return;
   }
   if (!canUpload()) {
-    showMessageCustom("±z¨S¦³¤W¶ÇÅv­­", "error");
+    showMessageCustom("æ‚¨æ²’æœ‰ä¸Šå‚³æ¬Šé™", "error");
     return;
   }
 
   const file = fileInput.files?.[0];
   if (!file) {
-    showMessageCustom("¥¼¿ï¨úÀÉ®×", "error");
+    showMessageCustom("æœªé¸å–æª”æ¡ˆ", "error");
     return;
   }
 
@@ -184,19 +184,19 @@ async function handleKmlUpload(fileInput) {
     // update kmlList
     await updateKmlListAfterUpload(appId, layerId, layerName, uploadTime);
 
-    showMessageCustom(`¤W¶Ç§¹¦¨¡G${layerName}`, "success");
+    showMessageCustom("ä¸Šå‚³å®Œæˆï¼š" + layerName, "success");
 
     // refresh selects
     await updateKmlLayerSelects();
 
   } catch (err) {
-    console.error("¤W¶Ç¿ù»~¡G", err);
-    showMessageCustom("¤W¶Ç¥¢±Ñ¡A½Ğ­«¸Õ", "error");
+    console.error("ä¸Šå‚³éŒ¯èª¤ï¼š", err);
+    showMessageCustom("ä¸Šå‚³å¤±æ•—ï¼Œè«‹é‡è©¦", "error");
   }
 }
 
 // =======================================================
-// updateKmlListAfterUpload (¬Û®e v2.0 ªº kmlList doc)
+// updateKmlListAfterUpload (ç›¸å®¹ v2.0 çš„ kmlList doc)
 // =======================================================
 async function updateKmlListAfterUpload(appIdParam, newLayerId, newLayerName, uploadTime) {
   try {
@@ -222,7 +222,7 @@ async function updateKmlListAfterUpload(appIdParam, newLayerId, newLayerName, up
     await listRef.set({ layers });
     // update runtime cache
     kmlListCache = layers;
-    console.log("kmlList ¤w§ó·s");
+    console.log("kmlList å·²æ›´æ–°");
   } catch (err) {
     console.error("updateKmlListAfterUpload failed:", err);
   }
@@ -233,7 +233,7 @@ async function updateKmlListAfterUpload(appIdParam, newLayerId, newLayerName, up
 // =======================================================
 async function deleteKmlLayer(layerId) {
   if (!currentUserDoc) {
-    showMessageCustom("½Ğ¥ıµn¤J", "error");
+    showMessageCustom("è«‹å…ˆç™»å…¥", "error");
     return;
   }
   try {
@@ -244,13 +244,13 @@ async function deleteKmlLayer(layerId) {
 
     const doc = await layerRef.get();
     if (!doc.exists) {
-      showMessageCustom("§ä¤£¨ì¹Ï¼h", "error");
+      showMessageCustom("æ‰¾ä¸åˆ°åœ–å±¤", "error");
       return;
     }
     const layerData = doc.data();
 
     if (!canDeleteLayer(layerData)) {
-      showMessageCustom("±z¨S¦³§R°£Åv­­", "error");
+      showMessageCustom("æ‚¨æ²’æœ‰åˆªé™¤æ¬Šé™", "error");
       return;
     }
 
@@ -265,11 +265,11 @@ async function deleteKmlLayer(layerId) {
       await listRef.set({ layers });
       kmlListCache = layers;
     }
-    showMessageCustom("§R°£¦¨¥\", "success");
+    showMessageCustom("åˆªé™¤æˆåŠŸ", "success");
     await updateKmlLayerSelects(); // refresh UI
   } catch (err) {
-    console.error("§R°£¥¢±Ñ¡G", err);
-    showMessageCustom("§R°£¥¢±Ñ", "error");
+    console.error("åˆªé™¤å¤±æ•—ï¼š", err);
+    showMessageCustom("åˆªé™¤å¤±æ•—", "error");
   }
 }
 
@@ -293,7 +293,7 @@ async function loadKmlLayerListWrapper() {
       await loadKmlLayerList();
     }
   } catch (err) {
-    console.error("Åª¨ú kmlList ¥¢±Ñ¡G", err);
+    console.error("è®€å– kmlList å¤±æ•—ï¼š", err);
   }
 }
 
@@ -318,7 +318,7 @@ async function updateKmlLayerSelects() {
     const dashboardSelect = document.getElementById("kmlLayerSelectDashboard");
 
     if (mainSelect) {
-      mainSelect.innerHTML = '<option value="">-- ½Ğ¿ï¾Ü KML --</option>';
+      mainSelect.innerHTML = '<option value="">-- è«‹é¸æ“‡ KML --</option>';
       layers.forEach(l => {
         const opt = document.createElement("option");
         opt.value = l.id;
@@ -328,7 +328,7 @@ async function updateKmlLayerSelects() {
     }
 
     if (dashboardSelect) {
-      dashboardSelect.innerHTML = '<option value="">-- ½Ğ¿ï¾Ü KML ¹Ï¼h --</option>';
+      dashboardSelect.innerHTML = '<option value="">-- è«‹é¸æ“‡ KML åœ–å±¤ --</option>';
       layers.forEach(l => {
         const opt = document.createElement("option");
         opt.value = l.id;
@@ -336,9 +336,9 @@ async function updateKmlLayerSelects() {
         dashboardSelect.appendChild(opt);
       });
     }
-    console.log("¤U©Ô¿ï³æ¤w§ó·s (kmlList)");
+    console.log("ä¸‹æ‹‰é¸å–®å·²æ›´æ–° (kmlList)");
   } catch (err) {
-    console.error("§ó·s¤U©Ô¿ï³æ¥¢±Ñ¡G", err);
+    console.error("æ›´æ–°ä¸‹æ‹‰é¸å–®å¤±æ•—ï¼š", err);
   }
 }
 
@@ -358,7 +358,7 @@ function generateRandomCode(len = 8) {
 
 async function generateRegistrationCode(role = "editor", ttlMinutes = 60) {
   if (!canGenerateCode()) {
-    showMessageCustom("±z¨S¦³²£¥Íµù¥U½XªºÅv­­", "error");
+    showMessageCustom("æ‚¨æ²’æœ‰ç”¢ç”Ÿè¨»å†Šç¢¼çš„æ¬Šé™", "error");
     return null;
   }
   const code = generateRandomCode(10);
@@ -372,7 +372,7 @@ async function generateRegistrationCode(role = "editor", ttlMinutes = 60) {
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     expiresAt
   });
-  console.log("¤w²£¥Íµù¥U½X¡G", code);
+  console.log("å·²ç”¢ç”Ÿè¨»å†Šç¢¼ï¼š", code);
   return code;
 }
 
@@ -383,12 +383,12 @@ async function redeemRegistrationCode(code, nickname) {
       .collection("registrationCodes").doc(code);
     const doc = await codeRef.get();
     if (!doc.exists) {
-      showMessageCustom("µL®Äªºµù¥U½X", "error");
+      showMessageCustom("ç„¡æ•ˆçš„è¨»å†Šç¢¼", "error");
       return false;
     }
     const data = doc.data();
     if (Date.now() > (data.expiresAt || 0)) {
-      showMessageCustom("µù¥U½X¤w¹L´Á", "error");
+      showMessageCustom("è¨»å†Šç¢¼å·²éæœŸ", "error");
       return false;
     }
     const role = data.role || "unapproved";
@@ -396,7 +396,7 @@ async function redeemRegistrationCode(code, nickname) {
     // write user doc
     const uid = currentUser?.uid;
     if (!uid) {
-      showMessageCustom("½Ğ¥ı¨Ï¥Î Google µn¤J", "error");
+      showMessageCustom("è«‹å…ˆä½¿ç”¨ Google ç™»å…¥", "error");
       return false;
     }
     const userRef = db.collection("users").doc(uid);
@@ -410,14 +410,14 @@ async function redeemRegistrationCode(code, nickname) {
     // delete the registration code (one-time)
     await codeRef.delete();
 
-    showMessageCustom("µù¥U§¹¦¨¡A½Ğ­«·s¾ã²z­¶­±¥H®M¥ÎÅv­­", "success");
+    showMessageCustom("è¨»å†Šå®Œæˆï¼Œè«‹é‡æ–°æ•´ç†é é¢ä»¥å¥—ç”¨æ¬Šé™", "success");
     // refresh user doc in memory
     await ensureUserDoc(currentUser);
     updateUIAfterLogin();
     return true;
   } catch (err) {
-    console.error("§I´«µù¥U½X¥¢±Ñ¡G", err);
-    showMessageCustom("µù¥U¥¢±Ñ", "error");
+    console.error("å…Œæ›è¨»å†Šç¢¼å¤±æ•—ï¼š", err);
+    showMessageCustom("è¨»å†Šå¤±æ•—", "error");
     return false;
   }
 }
@@ -428,7 +428,7 @@ async function redeemRegistrationCode(code, nickname) {
 // =======================================================
 async function listUsers(limit = 200) {
   if (!isOwner()) {
-    showMessageCustom("±z¤£¬OºŞ²z­û", "error");
+    showMessageCustom("æ‚¨ä¸æ˜¯ç®¡ç†å“¡", "error");
     return [];
   }
   try {
@@ -439,36 +439,36 @@ async function listUsers(limit = 200) {
     });
     return users;
   } catch (err) {
-    console.error("¦C¥X¨Ï¥ÎªÌ¥¢±Ñ¡G", err);
+    console.error("åˆ—å‡ºä½¿ç”¨è€…å¤±æ•—ï¼š", err);
     return [];
   }
 }
 
 async function changeUserRole(uid, newRole) {
   if (!isOwner()) {
-    showMessageCustom("±z¨S¦³Åv­­", "error");
+    showMessageCustom("æ‚¨æ²’æœ‰æ¬Šé™", "error");
     return;
   }
   try {
     await db.collection("users").doc(uid).update({ role: newRole });
-    showMessageCustom("¤w§ó·s¨Ï¥ÎªÌ¨¤¦â", "success");
+    showMessageCustom("å·²æ›´æ–°ä½¿ç”¨è€…è§’è‰²", "success");
   } catch (err) {
-    console.error("§ó·s¨¤¦â¥¢±Ñ¡G", err);
-    showMessageCustom("§ó·s¨¤¦â¥¢±Ñ", "error");
+    console.error("æ›´æ–°è§’è‰²å¤±æ•—ï¼š", err);
+    showMessageCustom("æ›´æ–°è§’è‰²å¤±æ•—", "error");
   }
 }
 
 async function removeUser(uid) {
   if (!isOwner()) {
-    showMessageCustom("±z¨S¦³Åv­­", "error");
+    showMessageCustom("æ‚¨æ²’æœ‰æ¬Šé™", "error");
     return;
   }
   try {
     await db.collection("users").doc(uid).delete();
-    showMessageCustom("¨Ï¥ÎªÌ¤w²¾°£", "success");
+    showMessageCustom("ä½¿ç”¨è€…å·²ç§»é™¤", "success");
   } catch (err) {
-    console.error("²¾°£¨Ï¥ÎªÌ¥¢±Ñ¡G", err);
-    showMessageCustom("²¾°£¥¢±Ñ", "error");
+    console.error("ç§»é™¤ä½¿ç”¨è€…å¤±æ•—ï¼š", err);
+    showMessageCustom("ç§»é™¤å¤±æ•—", "error");
   }
 }
 
@@ -496,7 +496,7 @@ document.addEventListener("DOMContentLoaded", () => {
         selectedNameSpan.textContent = f.name;
         uploadBtn.disabled = false;
       } else {
-        selectedNameSpan.textContent = "©|¥¼¿ï¾ÜÀÉ®×";
+        selectedNameSpan.textContent = "å°šæœªé¸æ“‡æª”æ¡ˆ";
         uploadBtn.disabled = true;
       }
     });
@@ -504,7 +504,7 @@ document.addEventListener("DOMContentLoaded", () => {
     uploadBtn.addEventListener("click", async () => {
       await handleKmlUpload(hiddenFile);
       hiddenFile.value = "";
-      selectedNameSpan.textContent = "©|¥¼¿ï¾ÜÀÉ®×";
+      selectedNameSpan.textContent = "å°šæœªé¸æ“‡æª”æ¡ˆ";
       uploadBtn.disabled = true;
     });
   }
@@ -519,7 +519,7 @@ document.addEventListener("DOMContentLoaded", () => {
     deleteBtn.addEventListener("click", async () => {
       const id = deleteSelect.value;
       if (!id) return;
-      if (!confirm(`½T©w§R°£ ${id} ?`)) return;
+      if (!confirm(`ç¢ºå®šåˆªé™¤ ${id} ?`)) return;
       await deleteKmlLayer(id);
     });
   }
@@ -544,11 +544,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (cur === id) {
         localStorage.removeItem(key);
         pinBtn.classList.remove("pinned");
-        pinBtn.title = "°v¿ï";
+        pinBtn.title = "é‡˜é¸";
       } else {
         localStorage.setItem(key, id);
         pinBtn.classList.add("pinned");
-        pinBtn.title = "¤w°v¿ï";
+        pinBtn.title = "å·²é‡˜é¸";
       }
     });
   }
@@ -560,7 +560,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (genCodeBtn) {
     genCodeBtn.addEventListener("click", async () => {
       if (!canGenerateCode()) {
-        showMessageCustom("±z¨S¦³Åv­­²£¥Íµù¥U½X", "error");
+        showMessageCustom("æ‚¨æ²’æœ‰æ¬Šé™ç”¢ç”Ÿè¨»å†Šç¢¼", "error");
         return;
       }
       const code = await generateRegistrationCode("editor", 60); // 60 minutes by default
@@ -571,7 +571,7 @@ document.addEventListener("DOMContentLoaded", () => {
         let remaining = 60 * 60; // seconds
         if (regCountdown) {
           regCountdown.style.display = "inline";
-          regCountdown.textContent = `³Ñ¾l ${Math.floor(remaining/60)} ¤ÀÄÁ`;
+          regCountdown.textContent = `å‰©é¤˜ ${Math.floor(remaining/60)} åˆ†é˜`;
           const iv = setInterval(() => {
             remaining--;
             if (remaining <= 0) {
@@ -579,7 +579,7 @@ document.addEventListener("DOMContentLoaded", () => {
               regCountdown.style.display = "none";
               regCodeDisplay.style.display = "none";
             } else {
-              regCountdown.textContent = `³Ñ¾l ${Math.floor(remaining/60)} ¤ÀÄÁ`;
+              regCountdown.textContent = `å‰©é¤˜ ${Math.floor(remaining/60)} åˆ†é˜`;
             }
           }, 1000);
         }
@@ -596,7 +596,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const code = regInput.value.trim();
       const nickname = nickInput.value.trim() || currentUser?.displayName || "";
       if (!code) {
-        showMessageCustom("½Ğ¿é¤Jµù¥U½X", "error");
+        showMessageCustom("è«‹è¼¸å…¥è¨»å†Šç¢¼", "error");
         return;
       }
       const ok = await redeemRegistrationCode(code, nickname);
@@ -613,7 +613,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (refreshUsersBtn) {
     refreshUsersBtn.addEventListener("click", async () => {
       if (!isOwner()) {
-        showMessageCustom("±z¨S¦³Åv­­", "error");
+        showMessageCustom("æ‚¨æ²’æœ‰æ¬Šé™", "error");
         return;
       }
       const users = await listUsers();
@@ -674,9 +674,9 @@ function renderUserList(users) {
 
       // remove button
       const rm = document.createElement("button");
-      rm.textContent = "§R°£";
+      rm.textContent = "åˆªé™¤";
       rm.addEventListener("click", async () => {
-        if (!confirm(`½T©w²¾°£¨Ï¥ÎªÌ ${u.email} ?`)) return;
+        if (!confirm(`ç¢ºå®šç§»é™¤ä½¿ç”¨è€… ${u.email} ?`)) return;
         await removeUser(u.uid);
         // refresh view
         const users2 = await listUsers();
