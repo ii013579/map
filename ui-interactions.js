@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const controls = document.getElementById('controls');
     const searchBox = document.getElementById('searchBox');
     const searchResults = document.getElementById('searchResults');
-    const searchContainer = document.getElementById('searchContainer'); // ç²å–æœå°‹å®¹å™¨
+    const searchContainer = document.getElementById('searchContainer'); // Àò¨ú·j´M®e¾¹
 
     authSection.style.display = 'none';
     controls.style.display = 'flex';
@@ -17,19 +17,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isAuthSectionVisible) {
                 authSection.style.display = 'none';
                 controls.style.display = 'flex';
-                editButton.textContent = 'ç·¨è¼¯';
+                editButton.textContent = '½s¿è';
             } else {
                 controls.style.display = 'none';
                 authSection.style.display = 'flex';
-                editButton.textContent = 'é—œé–‰';
+                editButton.textContent = 'Ãö³¬';
             }
         });
     } else {
-        console.error('éŒ¯èª¤: æ‰¾ä¸åˆ°ç·¨è¼¯æŒ‰éˆ•ã€èªè­‰å€å¡Šæˆ–æ§åˆ¶é …ã€‚');
+        console.error('¿ù»~: §ä¤£¨ì½s¿è«ö¶s¡B»{ÃÒ°Ï¶ô©Î±±¨î¶µ¡C');
     }
 
 
-    // ç›£è½æœå°‹æ¡†çš„è¼¸å…¥äº‹ä»¶
+    // ºÊÅ¥·j´M®Øªº¿é¤J¨Æ¥ó
     if (searchBox && searchResults && searchContainer) {
         searchBox.addEventListener('input', async (e) => {
             const query = e.target.value.trim().toLowerCase();
@@ -43,20 +43,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     );
                 }
 
-                // ç•¶æœå°‹çµæœé¡¯ç¤ºæ™‚ï¼Œç‚º searchContainer æ·»åŠ æ´»èºç‹€æ…‹é¡åˆ¥
+                // ·í·j´Mµ²ªGÅã¥Ü®É¡A¬° searchContainer ²K¥[¬¡ÅDª¬ºAÃş§O
                 searchContainer.classList.add('search-active');
 
-                searchResults.style.display = 'grid'; // é¡¯ç¤ºç‚º grid
+                searchResults.style.display = 'grid'; // Åã¥Ü¬° grid
 
                 if (results.length === 0) {
                     const noResult = document.createElement('div');
                     noResult.className = 'result-item';
-                    noResult.textContent = 'æ²’æœ‰æ‰¾åˆ°çµæœ';
-                    // è®“ã€Œæ²’æœ‰æ‰¾åˆ°çµæœã€è¨Šæ¯æ©«è·¨ä¸‰æ¬„
+                    noResult.textContent = '¨S¦³§ä¨ìµ²ªG';
+                    // Åı¡u¨S¦³§ä¨ìµ²ªG¡v°T®§¾î¸ó¤TÄæ
                     noResult.style.gridColumn = 'span 3';
                     searchResults.appendChild(noResult);
                 } else {
-                	  // ğŸ” åˆ¤æ–·åç¨±æœ€å¤§é•·åº¦ï¼Œå¥—ç”¨æ¬„æ•¸ class
+                	  // ?? §PÂ_¦WºÙ³Ì¤jªø«×¡A®M¥ÎÄæ¼Æ class
                     let maxNameLength = 0;
                     results.forEach(f => {
                       const name = f.properties?.name || '';
@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     searchResults.classList.add(maxNameLength > 9 ? 'columns-2' : 'columns-3');
 
                     results.forEach(f => {
-                        const name = f.properties.name || 'æœªå‘½å';
+                        const name = f.properties.name || '¥¼©R¦W';
                         if (f.geometry && f.geometry.type === 'Point' && f.geometry.coordinates) {
                             const [lon, lat] = f.geometry.coordinates;
                             const item = document.createElement('div');
@@ -78,12 +78,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const originalLatLng = L.latLng(lat, lon);
                                 map.setView(originalLatLng, 18);
                             
-                                // âœ… æ¸…é™¤æ‰€æœ‰ label é«˜äº®
+                                // ? ²M°£©Ò¦³ label °ª«G
                                 document.querySelectorAll('.marker-label span').forEach(el =>
                                     el.classList.remove('label-active')
                                 );
                             
-                                // âœ… å°‹æ‰¾å°æ‡‰ label ä¸¦é«˜äº®
+                                // ? ´M§ä¹ïÀ³ label ¨Ã°ª«G
                                 const labelId = `label-${lat}-${lon}`.replace(/\./g, '_');
                                 const target = document.getElementById(labelId);
                                 if (target) {
@@ -94,34 +94,34 @@ document.addEventListener('DOMContentLoaded', () => {
                                 searchResults.style.display = 'none';
                                 searchBox.value = '';
                                 searchContainer.classList.remove('search-active');
-                                console.log(`é»æ“Šæœå°‹çµæœ: ${name}ï¼Œç¸®æ”¾è‡³åœ°åœ–ä¸¦é«˜äº® labelã€‚`);
+                                console.log(`ÂIÀ»·j´Mµ²ªG: ${name}¡AÁY©ñ¦Ü¦a¹Ï¨Ã°ª«G label¡C`);
                             });                            searchResults.appendChild(item);
                         } else {
-                            console.warn("è·³éé Point é¡å‹æˆ–ç„¡åº§æ¨™çš„ feature é€²è¡Œæœå°‹:", f);
+                            console.warn("¸õ¹L«D Point Ãş«¬©ÎµL®y¼Ğªº feature ¶i¦æ·j´M:", f);
                         }
                     });
                 }
             } else {
                 searchResults.style.display = 'none';
-                // ç•¶æœå°‹çµæœéš±è—æ™‚ï¼Œç§»é™¤ searchContainer çš„æ´»èºç‹€æ…‹é¡åˆ¥
+                // ·í·j´Mµ²ªGÁôÂÃ®É¡A²¾°£ searchContainer ªº¬¡ÅDª¬ºAÃş§O
                 searchContainer.classList.remove('search-active');
             }
         });
 
-        // é»æ“Šæœå°‹çµæœæ¡†å¤–éƒ¨æ™‚éš±è—æœå°‹çµæœ
+        // ÂIÀ»·j´Mµ²ªG®Ø¥~³¡®ÉÁôÂÃ·j´Mµ²ªG
         document.addEventListener('click', (event) => {
-            // æª¢æŸ¥é»æ“Šæ˜¯å¦åœ¨ searchResults å…§éƒ¨ï¼Œæˆ–è€…åœ¨ searchBox å…§éƒ¨ï¼Œæˆ–è€…åœ¨ searchContainer å…§éƒ¨
+            // ÀË¬dÂIÀ»¬O§_¦b searchResults ¤º³¡¡A©ÎªÌ¦b searchBox ¤º³¡¡A©ÎªÌ¦b searchContainer ¤º³¡
             if (!searchResults.contains(event.target) && event.target !== searchBox && !searchContainer.contains(event.target)) {
                 searchResults.style.display = 'none';
-                searchContainer.classList.remove('search-active'); // ç§»é™¤æ´»èºç‹€æ…‹é¡åˆ¥
+                searchContainer.classList.remove('search-active'); // ²¾°£¬¡ÅDª¬ºAÃş§O
             }
         });
 
-        // ç›£è½ ESC éµä»¥éš±è—æœå°‹çµæœ
+        // ºÊÅ¥ ESC Áä¥HÁôÂÃ·j´Mµ²ªG
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 searchResults.style.display = 'none';
-                searchContainer.classList.remove('search-active'); // ç§»é™¤æ´»èºç‹€æ…‹é¡åˆ¥
+                searchContainer.classList.remove('search-active'); // ²¾°£¬¡ÅDª¬ºAÃş§O
                 searchBox.blur();
             }
         });
