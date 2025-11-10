@@ -529,6 +529,27 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
                 .collection('kmlLayers').doc(kmlId);
             doc = await docRef.get();
         }
+        
+        // ⚠️ 若仍找不到任何文件
+        if (!doc.exists) {
+            console.error(`❌ 找不到圖層：${kmlId}`);
+            return;
+        }
+        
+        // ✅ 繼續後續載入動作
+        const data = doc.data();
+        if (!data.geojsonUrl) {
+            console.warn(`⚠️ 找不到 geojsonUrl 欄位於圖層 ${kmlId}`);
+            return;
+        }
+        
+        console.log(`📦 載入圖層資料：${kmlId}（來源：${doc.ref.path}）`);
+        const response = await fetch(data.geojsonUrl);
+        const geojson = await response.json();
+        
+        // 將 GeoJSON 加入地圖
+        addGeoJsonLayerToMap(geojson, kmlId);
+        
         // 🔍 檢查 localStorage 快取
         const cacheKey = `kmlCache_${kmlId}`;
         let cache = null;

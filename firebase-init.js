@@ -1,4 +1,4 @@
-// firebase-init.js
+// firebase-init.js v1.9 
 
 // Firebase 配置 (請替換為您自己的 Firebase 專案配置)
 const firebaseConfig = {
@@ -23,6 +23,15 @@ const storage = firebase.storage();
 const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
 console.log("Using App ID for Firestore path:", appId);
 
+// ✅ 新增：統一的 Firestore 結構定義（供其他檔案使用）
+window.firepaths = {
+  appId: appId,
+  root: db.collection("artifacts").doc(appId).collection("public").doc("data"),
+  kmlList: db.collection("artifacts").doc(appId).collection("public").doc("data").collection("kmlList"),
+  kmlLayers: db.collection("artifacts").doc(appId).collection("public").doc("data").collection("kmlLayers"),
+  users: db.collection("users"),
+};
+console.log("Firestore structure initialized:", window.firepaths);
 
 // 定義 showMessage 函數以便全局使用
 window.showMessage = function(title, message, callback) {
