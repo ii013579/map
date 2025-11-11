@@ -23,13 +23,18 @@ const storage = firebase.storage();
 const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
 console.log("Using App ID for Firestore path:", appId);
 
-// ✅ 新增：統一的 Firestore 結構定義（供其他檔案使用）
+// 新增：統一的 Firestore 結構定義（供其他檔案使用）
 window.firepaths = {
   appId: appId,
   root: db.collection("artifacts").doc(appId).collection("public").doc("data"),
-  kmlList: db.collection("artifacts").doc(appId).collection("public").doc("data").collection("kmlList"),
-  kmlLayers: db.collection("artifacts").doc(appId).collection("public").doc("data").collection("kmlLayers"),
+  kmlList: db.collection("artifacts").doc(appId)
+             .collection("public").doc("data")
+             .collection("kmlList"),
   users: db.collection("users"),
+  // ️ 舊的 kmlLayers 已棄用，保留參考但不再使用
+  deprecated_kmlLayers: db.collection("artifacts").doc(appId)
+                           .collection("public").doc("data")
+                           .collection("kmlLayers"),
 };
 console.log("Firestore structure initialized:", window.firepaths);
 
