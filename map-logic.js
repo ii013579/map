@@ -490,10 +490,10 @@ window.clearAllKmlLayers = function() {
     console.log('所有 KML 圖層和相關數據已清除。');
 };
 
-// 全域鎖，避免重複觸發
+// 全域鎖，避免重複觸發 
 window.isLoadingKml = false;
 
-window.loadKmlLayerFromFirestore = async function(kmlId) {
+window.loadKmlLayerFromFirestore = async function (kmlId) {
     if (window.isLoadingKml) {
         console.log("⚠️ 已有 KML 正在載入，略過重複呼叫");
         return;
@@ -514,45 +514,11 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
 
         window.clearAllKmlLayers();
 
-        // --- 新版 Firestore 結構相容查找 ---
-        let docRef = db.collection('artifacts').doc(appId)
-            .collection('public').doc('data')
-            .collection('kmlList').doc(kmlId);
-        
-        let doc = await docRef.get();
-        
-        // 🔄 如果 kmlList 沒有，就回退舊結構 kmlLayers
-        if (!doc.exists) {
-            console.warn(`⚠️ kmlList 未找到 ${kmlId}，回退到 kmlLayers`);
-            docRef = db.collection('artifacts').doc(appId)
-                .collection('public').doc('data')
-                .collection('kmlLayers').doc(kmlId);
-            doc = await docRef.get();
-        }
-        
-        // ⚠️ 若仍找不到任何文件
-        if (!doc.exists) {
-            console.error(`❌ 找不到圖層：${kmlId}`);
-            return;
-        }
-        
-        // ✅ 繼續後續載入動作
-        const data = doc.data();
-        if (!data.geojsonUrl) {
-            console.warn(`⚠️ 找不到 geojsonUrl 欄位於圖層 ${kmlId}`);
-            return;
-        }
-        
-        console.log(`📦 載入圖層資料：${kmlId}（來源：${doc.ref.path}）`);
-        const response = await fetch(data.geojsonUrl);
-        const geojson = await response.json();
-        
-        // 將 GeoJSON 加入地圖
-        addGeoJsonLayerToMap(geojson, kmlId);
-        
-        // 🔍 檢查 localStorage 快取
-        const cacheKey = `kmlCache_${kmlId}`;
+        const docRef = window.firepaths.kmlList.doc(kmlId);
+        const cacheKey = `kmlList_${kmlId}`;
         let cache = null;
+
+        // 🧩 嘗試使用 localStorage 快取
         try {
             const cachedData = localStorage.getItem(cacheKey);
             if (cachedData) cache = JSON.parse(cachedData);
@@ -561,37 +527,29 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             cache = null;
         }
 
-        if (cache) {
+        // ✅ 若快取存在 → 立即載入地圖（非阻塞）
+        if (cache && cache.geojson && cache.geojson.features) {
             console.log(`⚡ 從快取載入圖層 ${kmlId}`);
             window.allKmlFeatures = cache.geojson.features;
             window.currentKmlLayerId = kmlId;
             window.addGeoJsonLayers(cache.geojson.features);
 
-            // 📌 zoom
             const allLayers = L.featureGroup([geoJsonLayers, markers]);
             const bounds = allLayers.getBounds();
             if (bounds && bounds.isValid()) {
                 map.fitBounds(bounds, { padding: L.point(50, 50) });
             }
 
-            // 🔄 背景檢查是否有更新（非阻塞）
+            // 🔄 背景檢查新版本（不阻塞）
             docRef.get().then(doc => {
                 if (!doc.exists) return;
                 const serverUploadTime = doc.data().uploadTime?.toMillis?.() || 0;
-                if (serverUploadTime > cache.uploadTime) {
+                if (serverUploadTime > (cache.uploadTime || 0)) {
                     console.log(`📦 伺服器有新版本，更新快取 ${kmlId}`);
-                    let geojson = doc.data().geojsonContent;
-                    if (typeof geojson === "string") {
-                        try {
-                            geojson = JSON.parse(geojson);
-                        } catch (e) {
-                            console.error("⚠️ 解析更新的 geojsonContent 失敗:", e);
-                            return;
-                        }
-                    }
-                    if (geojson && geojson.features) {
+                    const updatedGeojson = doc.data().geojson;
+                    if (updatedGeojson && updatedGeojson.features) {
                         localStorage.setItem(cacheKey, JSON.stringify({
-                            geojson: geojson,
+                            geojson: updatedGeojson,
                             uploadTime: serverUploadTime
                         }));
                         console.log(`✅ 快取已更新: ${kmlId}`);
@@ -599,14 +557,14 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
                 }
             });
 
-            return; // 🚀 已載入快取，不阻塞
+            return; // 🚀 使用快取版本
         }
 
-        // ❌ 沒有快取 → 直接抓 Firestore 資料
+        // ❌ 沒快取 → 從 Firestore 讀取
         const doc = await docRef.get();
         if (!doc.exists) {
             console.error('❌ 找不到 KML 圖層:', kmlId);
-            window.showMessageCustom({
+            window.showMessageCustom?.({
                 title: '錯誤',
                 message: '找不到指定的 KML 圖層資料。',
                 buttonText: '確定'
@@ -615,12 +573,12 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
         }
 
         const kmlData = doc.data();
-        let geojson = kmlData.geojsonContent;
-        if (typeof geojson === 'string') {
+        let geojson = kmlData.geojson;
+        if (typeof geojson === "string") {
             try {
                 geojson = JSON.parse(geojson);
             } catch (e) {
-                console.error("解析 geojsonContent 失敗:", e);
+                console.error("⚠️ 解析 geojson 失敗:", e);
                 return;
             }
         }
@@ -632,17 +590,18 @@ window.loadKmlLayerFromFirestore = async function(kmlId) {
             return;
         }
 
+        // ✅ 成功載入 Firestore 資料
         window.allKmlFeatures = geojson.features;
         window.currentKmlLayerId = kmlId;
         window.addGeoJsonLayers(geojson.features);
 
-        // 📌 存入快取
+        // 💾 更新快取
         localStorage.setItem(cacheKey, JSON.stringify({
             geojson: geojson,
             uploadTime: kmlData.uploadTime?.toMillis?.() || Date.now()
         }));
 
-        // ✅ zoom
+        // ✅ Zoom 至圖層
         const allLayers = L.featureGroup([geoJsonLayers, markers]);
         const bounds = allLayers.getBounds();
         if (bounds && bounds.isValid()) {
