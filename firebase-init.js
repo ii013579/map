@@ -27,14 +27,13 @@ console.log("Using App ID for Firestore path:", appId);
 window.firepaths = {
   appId: appId,
   root: db.collection("artifacts").doc(appId).collection("public").doc("data"),
-  kmlList: db.collection("artifacts").doc(appId)
-             .collection("public").doc("data")
-             .collection("kmlList"),
-  users: db.collection("users"),
-  // ️ 舊的 kmlLayers 已棄用，保留參考但不再使用
-  deprecated_kmlLayers: db.collection("artifacts").doc(appId)
-                           .collection("public").doc("data")
-                           .collection("kmlLayers"),
+
+  // ✔ 使用 kmlList 作為唯一圖層集合
+  kmlList: db.collection("artifacts")
+                .doc(appId).collection("public")
+                .doc("data").collection("kmlList"),
+
+  users: db.collection("users")
 };
 console.log("Firestore structure initialized:", window.firepaths);
 

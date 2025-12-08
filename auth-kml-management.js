@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadBtn = document.getElementById("uploadKmlSubmitBtnDashboard");
 
     try {
-      const { kmlLayers, kmlList } = window.firepaths;
+      const { kmlList } = window.firepaths;
       const reader = new FileReader();
 
       reader.onload = async (e) => {
@@ -114,64 +114,61 @@ document.addEventListener('DOMContentLoaded', () => {
           const downloadURL = await storageRef.getDownloadURL();
 
           // 檢查是否存在同名圖層
-          const existing = await kmlLayers.where("name", "==", fileName).get();
-          let kmlDocRef;
-          let isOverwriting = false;
 
-          if (!existing.empty) {
-            isOverwriting = true;
-            kmlDocRef = existing.docs[0].ref;
-            await kmlDocRef.update({
-              name: fileName,
-              geojsonUrl: downloadURL,
-              uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
-              uploadedBy: auth.currentUser.email || auth.currentUser.uid,
-              uploadedByRole: window.currentUserRole
-            });
-            console.log(`🌀 已覆蓋圖層: ${fileName}`);
-          } else {
-            kmlDocRef = await kmlLayers.add({
-              name: fileName,
-              geojsonUrl: downloadURL,
-              uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
-              uploadedBy: auth.currentUser.email || auth.currentUser.uid,
-              uploadedByRole: window.currentUserRole
-            });
-            console.log(`✨ 新增圖層: ${fileName}`);
+          const file = hiddenInput.files[0];
+          if (!file) {
+              window.showMessage("提示", "請先選擇 KML 檔案");
+              return;
           }
-
-          // ✅ 同步更新 kmlList
+      
+          const fileName = file.name.replace(".kml", "");
+          const selectedKmlFileNameDashboard = document.getElementById("selectedKmlFileNameDashboard");
+          const uploadBtn = document.getElementById("uploadKmlSubmitBtnDashboard");
+      
+          const { kmlList } = window.firepaths;
+      
           try {
-            await kmlList.doc(kmlDocRef.id).set({
-              name: fileName,
-              uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
-              uploadedBy: auth.currentUser.email || auth.currentUser.uid
-            }, { merge: true });
-            console.log(`✅ 已同步更新 kmlList 清單文件: ${fileName}`);
-          } catch (syncErr) {
-            console.warn("⚠️ 更新 kmlList 清單失敗:", syncErr);
+              const reader = new FileReader();
+      
+              reader.onload = async (e) => {
+                  try {
+                      const kmlText = e.target.result;
+                      const parser = new DOMParser();
+                      const kmlDoc = parser.parseFromString(kmlText, "text/xml");
+                      const geojson = toGeoJSON.kml(kmlDoc);
+      
+                      // ✔ 直接將 GeoJSON 存到 Firestore（完全不用存 Storage）
+                      const docRef = kmlList.doc(); // 產生新 kmlList doc ID
+                      const docId = docRef.id;
+      
+                      await docRef.set({
+                          name: fileName,
+                          uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
+                          geojson: geojson,
+                          uploadedBy: auth.currentUser.email || auth.currentUser.uid,
+                      });
+      
+                      window.showMessage("成功", `KML "${fileName}" 已上傳，共 ${geojson.features.length} 筆資料`);
+      
+                      hiddenInput.value = "";
+                      selectedKmlFileNameDashboard.textContent = "尚未選擇檔案";
+                      uploadBtn.disabled = true;
+      
+                      await updateKmlLayerSelects();
+                      updatePinButtonState();
+      
+                  } catch (error) {
+                      console.error("❌ KML 上傳錯誤：", error);
+                      window.showMessage("錯誤", error.message);
+                  }
+              };
+      
+              reader.readAsText(file);
+      
+          } catch (error) {
+              console.error("上傳流程錯誤：", error);
           }
-
-          const msg = isOverwriting
-            ? `KML "${fileName}" 已覆蓋並儲存 ${geojson.features.length} 筆資料。`
-            : `KML "${fileName}" 已上傳並儲存 ${geojson.features.length} 筆資料。`;
-          window.showMessage("成功", msg);
-
-          hiddenInput.value = "";
-          selectedKmlFileNameDashboard.textContent = "尚未選擇檔案";
-          uploadBtn.disabled = true;
-          await updateKmlLayerSelects();
-          updatePinButtonState();
-        } catch (err) {
-          console.error("❌ 上傳 KML 錯誤：", err);
-          window.showMessage("錯誤", `KML 上傳失敗：${err.message}`);
-        }
-      };
-      reader.readAsText(file);
-    } catch (err) {
-      console.error("上傳流程錯誤：", err);
-    }
-  });
+      });
 
   // 🔹 刪除 KML 圖層
   document.getElementById("deleteSelectedKmlBtn").addEventListener("click", async () => {
@@ -183,37 +180,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      const { kmlLayers, kmlList } = window.firepaths;
-      const docRef = kmlLayers.doc(selectedId);
+      const { kmlList } = window.firepaths;
+      
+      // 確認存在
+      const docRef = kmlList.doc(selectedId);
       const docSnap = await docRef.get();
       if (!docSnap.exists) {
-        window.showMessage("錯誤", "找不到圖層文件。");
-        return;
+          window.showMessage("錯誤", "找不到圖層文件。");
+          return;
       }
-
+      
+      // 權限檢查
       const data = docSnap.data();
       const currentEmail = auth.currentUser.email;
-
+      
       if (
-        window.currentUserRole !== "owner" &&
-        !(window.currentUserRole === "editor" && data.uploadedBy === currentEmail)
+          window.currentUserRole !== "owner" &&
+          !(window.currentUserRole === "editor" && data.uploadedBy === currentEmail)
       ) {
-        window.showMessage("權限不足", "您無權刪除此圖層。");
-        return;
+          window.showMessage("權限不足", "您無權刪除此圖層。");
+          return;
       }
-
-      window.showMessage("確認", `確定要刪除 "${data.name}" 嗎？`, async () => {
-        try {
-          await kmlLayers.doc(selectedId).delete();
-          await kmlList.doc(selectedId).delete();
-          console.log(`🗑️ 已刪除 ${data.name} (ID: ${selectedId})`);
-          window.showMessage("成功", `已刪除圖層 "${data.name}"。`);
-          await updateKmlLayerSelects();
-        } catch (delErr) {
-          console.error("刪除錯誤：", delErr);
-          window.showMessage("錯誤", "刪除圖層時發生錯誤。");
-        }
-      });
+      
+      // 刪除
+      await docRef.delete();
+      window.showMessage("成功", `已刪除 "${data.name}"`);
+      await updateKmlLayerSelects();
     } catch (err) {
       console.error("刪除 KML 錯誤：", err);
     }
