@@ -691,7 +691,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
                         uploadedBy: auth.currentUser.email || auth.currentUser.uid,
                         uploadedByRole: window.currentUserRole,
-                        geojson: geojson   // ← ★★ 你要的整包存入這裡 ★★
+                        geojson: JSON.stringify(geojson)
                     },
                     { merge: true }
                 );
