@@ -79,47 +79,69 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // --- 載入釘選圖層（應用啟動時），已修正重複讀取問題 ---
-    const tryLoadPinnedKmlLayerWhenReady = () => {
-        const oldPinnedId = localStorage.getItem('pinnedKmlLayerId');
-        if (oldPinnedId) {
-            localStorage.setItem('pinnedKmlId', oldPinnedId);
-            localStorage.removeItem('pinnedKmlLayerId');
-            console.log('已將舊的釘選狀態轉換為新格式。');
+// --- 載入釘選圖層（應用啟動時），已修正重複讀取問題 ---
+const tryLoadPinnedKmlLayerWhenReady = () => {
+
+    // 舊格式轉換
+    const oldPinnedId = localStorage.getItem('pinnedKmlLayerId');
+    if (oldPinnedId) {
+        localStorage.setItem('pinnedKmlId', oldPinnedId);
+        localStorage.removeItem('pinnedKmlLayerId');
+        console.log('已將舊的釘選狀態轉換為新格式。');
+    }
+
+    const pinnedId = localStorage.getItem('pinnedKmlId');
+    currentPinnedKmlId = pinnedId;
+
+    if (pinnedId && kmlLayerSelect) {
+
+        // 下拉選單是否具有該圖層
+        const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
+
+        if (option) {
+
+            // 設定選項
+            kmlLayerSelect.value = pinnedId;
+            updatePinButtonState();
+
+            // ❗❗ 最重要：避免重複讀取
+            if (typeof window.loadKmlLayerFromFirestore === 'function') {
+
+                if (window.isLoadingKml) {
+                    console.log("⏳ pinned 等待中：已有其他讀取進行，略過一次");
+                    return;
+                }
+
+                if (window.currentKmlLayerId === pinnedId) {
+                    console.log(`⚠️ pinned: 已載入 ${pinnedId}，略過重複讀取`);
+                    return;
+                }
+
+                // 🟢 正式載入 pinned layer
+                console.log(`📌 pinned: 載入 ${pinnedId}`);
+                window.loadKmlLayerFromFirestore(pinnedId);
+            }
+
+            return;
         }
 
-        const pinnedId = localStorage.getItem('pinnedKmlId');
-        currentPinnedKmlId = pinnedId;
-        
-            if (pinnedId && kmlLayerSelect) {
-                const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
-                if (option) {
-                    kmlLayerSelect.value = pinnedId;
-                    // 🔍 加上重複讀取檢查，避免 pinned 載入多次
-                    if (typeof window.loadKmlLayerFromFirestore === 'function') {
-                        if (window.currentKmlLayerId === pinnedId) {
-                            console.log(`⚠️ 已載入圖層 ${pinnedId}，略過 pinned 初始化的重複讀取`);
-                        } else {
-                            window.loadKmlLayerFromFirestore(pinnedId);
-                        }
-                    }
-                updatePinButtonState(); // 更新圖釘按鈕狀態
-                return;
-            } else {
-                localStorage.removeItem('pinnedKmlId');
-                currentPinnedKmlId = null;
-                console.warn(`已釘選的 KML 圖層 ID ${pinnedId} 不存在，已清除釘選狀態。`);
-            }
-        }
-        
-        if (kmlLayerSelect) {
-            kmlLayerSelect.value = "";
-        }
-        updatePinButtonState();
-        if (typeof window.clearAllKmlLayers === 'function') {
-            window.clearAllKmlLayers();
-        }
-    };
+        // pinnedId 無效
+        localStorage.removeItem('pinnedKmlId');
+        currentPinnedKmlId = null;
+        console.warn(`已釘選的 KML 圖層 ID ${pinnedId} 不存在，已清除釘選狀態。`);
+    }
+
+    // 沒有 pinned → 清空
+    if (kmlLayerSelect) {
+        kmlLayerSelect.value = "";
+    }
+
+    updatePinButtonState();
+
+    if (typeof window.clearAllKmlLayers === 'function') {
+        window.clearAllKmlLayers();
+    }
+};
 
     const updateKmlLayerSelects = async () => {
         const kmlLayerSelect = document.getElementById('kmlLayerSelect');
