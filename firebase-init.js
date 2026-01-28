@@ -1,4 +1,5 @@
-// firebase-init.js v1.9.6
+// firebase-init.js v1.9.7 - 已增強：啟用 persistence 與錯誤處理
+// 請注意：本檔仍保留全域變數 firebase, auth, db, storage 與 appId 的行為以維持相容性
 
 // Firebase 配置 (請替換為您自己的 Firebase 專案配置)
 const firebaseConfig = {
@@ -11,8 +12,17 @@ const firebaseConfig = {
   measurementId: "G-TJFH5SXNJX"
 };
 
-// 初始化 Firebase
-firebase.initializeApp(firebaseConfig);
+// 初始化 Firebase（使用 CDN v8 style 在此專案內）
+if (typeof firebase === 'undefined') {
+  console.error('firebase SDK 未載入，請在 index.html 引入 Firebase CDN。');
+} else {
+  try {
+    firebase.initializeApp(firebaseConfig);
+  } catch (e) {
+    // 如果已經初始化過，忽略錯誤
+    console.warn('firebase.initializeApp 可能已經呼叫過：', e && e.message);
+  }
+}
 
 // 獲取 Firebase 服務實例
 const auth = firebase.auth();
@@ -21,15 +31,45 @@ const storage = firebase.storage();
 
 // 根據 Canvas 環境提供的 __app_id 或是 Firebase 配置中的 projectId 來確定 appId
 const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
-console.log("Using App ID for Firestore path:", appId);
+console.info("Using App ID for Firestore path:", appId);
 
+// 嘗試啟用 IndexedDB persistence（可顯著減少重複 network 讀取）
+try {
+  if (db && typeof db.enablePersistence === 'function') {
+    db.enablePersistence({ synchronizeTabs: true })
+      .then(() => {
+        console.info('Firestore persistence 已啟用（IndexedDB, synchronizeTabs: true）');
+      })
+      .catch((err) => {
+        // 常見錯誤：failed-precondition (多 tab), unimplemented (瀏覽器不支援)
+        if (err && err.code === 'failed-precondition') {
+          console.warn('Firestore persistence 未啟用：多個 tab 競爭 IndexedDB（failed-precondition）。', err);
+        } else if (err && err.code === 'unimplemented') {
+          console.warn('Firestore persistence 不支援此瀏覽器（unimplemented）。', err);
+        } else {
+          console.warn('啟用 Firestore persistence 時發生錯誤：', err);
+        }
+      });
+  } else {
+    console.warn('Firestore db.enablePersistence 不可用，請確認使用的是 v8 SDK 並且 firebase.firestore() 正常初始化。');
+  }
+} catch (e) {
+  console.warn('啟用 Firestore persistence 時捕獲例外：', e);
+}
 
-// 定義 showMessage 函數以便全局使用
-window.showMessage = function(title, message, callback) {
+// 定義 showMessage 函數以便全域使用（若專案已有同名請注意覆寫）
+window.showMessage = window.showMessage || function(title, message, callback) {
     const messageBoxOverlay = document.getElementById('messageBoxOverlay');
     const messageBoxTitle = document.getElementById('messageBoxTitle');
     const messageBoxMessage = document.getElementById('messageBoxMessage');
     const messageBoxCloseBtn = document.getElementById('messageBoxCloseBtn');
+
+    if (!messageBoxOverlay || !messageBoxTitle || !messageBoxMessage || !messageBoxCloseBtn) {
+      // fallback: alert
+      alert(`${title}\n\n${message}`);
+      if (callback) callback();
+      return;
+    }
 
     messageBoxTitle.textContent = title;
     messageBoxMessage.textContent = message;
@@ -43,67 +83,4 @@ window.showMessage = function(title, message, callback) {
         }
     };
     messageBoxCloseBtn.addEventListener('click', closeHandler);
-};
-
-// 定義 showRegistrationCodeModal 函數以便全局使用，增加計時器功能
-window.showRegistrationCodeModal = function(callback) {
-    const modalOverlay = document.getElementById('registrationCodeModalOverlay');
-    const registrationCodeInput = document.getElementById('registrationCodeInput');
-    const nicknameInput = document.getElementById('nicknameInput');
-    const confirmBtn = document.getElementById('confirmRegistrationCodeBtn');
-    const cancelBtn = document.getElementById('cancelRegistrationCodeBtn');
-    const modalMessage = document.getElementById('registrationModalMessage');
-
-    registrationCodeInput.value = ''; // 清空註冊碼輸入框
-    nicknameInput.value = ''; // 清空暱稱輸入框
-    modalMessage.textContent = '請輸入管理員提供的一次性註冊碼。'; // 重設訊息
-    modalMessage.classList.remove('countdown'); // 移除計時器樣式
-    modalOverlay.classList.add('visible'); // 顯示模態框
-
-    let countdown = 60; // 60秒計時
-    let timerInterval;
-
-    const updateTimer = () => {
-        modalMessage.textContent = `請輸入管理員提供的一次性註冊碼。剩餘時間: ${countdown} 秒`;
-        modalMessage.classList.add('countdown');
-        if (countdown <= 0) {
-            clearInterval(timerInterval);
-            modalOverlay.classList.remove('visible'); // 隱藏模態框
-            cleanupListeners();
-            callback(null); // 表示時間到，自動取消
-        }
-        countdown--;
-    };
-
-    const cleanupListeners = () => {
-        clearInterval(timerInterval);
-        confirmBtn.removeEventListener('click', confirmHandler);
-        cancelBtn.removeEventListener('click', cancelHandler);
-    };
-
-    const confirmHandler = () => {
-        const code = registrationCodeInput.value.trim();
-        const nickname = nicknameInput.value.trim();
-        if (code && nickname) {
-            modalOverlay.classList.remove('visible'); // 隱藏模態框
-            cleanupListeners();
-            callback({ code: code, nickname: nickname });
-        } else {
-            modalMessage.textContent = '請輸入註冊碼和您的暱稱。';
-            modalMessage.classList.remove('countdown');
-        }
-    };
-
-    const cancelHandler = () => {
-        modalOverlay.classList.remove('visible'); // 隱藏模態框
-        cleanupListeners();
-        callback(null); // 表示取消
-    };
-
-    // 啟動計時器
-    timerInterval = setInterval(updateTimer, 1000);
-    updateTimer(); // 立即執行一次以顯示初始時間
-
-    confirmBtn.addEventListener('click', confirmHandler);
-    cancelBtn.addEventListener('click', cancelHandler);
 };
