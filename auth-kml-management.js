@@ -1,4 +1,4 @@
-﻿// auth-kml-management.js v1.9.3
+﻿// auth-kml-management.js v1.9.6
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');

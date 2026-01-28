@@ -1,4 +1,4 @@
-﻿// map-logic.js v1.9.3
+﻿// map-logic.js v1.9.6
 
 // 全域變數初始化，確保它們在整個腳本中可被訪問
 let map;
