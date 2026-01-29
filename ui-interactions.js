@@ -1,4 +1,4 @@
-// ui-interactions.js v1.9.7
+// ui-interactions.js v1.9.6
 
 document.addEventListener('DOMContentLoaded', () => {
     const editButton = document.getElementById('editButton');
