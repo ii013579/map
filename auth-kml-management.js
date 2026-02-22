@@ -1,4 +1,4 @@
-﻿// auth-kml-management.js v1.9
+﻿// auth-kml-management.js v4.2.46 - 修正重複讀取問題
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
@@ -64,21 +64,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleKmlLayerSelectChange = () => {
         const kmlId = kmlLayerSelect?.value;
-    
+        
         updatePinButtonState();
-    
+
         if (kmlId && typeof window.loadKmlLayerFromFirestore === 'function') {
-            // 🔍 避免初始化或重複選擇同一個圖層時，再次讀取 Firebase
-            if (window.currentKmlLayerId === kmlId) {
-                console.log(`⚠️ 已載入圖層 ${kmlId}，略過 change 觸發的重複讀取`);
-                return;
-            }
             window.loadKmlLayerFromFirestore(kmlId);
         } else if (!kmlId && typeof window.clearAllKmlLayers === 'function') {
             window.clearAllKmlLayers();
         }
     };
-    
+
     // --- 載入釘選圖層（應用啟動時），已修正重複讀取問題 ---
     const tryLoadPinnedKmlLayerWhenReady = () => {
         const oldPinnedId = localStorage.getItem('pinnedKmlLayerId');
@@ -91,18 +86,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const pinnedId = localStorage.getItem('pinnedKmlId');
         currentPinnedKmlId = pinnedId;
         
-            if (pinnedId && kmlLayerSelect) {
-                const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
-                if (option) {
-                    kmlLayerSelect.value = pinnedId;
-                    // 🔍 加上重複讀取檢查，避免 pinned 載入多次
-                    if (typeof window.loadKmlLayerFromFirestore === 'function') {
-                        if (window.currentKmlLayerId === pinnedId) {
-                            console.log(`⚠️ 已載入圖層 ${pinnedId}，略過 pinned 初始化的重複讀取`);
-                        } else {
-                            window.loadKmlLayerFromFirestore(pinnedId);
-                        }
-                    }
+        if (pinnedId && kmlLayerSelect) {
+            const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
+            if (option) {
+                kmlLayerSelect.value = pinnedId;
+                // 直接呼叫載入函數，避免再次觸發 change 事件
+                if (typeof window.loadKmlLayerFromFirestore === 'function') {
+                    window.loadKmlLayerFromFirestore(pinnedId);
+                }
                 updatePinButtonState(); // 更新圖釘按鈕狀態
                 return;
             } else {
@@ -684,28 +675,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log(`沒有找到相同名稱的 KML 圖層，已新增一個。ID: ${kmlLayerDocRef.id}`);
                 }
 
-               // const featuresSubCollectionRef = kmlLayersCollectionRef.doc(kmlLayerDocRef.id).collection('features');
-               // const batch = db.batch();
-               // let addedCount = 0;
-               // console.log(`開始批量寫入 ${parsedFeatures.length} 個 features 到 ${kmlLayerDocRef.id} 的子集合。`);
-               // for (const f of parsedFeatures) {
-               //     if (f.geometry && f.properties && f.geometry.coordinates) {
-               //         batch.set(featuresSubCollectionRef.doc(), {
-               //             geometry: f.geometry,
-               //             properties: f.properties
-               //         });
-               //         addedCount++;
-               //     } else {
-               //         console.warn("上傳時跳過無效或無座標的 feature:", f.geometry ? f.geometry.type : '無幾何資訊', f);
-               //     }
-               // }
-               // await batch.commit();
-               // console.log(`批量提交成功。已添加 ${addedCount} 個 features。`)
-               
+                const featuresSubCollectionRef = kmlLayersCollectionRef.doc(kmlLayerDocRef.id).collection('features');
+                const batch = db.batch();
+                let addedCount = 0;
+                console.log(`開始批量寫入 ${parsedFeatures.length} 個 features 到 ${kmlLayerDocRef.id} 的子集合。`);
+                for (const f of parsedFeatures) {
+                    if (f.geometry && f.properties && f.geometry.coordinates) {
+                        batch.set(featuresSubCollectionRef.doc(), {
+                            geometry: f.geometry,
+                            properties: f.properties
+                        });
+                        addedCount++;
+                    } else {
+                        console.warn("上傳時跳過無效或無座標的 feature:", f.geometry ? f.geometry.type : '無幾何資訊', f);
+                    }
+                }
+                await batch.commit();
+                console.log(`批量提交成功。已添加 ${addedCount} 個 features。`);
+
                 const successMessage = isOverwriting ? 
                     `KML 檔案 "${fileName}" 已成功覆蓋並儲存 ${addedCount} 個地理要素。` :
                     `KML 檔案 "${fileName}" 已成功上傳並儲存 ${addedCount} 個地理要素。`;
-                Window.showMessage('成功', successMessage);
+                window.showMessage('成功', successMessage);
                 hiddenKmlFileInput.value = '';
                 selectedKmlFileNameDashboard.textContent = '尚未選擇檔案';
                 uploadKmlSubmitBtnDashboard.disabled = true;
