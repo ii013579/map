@@ -79,60 +79,118 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // 標記 pinned 是否已載入過
-    window.alreadyLoadedPinned = false;
-    
-    /**
-     * 嘗試載入 pinned 圖層
-     */
-    window.tryLoadPinnedKmlLayerWhenReady = function() {
-        if (window.alreadyLoadedPinned) {
-            console.log("⚠️ 已載入過 pinned，略過重複呼叫");
+    // --- 載入釘選圖層（應用啟動時），已修正重複讀取問題 ---
+    const tryLoadPinnedKmlLayerWhenReady = () => {
+        const oldPinnedId = localStorage.getItem('pinnedKmlLayerId');
+        if (oldPinnedId) {
+            localStorage.setItem('pinnedKmlId', oldPinnedId);
+            localStorage.removeItem('pinnedKmlLayerId');
+            console.log('已將舊的釘選狀態轉換為新格式。');
+        }
+
+        const pinnedId = localStorage.getItem('pinnedKmlId');
+        currentPinnedKmlId = pinnedId;
+        
+            if (pinnedId && kmlLayerSelect) {
+                const option = Array.from(kmlLayerSelect.options).find(opt => opt.value === pinnedId);
+                if (option) {
+                    kmlLayerSelect.value = pinnedId;
+                    // 🔍 加上重複讀取檢查，避免 pinned 載入多次
+                    if (typeof window.loadKmlLayerFromFirestore === 'function') {
+                        if (window.currentKmlLayerId === pinnedId) {
+                            console.log(`⚠️ 已載入圖層 ${pinnedId}，略過 pinned 初始化的重複讀取`);
+                        } else {
+                            window.loadKmlLayerFromFirestore(pinnedId);
+                        }
+                    }
+                updatePinButtonState(); // 更新圖釘按鈕狀態
+                return;
+            } else {
+                localStorage.removeItem('pinnedKmlId');
+                currentPinnedKmlId = null;
+                console.warn(`已釘選的 KML 圖層 ID ${pinnedId} 不存在，已清除釘選狀態。`);
+            }
+        }
+        
+        if (kmlLayerSelect) {
+            kmlLayerSelect.value = "";
+        }
+        updatePinButtonState();
+        if (typeof window.clearAllKmlLayers === 'function') {
+            window.clearAllKmlLayers();
+        }
+    };
+
+    const updateKmlLayerSelects = async () => {
+        const kmlLayerSelect = document.getElementById('kmlLayerSelect');
+        const kmlLayerSelectDashboard = document.getElementById('kmlLayerSelectDashboard');
+        const deleteSelectedKmlBtn = document.getElementById('deleteSelectedKmlBtn');
+        
+        if (!kmlLayerSelect) {
+            console.error("找不到 KML 圖層下拉選單。");
             return;
         }
-    
-        const pinnedId = localStorage.getItem("pinnedKmlId");
-        if (pinnedId) {
-            console.log(`📌 載入 pinned 圖層 ${pinnedId}`);
-            window.alreadyLoadedPinned = true; // 🔒 避免重複
-            window.loadKmlLayerFromFirestore(pinnedId);
+
+        kmlLayerSelect.innerHTML = '<option value="">-- 請選擇 KML 圖層 --</option>';
+        if (kmlLayerSelectDashboard) {
+            kmlLayerSelectDashboard.innerHTML = '<option value="">-- 請選擇 KML 圖層 --</option>';
         }
-    };
-    
-    /**
-     * 更新 KML 圖層下拉選單
-     */
-    window.updateKmlLayerSelects = async function() {
-        const kmlSelect = document.getElementById("kmlLayerSelect");
-        if (!kmlSelect) return;
-    
+        if (deleteSelectedKmlBtn) deleteSelectedKmlBtn.disabled = true;
+        
+        kmlLayerSelect.disabled = false;
+        
+        const canEdit = (window.currentUserRole === 'owner' || window.currentUserRole === 'editor');
+        if (uploadKmlSectionDashboard) {
+            uploadKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
+        }
+        if (deleteKmlSectionDashboard) {
+            deleteKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
+        }
+        if (kmlLayerSelectDashboard) kmlLayerSelectDashboard.disabled = !canEdit;
+        if (uploadKmlSubmitBtnDashboard) uploadKmlSubmitBtnDashboard.disabled = !canEdit;
+
         try {
-            const kmlRef = db.collection('artifacts').doc(appId)
-                .collection('public').doc('data')
-                .collection('kmlLayers');
-    
-            const snapshot = await kmlRef.get();
-    
-            kmlSelect.innerHTML = ""; // 清空選單
-    
-            snapshot.forEach(doc => {
-                const option = document.createElement("option");
-                option.value = doc.id;
-                option.textContent = doc.data().name || doc.id;
-                kmlSelect.appendChild(option);
-            });
-    
-            console.log("✅ KML 下拉選單已更新");
-    
-            // ⚠️ 這裡不再每次都自動呼叫 pinned
-            if (!window.alreadyLoadedPinned) {
-                window.tryLoadPinnedKmlLayerWhenReady();
+            const kmlRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('kmlLayers');
+            let snapshot;
+
+            if (window.currentUserRole === 'editor' && auth.currentUser && auth.currentUser.email) {
+                snapshot = await kmlRef.where('uploadedBy', '==', auth.currentUser.email).get();
+            } else {
+                snapshot = await kmlRef.get();
             }
-    
+
+            currentKmlLayers = [];
+
+            if (!snapshot.empty) {
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const kmlId = doc.id;
+                    const kmlName = data.name || `KML_${kmlId.substring(0, 8)}`;
+                    const option = document.createElement('option');
+                    option.value = kmlId;
+                    option.textContent = kmlName;
+                    kmlLayerSelect.appendChild(option);
+
+                    if (kmlLayerSelectDashboard) {
+                        const optionDashboard = document.createElement('option');
+                        optionDashboard.value = kmlId;
+                        optionDashboard.textContent = kmlName;
+                        kmlLayerSelectDashboard.appendChild(optionDashboard);
+                    }
+                    currentKmlLayers.push({ id: kmlId, name: kmlName });
+                });
+            }
+            if (currentKmlLayers.length > 0 && canEdit && deleteSelectedKmlBtn) {
+                deleteSelectedKmlBtn.disabled = false;
+            }
+            
+            tryLoadPinnedKmlLayerWhenReady();
         } catch (error) {
-            console.error("更新 KML 下拉選單時出錯:", error);
+            console.error("更新 KML 圖層列表時出錯:", error);
+            window.showMessage('錯誤', '無法載入 KML 圖層列表。');
         }
     };
+
     if (typeof window.showConfirmationModal === 'undefined') {
         window.showConfirmationModal = function(title, message) {
             return new Promise(resolve => {
