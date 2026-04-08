@@ -1,4 +1,4 @@
-﻿// map-logic.js v2.01
+﻿// map-logic.js v2.03
 
 (function () {
     'use strict';
@@ -24,11 +24,13 @@
 
         // 初始化地圖
         ns.map = L.map('map', {
+        	  preferCanvas: true,
             attributionControl: true,
             zoomControl: false,
             maxZoom: 25,
             minZoom: 5
         }).setView([23.6, 120.9], 8);
+
         
         window.map = ns.map;
         window.geoJsonLayers = ns.geoJsonLayers;
@@ -348,191 +350,160 @@
         });
     });
 
-    // ---------- 公開方法：添加 GeoJSON 圖層（支援 Point, LineString, Polygon） ----------
-    // 重要功能：會把新的 features 加入地圖，並以點、線、面分開處理以提升渲染控制與互動性
+    // ---------- 公開方法：添加 GeoJSON 圖層（v2.03 修正版） ----------
     window.addGeoJsonLayers = function (geojsonFeatures = []) {
-        if (!ns.map) {
-            console.error("地圖尚未初始化。");
-            return;
-        }
-
-        // 清除舊圖層（確保畫面唯一）
+        if (!ns.map) return;
+    
+        // 清除舊圖層
         ns.geoJsonLayers.clearLayers();
         ns.markers.clearLayers();
         ns.navButtons.clearLayers();
-
-        const linePolygonFeatures = [];
-        const pointFeatures = [];
-
+    
+        // 定義「紅點白框」樣式 (同步自舊版 CSS)
+        const originalStyle = {
+            radius: 8,           // 半徑 8 (對應 iconSize [16,16])
+            fillColor: "#e74c3c", // 紅色填充
+            fillOpacity: 1,
+            color: "#ffffff",    // 白色外框
+            weight: 2,           // 外框寬度 2px
+            opacity: 1,
+            interactive: true
+        };
+    
+        const canvasRenderer = L.canvas({ padding: 0.1 });
+    
         geojsonFeatures.forEach(feature => {
             const type = feature?.geometry?.type;
+            const coords = feature?.geometry?.coordinates;
+            if (!type || !coords) return;
+    
+            // 處理點位 (Point)
             if (type === 'Point') {
-                pointFeatures.push(feature);
-            } else if (type === 'LineString' || type === 'Polygon') {
-                linePolygonFeatures.push(feature);
+                const latlng = L.latLng(coords[1], coords[0]);
+                const name = feature.properties?.name || '未命名';
+                const labelId = `label-${String(coords[1])}-${String(coords[0])}`.replace(/\./g, '_');
+    
+                // 建立帶白框的紅點 (Canvas)
+                const dot = L.circleMarker(latlng, {
+                    renderer: canvasRenderer,
+                    ...originalStyle
+                });
+    
+                dot.on('click', (e) => {
+                    L.DomEvent.stopPropagation(e);
+                    
+                    // 重置所有點回「紅點白框」
+                    ns.markers.eachLayer(layer => {
+                        if (layer instanceof L.CircleMarker) layer.setStyle(originalStyle);
+                    });
+    
+                    // 高亮處理
+                    document.querySelectorAll('.marker-label span').forEach(s => s.classList.remove('label-active'));
+                    const targetSpan = document.getElementById(labelId);
+                    if (targetSpan) targetSpan.classList.add('label-active');
+    
+                    window.createNavButton(latlng, name);
+                });
+    
+                ns.markers.addLayer(dot);
+    
+                // 標籤處理 (DOM)
+                const label = L.marker(latlng, {
+                    icon: L.divIcon({
+                        className: 'marker-label',
+                        html: `<span id="${labelId}">${name}</span>`,
+                        iconSize: [null, null],
+                        iconAnchor: [0, 0]
+                    }),
+                    interactive: false,
+                    zIndexOffset: 500
+                });
+                ns.markers.addLayer(label);
+            }
+            // 處理線段與多邊形 (修正原本掉在函式外的邏輯)
+            else if (type === 'LineString' || type === 'Polygon') {
+                const layer = L.geoJSON(feature, {
+                    renderer: canvasRenderer,
+                    style: { color: '#FF0000', weight: 3 }
+                }).addTo(ns.geoJsonLayers);
+    
+                layer.on('click', function (e) {
+                    L.DomEvent.stopPropagation(e);
+                    let centerPoint = (type === 'Polygon') 
+                        ? window.getPolygonCentroid(feature.geometry.coordinates[0])
+                        : window.getLineStringMidpoint(feature.geometry.coordinates);
+                    
+                    if (centerPoint) {
+                        window.createNavButton(L.latLng(centerPoint[1], centerPoint[0]), feature.properties?.name);
+                    }
+                });
             }
         });
-
-        // 處理線與多邊形（單一 L.geoJSON 以加速）
-        if (linePolygonFeatures.length > 0) {
-            L.geoJSON(linePolygonFeatures, {
-                onEachFeature: function (feature, layer) {
-                    // 多邊形放底層顯示
-                    try { layer.bringToBack(); } catch (e) { /* 忽略 */ }
-
-                    // 若為 Polygon，新增 centroid 標籤（顯示名稱）
-                    if (feature.geometry.type === 'Polygon' && feature.properties?.name) {
-                        // 使用改良過的 centroid 計算（面積加權）
-                        const outerRing = feature.geometry.coordinates[0] || [];
-                        const centroidCoord = window.getPolygonCentroid(outerRing);
-                        if (centroidCoord) {
-                            const centerLatLng = L.latLng(centroidCoord[1], centroidCoord[0]);
-                            const polygonLabelIcon = L.divIcon({
-                                className: 'marker-label',
-                                html: `<span>${feature.properties.name}</span>`,
-                                iconSize: [null, null],
-                                iconAnchor: [0, 0]
-                            });
-                            L.marker(centerLatLng, {
-                                icon: polygonLabelIcon,
-                                interactive: false,
-                                zIndexOffset: 1000
-                            }).addTo(ns.geoJsonLayers);
-                        }
-                    }
-
-                    // 點擊後建立導航按鈕（LineString 以中點、Polygon 以中心）
-                    layer.on('click', function (e) {
-                        L.DomEvent.stopPropagation(e);
-                        const featureName = feature.properties?.name || '未命名地圖要素';
-
-                        let centerPoint = null;
-                        if (feature.geometry.type === 'Polygon') {
-                            const outer = feature.geometry.coordinates[0] || [];
-                            centerPoint = window.getPolygonCentroid(outer);
-                        } else if (feature.geometry.type === 'LineString') {
-                            centerPoint = window.getLineStringMidpoint(feature.geometry.coordinates);
-                        }
-
-                        if (centerPoint) {
-                            const centerLatLng = L.latLng(centerPoint[1], centerPoint[0]);
-                            window.createNavButton(centerLatLng, featureName);
-                        }
-                    });
-                },
-                style: function (feature) {
-                    if (!feature || !feature.geometry) return {};
-                    if (feature.geometry.type === 'LineString') {
-                        return { color: '#FF0000', weight: 3, opacity: 0.8 };
-                    } else if (feature.geometry.type === 'Polygon') {
-                        return { color: '#0000FF', weight: 2, opacity: 0.6, fillOpacity: 0.3 };
-                    }
-                    return {};
-                }
-            }).addTo(ns.geoJsonLayers);
-        }
-
-        // 處理點圖層（為每個點建立 dot + label）
-        pointFeatures.forEach(f => {
-            const coords = f?.geometry?.coordinates;
-            if (!coords) return;
-            const [lon, lat] = coords;
-            const latlng = L.latLng(lat, lon);
-            const name = f.properties ? (f.properties.name || '未命名') : '未命名';
-
-            // 為了避免 id 衝突，組合與編碼產生 labelId
-            const labelId = `label-${String(lat)}-${String(lon)}`.replace(/\./g, '_').replace(/\s+/g, '_');
-
-            const dotIcon = L.divIcon({
-                className: 'custom-dot-icon',
-                iconSize: [16, 16],
-                iconAnchor: [8, 8]
+    
+        // 點擊空白處重置樣式
+        ns.map.off('click').on('click', () => {
+            ns.markers.eachLayer(layer => {
+                if (layer instanceof L.CircleMarker) layer.setStyle(originalStyle);
             });
-
-            const dot = L.marker(latlng, {
-                icon: dotIcon,
-                interactive: true
-            });
-
-            const label = L.marker(latlng, {
-                icon: L.divIcon({
-                    className: 'marker-label',
-                    html: `<span id="${labelId}">${name}</span>`,
-                    iconSize: [null, null],
-                    iconAnchor: [0, 0]
-                }),
-                interactive: false,
-                zIndexOffset: 1000
-            });
-
-            dot.on('click', (e) => {
-                L.DomEvent.stopPropagation(e);
-                // 取消其他標籤的高亮
-                document.querySelectorAll('.marker-label span.label-active').forEach(el => {
-                    el.classList.remove('label-active');
-                });
-                const target = document.getElementById(labelId);
-                if (target) {
-                    target.classList.add('label-active');
-                }
-                if (typeof window.createNavButton === 'function') {
-                    window.createNavButton(latlng, name);
-                }
-            });
-
-            ns.markers.addLayer(dot);
-            ns.markers.addLayer(label);
+            document.querySelectorAll('.marker-label span').forEach(s => s.classList.remove('label-active'));
+            ns.navButtons.clearLayers();
         });
-
-        console.info(`已添加 ${geojsonFeatures.length} 個 GeoJSON features 到地圖 (${pointFeatures.length} 點, ${linePolygonFeatures.length} 線/多邊形)。`);
-        window.allKmlFeatures = geojsonFeatures;
+    
         ns.allKmlFeatures = geojsonFeatures;
     };
-
-    // ---------- 公開方法：建立導航按鈕（點擊後開啟 Google Maps） ----------
+       
+    // ---------- 公開方法：建立導航按鈕（v2.02 Canvas 相容版） ----------
     window.createNavButton = function (latlng, name) {
         if (!ns.map) {
             console.error("地圖尚未初始化。");
             return;
         }
 
-        // 清除現有的導航按鈕（單一導航目標）
+        // 1. 清除現有的導航按鈕（確保畫面上同時只有一個導航目標）
         ns.navButtons.clearLayers();
 
-        const googleMapsUrl = `https://maps.google.com/?q=${latlng.lat},${latlng.lng}`;
+        // 2. 修正 Google Maps URL 格式（修正原本 0{latlng...} 的錯誤）
+        const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${latlng.lat},${latlng.lng}`;
+        
+        // 3. 建立按鈕 HTML
         const buttonHtml = `
-            <div class="nav-button-content">
-                <img src="https://i0.wp.com/canadasafetycouncil.org/wp-content/uploads/2018/08/offroad.png" alt="導航" />
-            </div>
+           <div class="nav-button-content">
+               <img src="https://i0.wp.com/canadasafetycouncil.org/wp-content/uploads/2018/08/offroad.png" alt="導航" />
+           </div>
         `;
+
+        // 4. 定義圖標
         const buttonIcon = L.divIcon({
             className: 'nav-button-icon',
             html: buttonHtml,
             iconSize: [50, 50],
-            iconAnchor: [25, 25]
+            iconAnchor: [25, 25] // 居中對齊紅點
         });
 
+        // 5. 建立 Marker
+        // 注意：導航按鈕必須使用 L.marker (DOM)，不可使用 CircleMarker，否則圖示無法顯示
         const navMarker = L.marker(latlng, {
             icon: buttonIcon,
-            zIndexOffset: 2000,
+            zIndexOffset: 5000, // 確保在所有紅點之上
             interactive: true
         }).addTo(ns.navButtons);
 
+        // 6. 導航跳轉事件
         navMarker.on('click', function (e) {
             L.DomEvent.stopPropagation(e);
             window.open(googleMapsUrl, '_blank');
         });
 
-        // 平滑移動地圖中心到目標（duration 可視 Leaflet 版本而有差異）
+        // 7. 地圖自動對焦到該位置
         try {
-            ns.map.panTo(latlng, { duration: 0.5 });
+            ns.map.panTo(latlng, { animate: true, duration: 0.5 });
         } catch (e) {
             ns.map.setView(latlng);
         }
 
-        console.info(`已為 ${name} 在 ${latlng.lat}, ${latlng.lng} 創建導航按鈕。`);
+        console.info(`已為 ${name} 創建導航圖示 (${latlng.lat}, ${latlng.lng})`);
     };
-
+    
     // ---------- 輔助函式：多邊形質心（面積加權） ----------
     // 備註：輸入為 polygon 的外環點陣列（[ [lon,lat], ... ]），回傳 [lon, lat]
     // 若計算失敗則回傳座標平均值作為 fallback
@@ -625,91 +596,91 @@
         console.info('所有 KML 圖層和相關數據已清除。');
     };
 
-// ---------- 載入 KML（具備 24h 快取與 Firebase SDK 低成本優化） ----------
-    window.loadKmlLayerFromFirestore = async function (kmlId) {
-        // 1. 全域鎖：避免重複讀取
+    /**
+     * 從 Firestore 載入特定的 KML 圖層資料 (GeoJSON 格式)
+     * 路徑對應：artifacts / kmldata-d22fb / public / data / kmlLayers / {kmlId}
+     */
+    window.loadKmlLayerFromFirestore = async function(kmlId) {
+        const ns = window.mapNamespace; // 取得 map-logic.js 定義的命名空間
+        const APP_ID = 'kmldata-d22fb'; // 根據 Firebase 控制台確定的路徑 ID
+        
+        // 1. 防呆與狀態檢查
+        if (!kmlId) return;
         if (ns.isLoadingKml) {
-            console.info("⏳ 讀取中，略過重複請求。");
+            console.log("⏳ 圖層正在載入中，請稍候...");
             return;
         }
-
-        // 2. 基本檢查
-        if (!kmlId) {
-            console.info("未提供 KML ID。");
-            window.clearAllKmlLayers();
-            return;
-        }
-
-        const CACHE_KEY = `kml_data_${kmlId}`;
-        const CACHE_TIME_KEY = `kml_time_${kmlId}`;
-        const EXPIRE_TIME = 24 * 60 * 60 * 1000; 
-
-        ns.isLoadingKml = true;
-
+        ns.isLoadingKml = true; // 上鎖，防止連點重複觸發
+    
+        const CONTENT_CACHE_KEY = `kml_data_${kmlId}`;
+    
         try {
-            const now = Date.now();
-            const cachedData = localStorage.getItem(CACHE_KEY);
-            const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
-
-            // 3. 【第一層防線】LocalStorage 快取攔截 (完全不接觸 Firebase)
-            if (cachedData && cachedTime && (now - parseInt(cachedTime) < EXPIRE_TIME)) {
-                // 若 ID 沒變且圖層已在地圖上，直接結束
-                if (ns.currentKmlLayerId === kmlId && ns.allKmlFeatures.length > 0) {
-                    ns.isLoadingKml = false;
-                    return;
-                }
-                
-                console.log(`%c[快取命中] 載入本地備份: ${kmlId}`, "color: #4CAF50; font-weight: bold;");
-                window.clearAllKmlLayers();
-                renderKmlData(JSON.parse(cachedData), kmlId);
-                ns.isLoadingKml = false; // 成功後解鎖
-                return; 
-            }
-
-            // 4. 【第二層防線】Firestore SDK 離線快取優先 (降低 Read Count)
-            console.log(`%c[快取失效] 嘗試同步 Firebase: ${kmlId}`, "color: #2196F3; font-weight: bold;");
+            // 2. 數據層優化：嘗試從本地 LocalStorage 讀取
+            const cachedContent = localStorage.getItem(CONTENT_CACHE_KEY);
             
-            if (typeof db === 'undefined' || typeof appId === 'undefined') {
-                throw new Error('Firebase 未定義。');
+            if (cachedContent) {
+                console.log(`%c[數據快取命中] 載入圖層: ${kmlId}`, "color: #2196F3; font-weight: bold;");
+                const kmlData = JSON.parse(cachedContent);
+                
+                // 直接執行清理與渲染流程
+                if (typeof clearExistingLayers === 'function') clearExistingLayers(ns);
+                if (typeof renderKmlData === 'function') renderKmlData(kmlData, kmlId);
+                return;
             }
-
-            const docRef = db.collection('artifacts')
-                .doc(appId).collection('public')
-                .doc('data').collection('kmlLayers')
-                .doc(kmlId);
-
-            let doc;
-            try {
-                // 優先強制從 SDK 內部的快取讀取 (不計費)
-                doc = await docRef.get({ source: 'cache' });
-                console.log("Firebase SDK 離線快取命中");
-            } catch (e) {
-                // 快取沒有或出錯，才真正去 Server 拿 (計費 1 次)
-                doc = await docRef.get({ source: 'server' });
-                console.log("Firebase SDK 快取失效，執行網路請求");
+    
+            // 3. 快取失效：從正確的嵌套路徑下載圖層
+            console.log(`%c[網路讀取] 開始下載圖層資料: ${kmlId}`, "color: #f44336;");
+            
+            // ✨ 關鍵修正：依照 artifacts 嵌套結構進行路徑定位
+            const doc = await db.collection('artifacts').doc(APP_ID)
+                                .collection('public').doc('data')
+                                .collection('kmlLayers').doc(kmlId).get();
+            
+            console.log(`%c🔥 [Firestore Read] 成功下載特定圖層內容`, "color: white; background: red; padding: 2px 5px;");
+    
+            if (!doc.exists) {
+                // 提供完整錯誤路徑以便 Debug
+                console.error("❌ 找不到文件於路徑: ", `artifacts/${APP_ID}/public/data/kmlLayers/${kmlId}`);
+                throw new Error('資料庫中找不到該圖層，可能已被刪除。');
             }
-
-            if (!doc.exists) throw new Error('找不到圖層資料。');
-
+    
             const kmlData = doc.data();
-
-            // 5. 更新 LocalStorage
-            localStorage.setItem(CACHE_KEY, JSON.stringify(kmlData));
-            localStorage.setItem(CACHE_TIME_KEY, now.toString());
-
-            window.clearAllKmlLayers();
-            renderKmlData(kmlData, kmlId);
-
+    
+            // 4. 更新本地快取 (供下次使用)
+            try {
+                localStorage.setItem(CONTENT_CACHE_KEY, JSON.stringify(kmlData));
+            } catch (e) {
+                // 若 GeoJSON 超過 LocalStorage 5MB 限制
+                console.warn("⚠️ LocalStorage 空間不足，無法快取此圖層內容。");
+            }
+    
+            // 5. 執行渲染
+            if (typeof clearExistingLayers === 'function') clearExistingLayers(ns);
+            if (typeof renderKmlData === 'function') renderKmlData(kmlData, kmlId);
+    
         } catch (error) {
-            console.error("載入出錯:", error);
-            // 只有在真正失敗時才彈窗
-            if (error.name !== 'FirebaseError') {
-                 window.showMessageCustom?.({ title: '錯誤', message: error.message, buttonText: '確定' });
+            console.error("❌ 載入圖層失敗:", error);
+            
+            // 顯示自訂訊息視窗
+            if (window.showMessageCustom) {
+                window.showMessageCustom({ 
+                    title: '載入失敗', 
+                    message: error.message, 
+                    buttonText: '確定' 
+                });
             }
         } finally {
-            ns.isLoadingKml = false; 
+            ns.isLoadingKml = false; // 解鎖狀態
         }
     };
+    
+    /**
+     * 輔助函式：清理地圖上現有的所有圖層與標記
+     */
+    function clearExistingLayers(ns) {
+        if (ns.geoJsonLayers) ns.geoJsonLayers.clearLayers();
+        if (ns.markers) ns.markers.clearLayers();
+    }
 
     // 抽離出的渲染邏輯（確保快取與網路共用同一套顯示流程）
     function renderKmlData(kmlData, kmlId) {

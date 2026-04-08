@@ -52,23 +52,19 @@
     <div id="loggedInDashboard" style="display: none;">
       <h3 id="userEmailDisplay"></h3>
 
-      <div id="kmlControlsDashboard">
-          <div id="uploadKmlSectionDashboard">
-              <label for="hiddenKmlFileInput">上傳 KML:</label>
-              <!-- hiddenKmlFileInput 僅用於程式碼邏輯，不直接顯示 -->
-              <input type="file" id="hiddenKmlFileInput" accept=".kml" style="display: none;" />
-              <!-- 這個 span 用於顯示選擇的檔案名稱，並透過點擊觸發 hiddenKmlFileInput -->
-              <span id="selectedKmlFileNameDashboard">尚未選擇檔案</span>
-              <button id="uploadKmlSubmitBtnDashboard" class="action-buttons upload-btn" disabled>上傳</button>
-          </div>
-          <div id="deleteKmlSectionDashboard">
-              <label for="kmlLayerSelectDashboard">刪除 KML:</label>
-              <select id="kmlLayerSelectDashboard" disabled>
-                  <option value="">-- 請選擇 KML 圖層 --</option>
-              </select>
-              <button id="deleteSelectedKmlBtn" class="action-buttons delete-btn">刪除</button>
-          </div>
-      </div>
+    <div id="kmlControlsDashboard">
+        <div id="unifiedKmlActions" style="display: flex; align-items: center; gap: 8px;">
+            <label style="font-size: 14px; font-weight: 500; white-space: nowrap;">KML 管理:</label>
+            
+            <input type="file" id="hiddenKmlFileInput" accept=".kml" style="display: none;" />
+            <button id="triggerUploadBtn" class="action-buttons upload-btn" style="width: 80px; flex-shrink: 0;">上傳</button>
+            <button id="uploadKmlSubmitBtnDashboard" style="display: none;"></button>
+    
+            <button id="triggerDeleteBtn" class="action-buttons delete-btn" style="width: 80px; flex-shrink: 0;">刪除</button>
+            <select id="kmlLayerSelectDashboard" style="display: none;"></select>
+            <button id="deleteSelectedKmlBtn" style="display: none;"></button>
+        </div>
+    </div>
 
       <div id="registrationSettingsSection" style="display: none;">
           <div class="registration-code-display-group">

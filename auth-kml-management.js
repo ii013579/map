@@ -1,4 +1,4 @@
-// auth-kml-management.js v2.01
+// auth-kml-management.js v2.03
 
 (function () {
   'use strict';
@@ -24,6 +24,8 @@
     deleteKmlSectionDashboard: $('deleteKmlSectionDashboard'),
     kmlLayerSelectDashboard: $('kmlLayerSelectDashboard'),
     deleteSelectedKmlBtn: $('deleteSelectedKmlBtn'),
+    triggerUploadBtn: $('triggerUploadBtn'),
+    triggerDeleteBtn: $('triggerDeleteBtn'),
 
     registrationSettingsSection: $('registrationSettingsSection'),
     generateRegistrationCodeBtn: $('generateRegistrationCodeBtn'),
@@ -171,80 +173,88 @@ const tryLoadPinnedKmlLayerWhenReady = () => {
     }
   };
 
-/**
-   * 更新 KML 下拉選單內容，並處理權限相關 UI
+  /**
+   * 更新 KML 下拉選單內容（整合快取判斷與 Pinned KML 觸發）
    */
-const updateKmlLayerSelects = async (passedLayers = null) => {
-    const select = els.kmlLayerSelect;
-    const selectDashboard = els.kmlLayerSelectDashboard;
-    const deleteBtn = els.deleteSelectedKmlBtn;
-
-    if (!select) {
-      console.error("找不到 KML 圖層下拉選單。");
-      return;
-    }
-
-    // --- 【修改 A-1】僅初始化按鈕狀態，暫不清空選單內容以防閃爍 ---
-    if (deleteBtn) deleteBtn.disabled = true;
-    select.disabled = false;
-
-    // 2. 角色權限 UI 調整
-    const canEdit = (window.currentUserRole === 'owner' || window.currentUserRole === 'editor');
-    if (els.uploadKmlSectionDashboard) els.uploadKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
-    if (els.deleteKmlSectionDashboard) els.deleteKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
-    if (selectDashboard) selectDashboard.disabled = !canEdit;
-    if (els.uploadKmlSubmitBtnDashboard) els.uploadKmlSubmitBtnDashboard.disabled = !canEdit;
-
-    try {
-      let layersToRender = [];
-
-      if (Array.isArray(passedLayers)) {
-        layersToRender = passedLayers;
-        console.log("♻️ 使用傳入的資料渲染選單");
-      } else {
-        console.log("🌐 快取失效或未提供，從網路抓取清單");
-        const kmlRef = getKmlCollectionRef();
-        let snapshot;
-        
-        if (window.currentUserRole === 'editor' && auth.currentUser?.email) {
-          snapshot = await kmlRef.where('uploadedBy', '==', auth.currentUser.email).get();
-        } else {
-          snapshot = await kmlRef.get();
-        }
-
-        if (!snapshot.empty) {
-          snapshot.forEach(doc => {
-            layersToRender.push({ id: doc.id, ...doc.data() });
+  const updateKmlLayerSelects = async (passedLayers = null) => {
+      const select = els.kmlLayerSelect;
+      const selectDashboard = els.kmlLayerSelectDashboard;
+      const deleteBtn = els.deleteSelectedKmlBtn;
+  
+      if (!select) {
+          console.error("找不到 KML 圖層下拉選單。");
+          return;
+      }
+  
+      // 初始化 UI 狀態
+      if (deleteBtn) deleteBtn.disabled = true;
+      select.disabled = false;
+  
+      // 角色權限 UI 調整 (判斷 Editor/Owner 是否顯示管理介面)
+      const canEdit = (window.currentUserRole === 'owner' || window.currentUserRole === 'editor');
+      if (els.uploadKmlSectionDashboard) els.uploadKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
+      if (els.deleteKmlSectionDashboard) els.deleteKmlSectionDashboard.style.display = canEdit ? 'flex' : 'none';
+      if (selectDashboard) selectDashboard.disabled = !canEdit;
+      if (els.uploadKmlSubmitBtnDashboard) els.uploadKmlSubmitBtnDashboard.disabled = !canEdit;
+  
+      try {
+          let layersToRender = [];
+  
+          // 判斷資料來源：優先使用傳入的快取資料
+          if (Array.isArray(passedLayers)) {
+              layersToRender = passedLayers;
+              console.log("%c♻️ [Cache] 使用快取清單渲染選單", "color: #4CAF50;");
+          } else {
+              console.log("%c🌐 [Network] 快取失效，從網路抓取 KML 清單", "color: #FF9800;");
+              const kmlRef = getKmlCollectionRef();
+              let snapshot;
+              
+              // Editor 只能看到自己上傳的，Owner 看全部
+              if (window.currentUserRole === 'editor' && auth.currentUser?.email) {
+                  snapshot = await kmlRef.where('uploadedBy', '==', auth.currentUser.email).get();
+              } else {
+                  snapshot = await kmlRef.get();
+              }
+  
+              if (!snapshot.empty) {
+                  snapshot.forEach(doc => {
+                      layersToRender.push({ id: doc.id, ...doc.data() });
+                  });
+              }
+              // 同步回 LocalStorage
+              localStorage.setItem('kml_list_cache_data', JSON.stringify(layersToRender));
+          }
+  
+          // 清空並重新填充 DOM (防止 UI 閃爍)
+          select.innerHTML = '<option value="">-- 請選擇 KML 圖層 --</option>';
+          if (selectDashboard) selectDashboard.innerHTML = '<option value="">-- 請選擇 KML 圖層 --</option>';
+          
+          currentKmlLayers = []; 
+          
+          layersToRender.forEach(layer => {
+              const kmlId = layer.id;
+              const kmlName = layer.name || `KML_${kmlId.substring(0, 8)}`;
+              
+              const opt1 = createOption(kmlId, kmlName);
+              const opt2 = createOption(kmlId, kmlName);
+              
+              select.appendChild(opt1);
+              if (selectDashboard) selectDashboard.appendChild(opt2);
+              
+              currentKmlLayers.push({ id: kmlId, name: kmlName });
           });
-        }
+  
+          if (currentKmlLayers.length > 0 && canEdit && deleteBtn) {
+              deleteBtn.disabled = false;
+          }
+  
+          // 觸發釘選圖層載入 (內部需配合 map-logic 的快取機制)
+          tryLoadPinnedKmlLayerWhenReady();
+  
+      } catch (error) {
+          console.error("更新 KML 圖層列表時出錯:", error);
+          window.showMessage?.('錯誤', '無法載入 KML 圖層列表。');
       }
-
-      // --- 【修改 A-2】資料準備就緒，此時才清空並重新填充 DOM ---
-      select.innerHTML = '<option value="">-- 請選擇 KML 圖層 --</option>';
-      if (selectDashboard) selectDashboard.innerHTML = '<option value="">-- 請選擇 KML 圖層 --</option>';
-      
-      currentKmlLayers = []; // 重置全域狀態清單
-      
-      layersToRender.forEach(layer => {
-        const kmlId = layer.id;
-        const kmlName = layer.name || `KML_${kmlId.substring(0, 8)}`;
-        
-        select.appendChild(createOption(kmlId, kmlName));
-        if (selectDashboard) selectDashboard.appendChild(createOption(kmlId, kmlName));
-        
-        currentKmlLayers.push({ id: kmlId, name: kmlName });
-      });
-
-      if (currentKmlLayers.length > 0 && canEdit && deleteBtn) {
-        deleteBtn.disabled = false;
-      }
-
-      tryLoadPinnedKmlLayerWhenReady();
-
-    } catch (error) {
-      console.error("更新 KML 圖層列表時出錯:", error);
-      window.showMessage?.('錯誤', '無法載入 KML 圖層列表。');
-    }
   };
 
   // 預設的確認視窗函式（若尚未定義則提供 fallback）
@@ -266,7 +276,7 @@ const updateKmlLayerSelects = async (passedLayers = null) => {
 
         // 顯示 modal
         titleEl.textContent = title;
-        msgEl.textContent = message;
+        msgEl.innerHTML = message;
         overlay.classList.add('visible');
 
         // 清理與回傳
@@ -286,302 +296,284 @@ const updateKmlLayerSelects = async (passedLayers = null) => {
     };
   }
 
-  // 重新整理使用者列表（管理員頁面）
-  const refreshUserList = async () => {
-    const container = els.userListDiv;
-    if (!container) {
-      console.error('找不到使用者列表容器 (#userList)');
+/**
+ * 重新整理使用者列表（管理員頁面）
+ */
+const refreshUserList = async () => {
+  const container = els.userListDiv;
+  if (!container) return;
+
+  const USER_CACHE_KEY = 'owner_user_list_cache';
+
+  try {
+    // 1. 優先檢查 Session 快取
+    const cachedData = sessionStorage.getItem(USER_CACHE_KEY);
+    if (cachedData) {
+      console.log("%c[Cache] 命中快取", "color: #9C27B0;");
+      const usersData = JSON.parse(cachedData);
+      renderUserCards(usersData);
+      bindUserManagementEvents(); // 綁定事件
       return;
     }
-    // 移除現有卡片
-    container.querySelectorAll('.user-card').forEach(c => c.remove());
 
-    try {
-      const usersRef = db.collection('users');
-      const snapshot = await usersRef.get();
+    // 2. 抓取 Firestore 資料
+    console.log("🔥 [Firestore] 抓取最新名單...");
+    const snapshot = await db.collection('users').get();
+    const usersData = [];
+    snapshot.forEach(doc => {
+      if (auth.currentUser && doc.id === auth.currentUser.uid) return;
+      usersData.push({ id: doc.id, ...doc.data() });
+    });
 
-      if (snapshot.empty) {
-        container.innerHTML = '<p>目前沒有註冊用戶。</p>';
-        return;
-      }
+    sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(usersData));
+    renderUserCards(usersData);
+    bindUserManagementEvents();
 
-      const usersData = [];
-      snapshot.forEach(doc => {
-        const user = doc.data() || {};
-        const uid = doc.id;
-        // 排除目前登入的使用者（不允許自己變更角色或刪除）
-        if (auth.currentUser && uid === auth.currentUser.uid) return;
-        usersData.push({ id: uid, ...user });
-      });
+  } catch (error) {
+    container.innerHTML = `<p style="color: red;">載入失敗: ${error.message}</p>`;
+  }
 
-      // 按角色排序（unapproved, user, editor, owner）
-      const roleOrder = { 'unapproved': 1, 'user': 2, 'editor': 3, 'owner': 4 };
-      usersData.sort((a, b) => (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99));
+  // --- 內部輔助：渲染 DOM ---
+  function renderUserCards(data) {
+    container.innerHTML = '';
+    const roleOrder = { 'unapproved': 1, 'user': 2, 'editor': 3, 'owner': 4 };
+    data.sort((a, b) => (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99));
 
-      // 產生每一位使用者的卡片
-      usersData.forEach(user => {
-        const uid = user.id;
-        const emailName = user.email ? user.email.split('@')[0] : 'N/A';
-        const userCard = document.createElement('div');
-        userCard.className = 'user-card';
-        userCard.dataset.nickname = user.name || 'N/A';
-        userCard.dataset.uid = uid;
+    data.forEach(user => {
+      const card = document.createElement('div');
+      card.className = 'user-card';
+      card.dataset.uid = user.id;
+      card.innerHTML = `
+        <div class="user-email">${user.email?.split('@')[0] || 'N/A'}</div>
+        <div class="user-nickname">${user.name || 'N/A'}</div>
+        <div class="user-role-controls">
+          <select class="user-role-select" data-original-value="${user.role || 'unapproved'}">
+            <option value="unapproved" ${user.role === 'unapproved' ? 'selected' : ''}>未審核</option>
+            <option value="user" ${user.role === 'user' ? 'selected' : ''}>一般</option>
+            <option value="editor" ${user.role === 'editor' ? 'selected' : ''}>編輯者</option>
+            <option value="owner" ${user.role === 'owner' ? 'selected' : ''} ${window.currentUserRole !== 'owner' ? 'disabled' : ''}>擁有者</option>
+          </select>
+        </div>
+        <div class="user-actions">
+          <button class="change-role-btn" disabled>變</button>
+          <button class="delete-user-btn action-buttons delete-btn">刪</button>
+        </div>`;
+      container.appendChild(card);
+    });
+  }
 
-        userCard.innerHTML = `
-          <div class="user-email">${emailName}</div>
-          <div class="user-nickname">${user.name || 'N/A'}</div>
-          <div class="user-role-controls">
-            <select id="role-select-${uid}" data-uid="${uid}" data-original-value="${user.role || 'unapproved'}" class="user-role-select">
-              <option value="unapproved" ${user.role === 'unapproved' ? 'selected' : ''}>未審核</option>
-              <option value="user" ${user.role === 'user' ? 'selected' : ''}>一般</option>
-              <option value="editor" ${user.role === 'editor' ? 'selected' : ''}>編輯者</option>
-              <option value="owner" ${user.role === 'owner' ? 'selected' : ''} ${window.currentUserRole !== 'owner' ? 'disabled' : ''}>擁有者</option>
-            </select>
-          </div>
-          <div class="user-actions">
-            <button class="change-role-btn" data-uid="${uid}" disabled>變</button>
-            <button class="delete-user-btn action-buttons delete-btn" data-uid="${uid}">刪</button>
-          </div>
-        `;
+  // --- 內部輔助：綁定事件 ---
+  function bindUserManagementEvents() {
+    container.querySelectorAll('.user-card').forEach(card => {
+      const select = card.querySelector('.user-role-select');
+      const changeBtn = card.querySelector('.change-role-btn');
+      const deleteBtn = card.querySelector('.delete-user-btn');
+      const uid = card.dataset.uid;
 
-        container.appendChild(userCard);
-      });
+      select.onchange = () => { changeBtn.disabled = (select.value === select.dataset.originalValue); };
 
-      // 為角色下拉與按鈕綁定事件
-      container.querySelectorAll('.user-role-select').forEach(select => {
-        const changeButton = select.closest('.user-card').querySelector('.change-role-btn');
-        select.addEventListener('change', () => {
-          changeButton.disabled = (select.value === select.dataset.originalValue);
-        });
+      changeBtn.onclick = async () => {
+        if (!await window.showConfirmationModal?.('確認', '確定變更角色？')) return;
+        try {
+          await db.collection('users').doc(uid).update({ role: select.value });
+          select.dataset.originalValue = select.value;
+          changeBtn.disabled = true;
+          window.showMessage?.('成功', '角色已更新');
+        } catch (e) { window.showMessage?.('錯誤', e.message); }
+      };
 
-        changeButton.addEventListener('click', async () => {
-          const userCard = changeButton.closest('.user-card');
-          const uidToUpdate = userCard.dataset.uid;
-          const nicknameToUpdate = userCard.dataset.nickname;
-          const newRole = select.value;
+      deleteBtn.onclick = async () => {
+        if (!await window.showConfirmationModal?.('警告', '確定刪除用戶？')) return;
+        try {
+          await db.collection('users').doc(uid).delete();
+          card.remove();
+          // 更新快取
+          const list = JSON.parse(sessionStorage.getItem(USER_CACHE_KEY) || '[]');
+          sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(list.filter(u => u.id !== uid)));
+        } catch (e) { window.showMessage?.('錯誤', e.message); }
+      };
+    });
+  }
 
-          const confirmUpdate = await window.showConfirmationModal(
-            '確認變更角色',
-            `確定要將用戶 ${nicknameToUpdate} (${uidToUpdate.substring(0,6)}...) 的角色變更為 ${getRoleDisplayName(newRole)} 嗎？`
-          );
+  // 輔助功能：當單一用戶變動時，更新 SessionStorage 快取
+  function updateLocalCache(uid, newData) {
+    const cached = sessionStorage.getItem(USER_CACHE_KEY);
+    if (!cached) return;
+    let list = JSON.parse(cached);
+    if (newData === null) {
+      list = list.filter(u => u.id !== uid);
+    } else {
+      list = list.map(u => u.id === uid ? { ...u, ...newData } : u);
+    }
+    sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(list));
+  }
+};
 
-          if (!confirmUpdate) {
-            select.value = select.dataset.originalValue;
-            changeButton.disabled = true;
+// 監聽 Auth 狀態變更以更新 UI
+auth.onAuthStateChanged(async (user) => {
+  // --- A. 處理登入/登出 UI 狀態 ---
+  if (user) {
+    // 1. 使用者已登入：切換基礎 UI 顯示
+    if (els.loginForm) els.loginForm.style.display = 'none';
+    if (els.loggedInDashboard) els.loggedInDashboard.style.display = 'block';
+    if (els.userEmailDisplay) {
+      els.userEmailDisplay.textContent = `${user.email} (權限檢查中...)`;
+      els.userEmailDisplay.style.display = 'block';
+    }
+
+    // ✨ 關鍵優化：防止重複綁定監聽器
+    if (!unsubUserRole) {
+      const userDocRef = db.collection('users').doc(user.uid);
+      unsubUserRole = userDocRef.onSnapshot(async (doc) => {
+        try {
+          if (!doc.exists) {
+            console.warn("使用者文件不存在，執行登出");
+            auth.signOut();
             return;
           }
 
-          try {
-            await db.collection('users').doc(uidToUpdate).update({ role: newRole });
-            window.showMessage?.('成功', `用戶 ${nicknameToUpdate} 的角色已更新為 ${getRoleDisplayName(newRole)}。`);
-            select.dataset.originalValue = newRole;
-            changeButton.disabled = true;
-          } catch (error) {
-            window.showMessage?.('錯誤', `更新角色失敗: ${error.message}`);
-            select.value = select.dataset.originalValue;
-            changeButton.disabled = true;
+          const userData = doc.data() || {};
+          const newRole = userData.role || 'unapproved';
+          const roleChanged = (window.currentUserRole !== newRole);
+          
+          window.currentUserRole = newRole;
+          console.log(`[身份驗證] 目前角色: ${window.currentUserRole}`);
+          
+          if (els.userEmailDisplay) {
+            els.userEmailDisplay.textContent = `${user.email} (${getRoleDisplayName(window.currentUserRole)})`;
           }
-        });
-      });
 
-      // 綁定刪除按鈕事件
-      container.querySelectorAll('.delete-user-btn').forEach(button => {
-        button.addEventListener('click', async () => {
-          const userCard = button.closest('.user-card');
-          const uidToDelete = userCard.dataset.uid;
-          const nicknameToDelete = userCard.dataset.nickname;
+          // 2. 根據角色調整管理功能
+          const canEdit = (newRole === 'owner' || newRole === 'editor');
+          const isOwner = (newRole === 'owner');
 
-          const confirmDelete = await window.showConfirmationModal(
-            '確認刪除用戶',
-            `確定要刪除用戶 ${nicknameToDelete} (${uidToDelete.substring(0,6)}...) 嗎？此操作不可逆！`
-          );
+          const toggleDisplay = (el, show) => { if (el) el.style.display = show ? 'flex' : 'none'; };
+          const toggleBlock = (el, show) => { if (el) el.style.display = show ? 'block' : 'none'; };
 
-          if (!confirmDelete) return;
-
-          try {
-            await db.collection('users').doc(uidToDelete).delete();
-            window.showMessage?.('成功', `用戶 ${nicknameToDelete} 已刪除。`);
-            userCard.remove();
-          } catch (error) {
-            window.showMessage?.('錯誤', `刪除失敗: ${error.message}`);
+          // 顯示/隱藏各項功能區塊
+          toggleDisplay(els.uploadKmlSectionDashboard, canEdit);
+          toggleDisplay(els.deleteKmlSectionDashboard, canEdit);
+          toggleDisplay(els.registrationSettingsSection, isOwner);
+          toggleBlock(els.userManagementSection, isOwner); 
+          if (els.userListDiv) {
+              els.userListDiv.style.display = 'none'; // 預設關閉列表容器
           }
-        });
+          // 移除/註解掉原本的自動讀取邏輯
+          /* if (isOwner && (roleChanged || !els.userListDiv.hasChildNodes())) {
+            if (typeof refreshUserList === 'function') refreshUserList();
+          }
+          */
+
+          // 3. 角色變動時同步 KML 權限狀態
+          if (roleChanged && typeof optimizedUpdateKmlLayerSelects === 'function') {
+            await optimizedUpdateKmlLayerSelects();
+          }
+        } catch (err) {
+          console.error("處理用戶快照時出錯:", err);
+        }
+      }, (error) => {
+        console.error("監聽角色失敗:", error);
       });
-
-      // 可點擊的表頭排序（如果有 .user-list-header）
-      let currentSortKey = 'role';
-      let sortAsc = true;
-
-      document.querySelectorAll('.user-list-header .sortable').forEach(header => {
-        header.addEventListener('click', () => {
-          const key = header.dataset.key;
-          if (currentSortKey === key) sortAsc = !sortAsc;
-          else { currentSortKey = key; sortAsc = true; }
-          sortUserList(currentSortKey, sortAsc);
-          updateSortIndicators();
-        });
-      });
-
-      // 排序函式
-      function sortUserList(key, asc = true) {
-        const cards = Array.from(document.querySelectorAll('#userList .user-card'));
-        const containerEl = document.getElementById('userList');
-        const sorted = cards.sort((a, b) => {
-          const getValue = (el) => {
-            if (key === 'email') return el.querySelector('.user-email')?.textContent?.toLowerCase() || '';
-            if (key === 'nickname') return el.querySelector('.user-nickname')?.textContent?.toLowerCase() || '';
-            if (key === 'role') return el.querySelector('.user-role-select')?.value || '';
-            return '';
-          };
-          const aVal = getValue(a), bVal = getValue(b);
-          return asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-        });
-        sorted.forEach(card => containerEl.appendChild(card));
-      }
-
-      // 更新排序指示器
-      function updateSortIndicators() {
-        document.querySelectorAll('.user-list-header .sortable').forEach(header => {
-          header.classList.remove('sort-asc', 'sort-desc');
-          if (header.dataset.key === currentSortKey) header.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
-        });
-      }
-
-    } catch (error) {
-      els.userListDiv.innerHTML = `<p style="color: red;">載入用戶列表失敗: ${error.message}</p>`;
-      console.error("載入用戶列表時出錯:", error);
     }
-  };
 
-// 監聽 Auth 狀態變更以更新 UI
-  auth.onAuthStateChanged(async (user) => {
-    if (user) {
-      // 1. 使用者登入：切換基礎 UI 顯示
-      if (els.loginForm) els.loginForm.style.display = 'none';
-      if (els.loggedInDashboard) els.loggedInDashboard.style.display = 'block';
-      if (els.userEmailDisplay) {
-        els.userEmailDisplay.textContent = `${user.email} (載入中...)`;
-        els.userEmailDisplay.style.display = 'block';
-      }
-  
-      // ✨ 關鍵優化：防止重複綁定監聽器
-      if (unsubUserRole) return; 
-  
-      const userDocRef = db.collection('users').doc(user.uid);
-      unsubUserRole = userDocRef.onSnapshot(async (doc) => {
-        if (!doc.exists) {
-          auth.signOut();
-          return;
-        }
-  
-        const userData = doc.data() || {};
-        const newRole = userData.role || 'unapproved';
-        const roleChanged = (window.currentUserRole !== newRole);
-        
-        // 先更新角色狀態
-        window.currentUserRole = newRole;
-             console.log(`[身份驗證] 目前角色: ${window.currentUserRole} (變動: ${roleChanged})`);
-        
-        if (els.userEmailDisplay) {
-          els.userEmailDisplay.textContent = `${user.email} (${getRoleDisplayName(window.currentUserRole)})`;
-        }
-
-        // 3. 根據角色調整 UI 權限與顯示狀態
-        const canEdit = (window.currentUserRole === 'owner' || window.currentUserRole === 'editor');
-        const isOwner = (window.currentUserRole === 'owner');
-
-        const toggleDisplay = (el, show) => { if (el) el.style.display = show ? 'flex' : 'none'; };
-        const toggleBlock = (el, show) => { if (el) el.style.display = show ? 'block' : 'none'; };
-
-        toggleDisplay(els.uploadKmlSectionDashboard, canEdit);
-        toggleDisplay(els.deleteKmlSectionDashboard, canEdit);
-        toggleDisplay(els.registrationSettingsSection, isOwner);
-        toggleBlock(els.userManagementSection, isOwner);
-
-        if (els.uploadKmlSubmitBtnDashboard) els.uploadKmlSubmitBtnDashboard.disabled = !canEdit;
-        if (els.deleteSelectedKmlBtn) els.deleteSelectedKmlBtn.disabled = !canEdit; 
-        if (els.kmlLayerSelectDashboard) els.kmlLayerSelectDashboard.disabled = !canEdit;
-
-        if (isOwner && typeof refreshUserList === 'function') refreshUserList();
-
-        if (window.currentUserRole === 'unapproved') {
-          window.showMessage?.('帳號審核中', '您的帳號正在等待管理員審核。');
-        }
-
-        // --- 【讀取次數優化攔截】 ---
-        if (!hasInitialMenuLoaded || roleChanged) {
-                // 在 await 之前就先鎖定，防止伺服器端與本地快取端同時衝進來
-                hasInitialMenuLoaded = true; 
-                console.log(`[Firebase] 觸發清單讀取 (原因: ${roleChanged ? '角色變動' : '初始載入'})`);
-                await optimizedUpdateKmlLayerSelects();
-              }
-            }, (error) => {
-              console.error("監聽角色失敗:", error);
-            });
-        
-          } else {
-            // 登出時：務必解除監聽並重設 flag
-            if (unsubUserRole) {
-              unsubUserRole();
-              unsubUserRole = null;
-            }
-            hasInitialMenuLoaded = false;
-            window.currentUserRole = null;
-      
-      if (typeof window.clearAllKmlLayers === 'function') window.clearAllKmlLayers();
-      if (typeof updateKmlLayerSelects === 'function') updateKmlLayerSelects([]); 
+  } else {
+    // 4. 使用者登出/未登入
+    console.log("[Auth] 使用者未登入，開放圖層瀏覽權限");
+    if (unsubUserRole) {
+      unsubUserRole();
+      unsubUserRole = null;
     }
-  });
+    window.currentUserRole = null;
+    
+    sessionStorage.removeItem('owner_user_list_cache');
+    
+    if (els.loginForm) els.loginForm.style.display = 'block';
+    if (els.loggedInDashboard) els.loggedInDashboard.style.display = 'none';
+    if (els.userEmailDisplay) els.userEmailDisplay.style.display = 'none';
+  }
+
+  // --- B. 圖層載入邏輯 ---
+  if (!hasInitialMenuLoaded) {
+    hasInitialMenuLoaded = true; 
+    console.log("[Init] 啟動初始圖層載入程序 (公開瀏覽)");
+    
+    if (typeof optimizedUpdateKmlLayerSelects === 'function') {
+      await optimizedUpdateKmlLayerSelects();
+    } else if (typeof updateKmlLayerSelects === 'function') {
+      await updateKmlLayerSelects();
+    }
+  }
+});
 
 /**
- * 整合：時間戳比對、清單快取、以及「單次觸發」的圖釘自動載入
+ * 核心邏輯：整合時間戳比對、清單快取、以及圖層內容(Pinned)快取
+ * 達成目標：若雲端未更新，整網頁後 Firestore 讀取次數降至最低
  */
 async function optimizedUpdateKmlLayerSelects() {
-  // 【修改 B-1】檢查是否正在執行中
+  // 1. 防止重複執行鎖定
   if (isUpdatingList) {
     console.log("清單更新進行中，略過本次呼叫");
     return;
   }
-  isUpdatingList = true; // 上鎖
+  isUpdatingList = true;
 
   const LIST_CACHE_KEY = 'kml_list_cache_data';
   const SYNC_TIME_KEY = 'kml_list_last_sync';
 
   try {
-    // 1. 抓取遠端「獨立時間戳記」
+    // 2. 獲取雲端最新時間戳記 (此為整網頁必備的 1 次讀取)
     const syncSnap = await getSyncDocRef().get();
+      console.log("%c🔥 [Firestore Read] 讀取 metadata/sync", "color: white; background: red; padding: 2px 5px;");
     const serverUpdate = syncSnap.exists ? (syncSnap.data().lastUpdate || 0) : 0;
     const localUpdate = parseInt(localStorage.getItem(SYNC_TIME_KEY) || "0");
-    const cachedData = localStorage.getItem(LIST_CACHE_KEY);
+    const cachedList = localStorage.getItem(LIST_CACHE_KEY);
 
-    // 2. 比對時間戳：若無變動則使用快取
-    if (cachedData && serverUpdate <= localUpdate && serverUpdate !== 0) {
-      console.log("%c[清單快取命中] 伺服器資料無變動", "color: #4CAF50; font-weight: bold;");
-      await updateKmlLayerSelects(JSON.parse(cachedData));
+    // 3. 判斷是否完全使用快取 (時間戳相同 且 本地有資料)
+    const isCacheValid = (cachedList && serverUpdate <= localUpdate && serverUpdate !== 0);
+
+    if (isCacheValid) {
+      console.log("%c[核心快取模式] 伺服器資料無變動，使用快取清單與圖層", "color: #4CAF50; font-weight: bold;");
       
-      tryLoadPinnedKmlLayerWhenReady(); 
-      return;
+      // 直接解析快取並渲染 UI
+      const layers = JSON.parse(cachedList);
+      await updateKmlLayerSelects(layers);
+
+      /** * 重要：此時 loadKmlLayerFromFirestore 內部的快取判斷會發揮作用
+       * 因為時間戳沒變，我們不需要清除 kml_data_xxx，Pinned 圖層將從快取載入
+       */
+      tryLoadPinnedKmlLayerWhenReady();
+      return; 
     }
 
-    // 3. 若失效，執行全量讀取
-    console.log("%c[清單更新] 偵測到新資料，從 Firebase 同步", "color: #FF9800; font-weight: bold;");
+    // 4. 若時間戳不同：執行「全量更新」並「清理過期圖層」
+    console.log("%c[同步模式] 偵測到雲端更新，開始重新抓取資料", "color: #FF9800; font-weight: bold;");
+
+    // A. 清除所有舊的圖層內容快取 (避免 Pinned 抓到舊版 GeoJSON)
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('kml_data_')) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    // B. 抓取最新的 KML 清單 (讀取 1 次)
     const snapshot = await getKmlCollectionRef().get();
+      console.log("%c🔥 [Firestore Read] 讀取 kmlLayers 集合 (全量)", "color: white; background: red; padding: 2px 5px;");
     const layers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    // 4. 更新本地快取
+    // C. 寫入新快取
     localStorage.setItem(LIST_CACHE_KEY, JSON.stringify(layers));
     localStorage.setItem(SYNC_TIME_KEY, serverUpdate.toString());
 
+    // D. 更新 UI 並嘗試載入釘選 (此時會因快取已清而從 Firestore 下載最新圖層)
     await updateKmlLayerSelects(layers);
-
     tryLoadPinnedKmlLayerWhenReady();
 
   } catch (err) {
     console.error("優化清單程序出錯:", err);
+    // 降級處理：出錯時嘗試進行一次標準讀取確保功能正常
     const snapshot = await getKmlCollectionRef().get();
     const layers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     await updateKmlLayerSelects(layers);
-    
     tryLoadPinnedKmlLayerWhenReady();
   } finally {
     isUpdatingList = false;
@@ -715,165 +707,203 @@ async function optimizedUpdateKmlLayerSelects() {
     });
   }
 
-// 上傳 KML 處理
-  if (els.uploadKmlSubmitBtnDashboard) {
-    els.uploadKmlSubmitBtnDashboard.addEventListener('click', async () => {
-      const file = els.hiddenKmlFileInput?.files?.[0];
-      if (!file) {
-        window.showMessage?.('提示', '請先選擇 KML 檔案。');
+// --- [新增] 觸發選檔按鈕邏輯 ---
+if (typeof window.showConfirmationModal !== 'undefined') {
+  const originalModal = window.showConfirmationModal;
+  window.showConfirmationModal = function (title, message) {
+    return new Promise(resolve => {
+      const overlay = els.confirmationModalOverlay;
+      const titleEl = els.confirmationModalTitle;
+      const msgEl = els.confirmationModalMessage;
+      const yesBtn = els.confirmYesBtn;
+      const noBtn = els.confirmNoBtn;
+
+      if (!overlay || !titleEl || !msgEl || !yesBtn || !noBtn) {
+        resolve(confirm(message));
         return;
       }
-      if (!auth.currentUser || (window.currentUserRole !== 'owner' && window.currentUserRole !== 'editor')) {
-        window.showMessage?.('錯誤', '您沒有權限上傳 KML。');
-        return;
-      }
 
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const kmlString = reader.result;
-          const parser = new DOMParser();
-          const kmlDoc = parser.parseFromString(kmlString, 'text/xml');
+      titleEl.textContent = title;
+      msgEl.innerHTML = message; // 【關鍵修正】：使用 innerHTML 渲染 HTML 標籤
+      overlay.classList.add('visible');
 
-          if (kmlDoc.getElementsByTagName('parsererror').length > 0) {
-            throw new Error(`KML XML 解析錯誤。`);
-          }
-
-          const geojson = toGeoJSON.kml(kmlDoc);
-          const parsedFeatures = geojson.features || [];
-
-          if (parsedFeatures.length === 0) {
-            window.showMessage?.('KML 載入', '檔案中沒有找到地理要素。');
-            return;
-          }
-
-          const fileName = file.name;
-          const kmlLayersCollectionRef = getKmlCollectionRef();
-
-          // 檢查覆蓋邏輯
-          const existingKmlQuery = await kmlLayersCollectionRef.where('name', '==', fileName).get();
-          let kmlLayerDocRef;
-          let isOverwriting = false;
-
-          if (!existingKmlQuery.empty) {
-            const confirmOverwrite = await window.showConfirmationModal(
-              '覆蓋 KML 檔案',
-              `確定要覆蓋 "${fileName}" 嗎？`
-            );
-            if (!confirmOverwrite) return;
-
-            kmlLayerDocRef = existingKmlQuery.docs[0].ref;
-            isOverwriting = true;
-
-            // 清理舊子集合 (相容舊結構)
-            const oldFeaturesSnapshot = await kmlLayerDocRef.collection('features').get();
-            if (!oldFeaturesSnapshot.empty) {
-              const deleteBatch = db.batch();
-              oldFeaturesSnapshot.forEach(d => deleteBatch.delete(d.ref));
-              await deleteBatch.commit();
-            }
-          } else {
-            kmlLayerDocRef = kmlLayersCollectionRef.doc();
-          }
-
-          // 1. 寫入 KML 主資料 (大檔案)
-          await kmlLayerDocRef.set({
-            name: fileName,
-            uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
-            uploadedBy: auth.currentUser.email || auth.currentUser.uid,
-            uploadedByRole: window.currentUserRole,
-            geojson: JSON.stringify(geojson)
-          }, { merge: true });
-
-          // ======= 【核心優化：觸發全域同步與清理快取】 =======
-          const targetKmlId = kmlLayerDocRef.id;
-          const now = Date.now();
-
-          // 2. 更新全域同步戳記 (讓其他使用者知道有更新)
-          await db.collection('artifacts').doc(appId)
-            .collection('public').doc('data')
-            .collection('metadata').doc('sync')
-            .set({ lastUpdate: now }, { merge: true });
-
-          // 3. 清理自己的本地快取 (確保選單與內容立即更新)
-          localStorage.removeItem('kml_list_cache_data'); // 清單快取
-          localStorage.removeItem('kml_list_last_sync');  // 清單時間戳
-          localStorage.removeItem(`kml_data_${targetKmlId}`); // 該圖層內容快取
-          localStorage.removeItem(`kml_time_${targetKmlId}`); // 該圖層內容時間戳
-
-          console.log(`%c[同步成功] 已更新全域時間戳並清理本地快取`, "color: #4CAF50; font-weight: bold;");
-          // ===============================================
-
-          window.showMessage?.('成功', `KML "${fileName}" 已上傳/覆蓋成功。`);
-
-          if (els.hiddenKmlFileInput) els.hiddenKmlFileInput.value = '';
-          if (els.selectedKmlFileNameDashboard) els.selectedKmlFileNameDashboard.textContent = '尚未選擇檔案';
-          
-          // 重新載入選單 (這會因為上面清除了快取而從 Firebase 抓取最新清單)
-          await optimizedUpdateKmlLayerSelects(); 
-          updatePinButtonState();
-
-        } catch (error) {
-          console.error("上傳出錯:", error);
-          window.showMessage?.('錯誤', error.message);
-        }
+      const cleanupAndResolve = (result) => {
+        overlay.classList.remove('visible');
+        yesBtn.onclick = null;
+        noBtn.onclick = null;
+        resolve(result);
       };
-      reader.readAsText(file);
+
+      yesBtn.onclick = () => cleanupAndResolve(true);
+      noBtn.onclick = () => cleanupAndResolve(false);
     });
-  }
-  
-  // 刪除所選 KML
-  if (els.deleteSelectedKmlBtn) {
-    els.deleteSelectedKmlBtn.addEventListener('click', async () => {
-      const kmlIdToDelete = els.kmlLayerSelectDashboard?.value || '';
-      if (!kmlIdToDelete) {
-        window.showMessage?.('提示', '請先選擇要刪除的圖層。');
-        return;
-      }
-      if (!auth.currentUser || (window.currentUserRole !== 'owner' && window.currentUserRole !== 'editor')) {
-        window.showMessage?.('錯誤', '您沒有權限刪除。');
+  };
+}
+
+// 上傳 KML 處理
+if (typeof window.showConfirmationModal !== 'undefined') {
+  const originalModal = window.showConfirmationModal;
+  window.showConfirmationModal = function (title, message) {
+    return new Promise(resolve => {
+      const overlay = els.confirmationModalOverlay;
+      const titleEl = els.confirmationModalTitle;
+      const msgEl = els.confirmationModalMessage;
+      const yesBtn = els.confirmYesBtn;
+      const noBtn = els.confirmNoBtn;
+
+      if (!overlay || !titleEl || !msgEl || !yesBtn || !noBtn) {
+        resolve(confirm(message));
         return;
       }
 
-      const confirmDelete = await window.showConfirmationModal('確認刪除', '確定要刪除此 KML 嗎？此操作不可逆！');
-      if (!confirmDelete) return;
+      titleEl.textContent = title;
+      msgEl.innerHTML = message; // 【關鍵修正】：使用 innerHTML 渲染 HTML 標籤
+      overlay.classList.add('visible');
 
+      const cleanupAndResolve = (result) => {
+        overlay.classList.remove('visible');
+        yesBtn.onclick = null;
+        noBtn.onclick = null;
+        resolve(result);
+      };
+
+      yesBtn.onclick = () => cleanupAndResolve(true);
+      noBtn.onclick = () => cleanupAndResolve(false);
+    });
+  };
+}
+
+// --- [上傳邏輯] 觸發選檔與確認 ---
+if (els.triggerUploadBtn) {
+  els.triggerUploadBtn.addEventListener('click', () => els.hiddenKmlFileInput.click());
+}
+
+if (els.hiddenKmlFileInput) {
+  els.hiddenKmlFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const confirmUpload = await window.showConfirmationModal(
+      '確認上傳',
+      `您選擇了檔案：<br><strong style="color: red;">${file.name}</strong><br>確定要執行上傳嗎？`
+    );
+
+    if (confirmUpload) {
+      els.uploadKmlSubmitBtnDashboard.click();
+    } else {
+      els.hiddenKmlFileInput.value = '';
+    }
+  });
+}
+
+// --- [刪除邏輯] 彈窗內選取圖層 ---
+if (els.triggerDeleteBtn) {
+  els.triggerDeleteBtn.addEventListener('click', async () => {
+    const options = Array.from(els.kmlLayerSelectDashboard.options)
+      .filter(opt => opt.value !== "")
+      .map(opt => `<option value="${opt.value}">${opt.textContent}</option>`)
+      .join('');
+
+    if (!options) {
+      window.showMessage?.('提示', '目前沒有可刪除的 KML 圖層。');
+      return;
+    }
+
+    const modalContent = `
+      <div style="text-align: left; margin-top: 10px;">
+        <p>請選擇要刪除的圖層：</p>
+        <select id="modalKmlDeletePicker" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd; margin-top: 5px;">
+          ${options}
+        </select>
+        <p style="color: #d32f2f; font-size: 12px; margin-top: 10px; font-weight: bold;">⚠️ 警告：刪除後資料將無法復原。</p>
+      </div>`;
+
+    const confirmDelete = await window.showConfirmationModal('刪除圖層', modalContent);
+
+    if (confirmDelete) {
+      const selectedId = document.getElementById('modalKmlDeletePicker').value;
+      if (selectedId) {
+        els.kmlLayerSelectDashboard.value = selectedId;
+        els.deleteSelectedKmlBtn.click();
+      }
+    }
+  });
+}
+
+// --- [執行邏輯] 上傳 KML 處理 (與 Firebase 對接) ---
+if (els.uploadKmlSubmitBtnDashboard) {
+  els.uploadKmlSubmitBtnDashboard.addEventListener('click', async () => {
+    const file = els.hiddenKmlFileInput?.files?.[0];
+    if (!file || !auth.currentUser) return;
+
+    if (window.currentUserRole !== 'owner' && window.currentUserRole !== 'editor') {
+      window.showMessage?.('錯誤', '您沒有權限上傳 KML。');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
       try {
-        const kmlLayerDocRef = getKmlCollectionRef().doc(kmlIdToDelete);
-        
-        // 1. 執行刪除 (消耗 1 次寫入)
-        await kmlLayerDocRef.delete();
+        const geojson = toGeoJSON.kml(new DOMParser().parseFromString(reader.result, 'text/xml'));
+        const kmlLayersCollectionRef = getKmlCollectionRef();
+        const existingKmlQuery = await kmlLayersCollectionRef.where('name', '==', file.name).get();
+        let kmlLayerDocRef = existingKmlQuery.empty ? kmlLayersCollectionRef.doc() : existingKmlQuery.docs[0].ref;
 
-        // ======= 【核心優化：觸發全域同步】 =======
+        await kmlLayerDocRef.set({
+          name: file.name,
+          uploadTime: firebase.firestore.FieldValue.serverTimestamp(),
+          uploadedBy: auth.currentUser.email,
+          uploadedByRole: window.currentUserRole,
+          geojson: JSON.stringify(geojson)
+        }, { merge: true });
+
+        // 全域同步
         const now = Date.now();
+        await db.collection('artifacts').doc(appId).collection('public').doc('data')
+          .collection('metadata').doc('sync').set({ lastUpdate: now, lastUpdateTime: new Date(now).toLocaleString('zh-TW') }, { merge: true });
 
-        // 2. 更新全域同步戳記 (通知所有使用者移除此選單項)
-        await db.collection('artifacts').doc(appId)
-          .collection('public').doc('data')
-          .collection('metadata').doc('sync')
-          .set({ lastUpdate: now }, { merge: true });
-
-        // 3. 清理自己的本地快取
+        // 清理快取
         localStorage.removeItem('kml_list_cache_data');
-        localStorage.removeItem('kml_list_last_sync');
-        localStorage.removeItem(`kml_data_${kmlIdToDelete}`);
-        localStorage.removeItem(`kml_time_${kmlIdToDelete}`);
-        
-        console.log(`%c[同步成功] 已刪除圖層並更新全域同步戳記`, "color: #F44336; font-weight: bold;");
-        // ===============================================
+        localStorage.removeItem(`kml_data_${kmlLayerDocRef.id}`);
 
-        window.showMessage?.('成功', `圖層已刪除。`);
-        
-        // 重新同步選單
+        window.showMessage?.('成功', `KML "${file.name}" 已處理成功。`);
         await optimizedUpdateKmlLayerSelects();
-        window.clearAllKmlLayers?.();
         updatePinButtonState();
+        els.hiddenKmlFileInput.value = '';
       } catch (error) {
-        console.error("刪除失敗:", error);
-        window.showMessage?.('刪除失敗', error.message);
+        window.showMessage?.('錯誤', error.message);
       }
-    });
-  }
+    };
+    reader.readAsText(file);
+  });
+}
+
+// --- [執行邏輯] 刪除 KML 處理 ---
+if (els.deleteSelectedKmlBtn) {
+  els.deleteSelectedKmlBtn.addEventListener('click', async () => {
+    const kmlIdToDelete = els.kmlLayerSelectDashboard.value;
+    if (!kmlIdToDelete) return;
+
+    try {
+      await getKmlCollectionRef().doc(kmlIdToDelete).delete();
+      
+      // 全域同步
+      const now = Date.now();
+      await db.collection('artifacts').doc(appId).collection('public').doc('data')
+        .collection('metadata').doc('sync').set({ lastUpdate: now, lastUpdateTime: new Date(now).toLocaleString('zh-TW') }, { merge: true });
+
+      localStorage.removeItem('kml_list_cache_data');
+      localStorage.removeItem(`kml_data_${kmlIdToDelete}`);
+
+      window.showMessage?.('成功', '圖層已刪除。');
+      await optimizedUpdateKmlLayerSelects();
+      window.clearAllKmlLayers?.();
+      updatePinButtonState();
+    } catch (error) {
+      window.showMessage?.('刪除失敗', error.message);
+    }
+  });
+}
   
   // 產生一次性註冊碼（英文字母 + 數字）
   const generateRegistrationAlphanumericCode = () => {
@@ -945,20 +975,38 @@ async function optimizedUpdateKmlLayerSelects() {
     });
   }
 
-  // 刷新使用者列表按鈕（切換顯示、僅 owner 可用）
-  if (els.refreshUsersBtn) {
-    els.refreshUsersBtn.addEventListener('click', () => {
-      if (window.currentUserRole !== 'owner') {
-        window.showMessage?.('權限不足', '只有管理員才能查看或編輯使用者列表。');
-        return;
-      }
-      const isVisible = els.userListDiv?.style.display !== 'none';
-      if (!els.userListDiv) return;
-      if (isVisible) els.userListDiv.style.display = 'none';
-      else { els.userListDiv.style.display = 'block'; refreshUserList(); }
-    });
-  }
+// 刷新使用者列表按鈕（切換顯示、整合快取清除邏輯）
+if (els.refreshUsersBtn) {
+  els.refreshUsersBtn.addEventListener('click', async () => {
+    // 權限檢查
+    if (window.currentUserRole !== 'owner') {
+      window.showMessage?.('權限不足', '只有管理員才能查看或編輯使用者列表。');
+      return;
+    }
+    
+    if (!els.userListDiv) return;
 
+    const isVisible = els.userListDiv.style.display !== 'none';
+
+    if (isVisible) {
+      // 如果已經顯示，點擊則收起
+      els.userListDiv.style.display = 'none';
+    } else {
+      // 如果目前是隱藏，點擊則展開
+      els.userListDiv.style.display = 'block';
+
+      /**
+       * 【核心修改】
+       * 因為是「手動點擊按鈕」，我們假設使用者想看「最新」狀態。
+       * 這裡強制清除 sessionStorage，讓 refreshUserList 內的 get() 執行。
+       */
+      sessionStorage.removeItem('owner_user_list_cache'); 
+      
+      // 執行讀取與渲染
+      await refreshUserList(); 
+    }
+  });
+}
   // 綁定 kmlLayerSelect 的 change 事件
   if (els.kmlLayerSelect) {
     els.kmlLayerSelect.addEventListener('change', handleKmlLayerSelectChange);
