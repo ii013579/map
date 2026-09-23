@@ -1,4 +1,4 @@
-﻿// map-logic.js v2.03
+﻿// map-logic.js v3.14
 
 (function () {
     'use strict';
@@ -22,21 +22,35 @@
             return;
         }
 
-        // 初始化地圖
-        ns.map = L.map('map', {
-        	  preferCanvas: true,
-            attributionControl: true,
-            zoomControl: false,
-            maxZoom: 25,
-            minZoom: 5
-        }).setView([23.6, 120.9], 8);
+    // 1. 初始化地圖
+    ns.map = L.map('map', {
+        preferCanvas: true,
+        attributionControl: true,
+        zoomControl: false,
+        maxZoom: 25,
+        minZoom: 5
+    }).setView([23.6, 120.9], 8);
+    
+    // 2. 建立 Leaflet 缺失的 bottomcenter 容器 (封裝成一個動作)
+    if (ns.map._controlContainer && !ns.map._controlCorners['bottomcenter']) {
+        ns.map._controlCorners['bottomcenter'] = L.DomUtil.create(
+            'div', 
+            'leaflet-bottomcenter', 
+            ns.map._controlContainer
+        );
+    }
+    
+    // 3. 設定全域變數提供給 audit-module.js 使用
+    window.map = ns.map;
+    window.geoJsonLayers = ns.geoJsonLayers;
+    window.markers = ns.markers;
+    window.mapNamespace = ns;
+    
+    // 4. 啟動清查系統底部控制選單 (僅需呼叫一次)
+    if (window.initBottomAuditControl) {
+        window.initBottomAuditControl(ns.map);
+    }
 
-        
-        window.map = ns.map;
-        window.geoJsonLayers = ns.geoJsonLayers;
-        window.markers = ns.markers;
-        window.mapNamespace = ns;
-        
         // 基本圖層定義（使用常數）
         const baseLayers = {
             'Google 街道圖': L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
@@ -350,64 +364,89 @@
         });
     });
 
-    // ---------- 公開方法：添加 GeoJSON 圖層（v2.03 修正版） ----------
+// ---------- 公開方法：添加 GeoJSON 圖層（純粹圖層繪製，無清查邏輯） ----------
     window.addGeoJsonLayers = function (geojsonFeatures = []) {
         if (!ns.map) return;
     
-        // 清除舊圖層
+        // 1. 清除舊圖層與標記
         ns.geoJsonLayers.clearLayers();
         ns.markers.clearLayers();
         ns.navButtons.clearLayers();
     
-        // 定義「紅點白框」樣式 (同步自舊版 CSS)
-        const originalStyle = {
-            radius: 8,           // 半徑 8 (對應 iconSize [16,16])
-            fillColor: "#e74c3c", // 紅色填充
-            fillOpacity: 1,
-            color: "#ffffff",    // 白色外框
-            weight: 2,           // 外框寬度 2px
+        // 2. 預設純粹點位樣式 (僅在 feature.properties 完全未定義色彩時備用)
+        const defaultStyle = {
+            radius: 8,
+            fillColor: "#3388ff", // 標準藍色
+            fillOpacity: 0.85,
+            color: "#ffffff",     // 白色外框
+            weight: 2,
             opacity: 1,
             interactive: true
         };
     
         const canvasRenderer = L.canvas({ padding: 0.1 });
     
+        // 3. 逐一繪製 Feature
         geojsonFeatures.forEach(feature => {
             const type = feature?.geometry?.type;
             const coords = feature?.geometry?.coordinates;
             if (!type || !coords) return;
     
-            // 處理點位 (Point)
+            // --- 處理點位 (Point) ---
             if (type === 'Point') {
                 const latlng = L.latLng(coords[1], coords[0]);
-                const name = feature.properties?.name || '未命名';
+                const name = feature.properties?.name || feature.properties?.title || '未命名';
                 const labelId = `label-${String(coords[1])}-${String(coords[0])}`.replace(/\./g, '_');
     
-                // 建立帶白框的紅點 (Canvas)
+                // 完全依賴傳入 Feature 的屬性渲染，不再主動檢查 auditLayersState
+                const featureStyle = {
+                    ...defaultStyle,
+                    radius: feature.properties?.radius || defaultStyle.radius,
+                    fillColor: feature.properties?.fillColor || defaultStyle.fillColor,
+                    fillOpacity: feature.properties?.fillOpacity ?? defaultStyle.fillOpacity,
+                    color: feature.properties?.color || defaultStyle.color
+                };
+    
                 const dot = L.circleMarker(latlng, {
                     renderer: canvasRenderer,
-                    ...originalStyle
+                    ...featureStyle
                 });
     
+                dot.feature = feature;
+    
+                // 點擊事件：選取高亮與發送選取點位
                 dot.on('click', (e) => {
                     L.DomEvent.stopPropagation(e);
                     
-                    // 重置所有點回「紅點白框」
+                    window.currentSelectedPoint = feature; 
+    
+                    // 重置所有點位為原始 feature 樣式
                     ns.markers.eachLayer(layer => {
-                        if (layer instanceof L.CircleMarker) layer.setStyle(originalStyle);
+                        if (layer instanceof L.CircleMarker && layer.feature) {
+                            layer.setStyle({
+                                ...defaultStyle,
+                                fillColor: layer.feature.properties?.fillColor || defaultStyle.fillColor,
+                                color: layer.feature.properties?.color || defaultStyle.color,
+                                weight: defaultStyle.weight
+                            });
+                        }
                     });
     
-                    // 高亮處理
+                    // 高亮當前點 (套用黃色邊框)
+                    dot.setStyle({ weight: 4, color: '#ffff00' });
+    
                     document.querySelectorAll('.marker-label span').forEach(s => s.classList.remove('label-active'));
                     const targetSpan = document.getElementById(labelId);
                     if (targetSpan) targetSpan.classList.add('label-active');
     
-                    window.createNavButton(latlng, name);
+                    if (typeof window.createNavButton === 'function') {
+                        window.createNavButton(latlng, name);
+                    }
                 });
     
                 ns.markers.addLayer(dot);
-    
-                // 標籤處理 (DOM)
+
+                // 標籤處理
                 const label = L.marker(latlng, {
                     icon: L.divIcon({
                         className: 'marker-label',
@@ -420,7 +459,7 @@
                 });
                 ns.markers.addLayer(label);
             }
-            // 處理線段與多邊形 (修正原本掉在函式外的邏輯)
+            // --- 處理線條與多邊形 (LineString / Polygon) ---
             else if (type === 'LineString' || type === 'Polygon') {
                 const layer = L.geoJSON(feature, {
                     renderer: canvasRenderer,
@@ -429,26 +468,36 @@
     
                 layer.on('click', function (e) {
                     L.DomEvent.stopPropagation(e);
+                    window.currentSelectedPoint = feature;
                     let centerPoint = (type === 'Polygon') 
                         ? window.getPolygonCentroid(feature.geometry.coordinates[0])
                         : window.getLineStringMidpoint(feature.geometry.coordinates);
-                    
-                    if (centerPoint) {
-                        window.createNavButton(L.latLng(centerPoint[1], centerPoint[0]), feature.properties?.name);
+    
+                    if (centerPoint && typeof window.createNavButton === 'function') {
+                        window.createNavButton(L.latLng(centerPoint[1], centerPoint[0]), feature.properties?.name || feature.properties?.title);
                     }
                 });
             }
         });
     
-        // 點擊空白處重置樣式
+        // 4. 點擊地圖空白處：解除點位選取高亮
         ns.map.off('click').on('click', () => {
+            window.currentSelectedPoint = null;
             ns.markers.eachLayer(layer => {
-                if (layer instanceof L.CircleMarker) layer.setStyle(originalStyle);
+                if (layer instanceof L.CircleMarker && layer.feature) {
+                    layer.setStyle({
+                        ...defaultStyle,
+                        fillColor: layer.feature.properties?.fillColor || defaultStyle.fillColor,
+                        color: layer.feature.properties?.color || defaultStyle.color,
+                        weight: defaultStyle.weight
+                    });
+                }
             });
             document.querySelectorAll('.marker-label span').forEach(s => s.classList.remove('label-active'));
             ns.navButtons.clearLayers();
         });
     
+        // 保存傳入的圖層資料
         ns.allKmlFeatures = geojsonFeatures;
     };
        

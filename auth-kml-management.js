@@ -1,4 +1,4 @@
-// auth-kml-management.js v2.03
+// auth-kml-management.js v3.01
 
 (function () {
   'use strict';
@@ -26,6 +26,7 @@
     deleteSelectedKmlBtn: $('deleteSelectedKmlBtn'),
     triggerUploadBtn: $('triggerUploadBtn'),
     triggerDeleteBtn: $('triggerDeleteBtn'),
+    auditKmlBtn: document.getElementById('auditKmlBtn'),
 
     registrationSettingsSection: $('registrationSettingsSection'),
     generateRegistrationCodeBtn: $('generateRegistrationCodeBtn'),
@@ -882,98 +883,128 @@ if (els.uploadKmlSubmitBtnDashboard) {
 if (els.deleteSelectedKmlBtn) {
   els.deleteSelectedKmlBtn.addEventListener('click', async () => {
     const kmlIdToDelete = els.kmlLayerSelectDashboard.value;
+    // 取得選取到的 KML 名稱，用於清理清查資料
+    const selectedOption = els.kmlLayerSelectDashboard.options[els.kmlLayerSelectDashboard.selectedIndex];
+    const kmlName = selectedOption ? selectedOption.textContent : null;
+
     if (!kmlIdToDelete) return;
 
     try {
+      // 1. 執行原有的刪除圖層邏輯
       await getKmlCollectionRef().doc(kmlIdToDelete).delete();
       
-      // 全域同步
+      // 2. 【新增】同步呼叫 audit-module 的清理函式
+      if (typeof window.cleanupAuditData === 'function' && kmlName) {
+        console.log(`[系統] 觸發清查資料清理: ${kmlName}`);
+        await window.cleanupAuditData(kmlName);
+      }
+
+      // 3. 全域同步與狀態重置
       const now = Date.now();
-      await db.collection('artifacts').doc(appId).collection('public').doc('data')
-        .collection('metadata').doc('sync').set({ lastUpdate: now, lastUpdateTime: new Date(now).toLocaleString('zh-TW') }, { merge: true });
+      await db.collection('artifacts').doc(currentAppId).collection('public').doc('data')
+        .collection('metadata').doc('sync').set({ lastUpdate: now }, { merge: true });
 
       localStorage.removeItem('kml_list_cache_data');
       localStorage.removeItem(`kml_data_${kmlIdToDelete}`);
 
-      window.showMessage?.('成功', '圖層已刪除。');
+      window.showMessage?.('成功', '圖層及相關清查資料已刪除。');
       await optimizedUpdateKmlLayerSelects();
       window.clearAllKmlLayers?.();
       updatePinButtonState();
     } catch (error) {
+      console.error("刪除失敗:", error);
       window.showMessage?.('刪除失敗', error.message);
     }
   });
 }
-  
-  // 產生一次性註冊碼（英文字母 + 數字）
-  const generateRegistrationAlphanumericCode = () => {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const digits = '013456789';
-    let res = '';
-    for (let i = 0; i < 3; i++) res += letters.charAt(Math.floor(Math.random() * letters.length));
-    for (let i = 0; i < 5; i++) res += digits.charAt(Math.floor(Math.random() * digits.length));
-    return res;
-  };
 
-  // 生成註冊碼按鈕（僅 owner 可用）
-  if (els.generateRegistrationCodeBtn) {
-    els.generateRegistrationCodeBtn.addEventListener('click', async () => {
-      if (window.currentUserRole !== 'owner') {
-        window.showMessage?.('權限不足', '只有管理員才能生成註冊碼。');
-        return;
-      }
-      if (registrationCodeTimer) { clearInterval(registrationCodeTimer); registrationCodeTimer = null; }
+// --- [清查功能整合邏輯] ---
+const auditBtn = document.getElementById('auditKmlBtn');
 
-      try {
-        const code = generateRegistrationAlphanumericCode();
-        let countdownSeconds = 60;
-        const expiryDate = new Date();
-        expiryDate.setSeconds(expiryDate.getSeconds() + countdownSeconds);
-
-        // 將註冊碼與過期時間寫入 Firestore（server-side 規則亦應強制驗證）
-        await db.collection('settings').doc('registration').set({
-          oneTimeCode: code,
-          oneTimeCodeExpiry: firebase.firestore.Timestamp.fromDate(expiryDate)
-        }, { merge: true });
-
-        if (els.registrationCodeDisplay) els.registrationCodeDisplay.textContent = code;
-        if (els.registrationCodeCountdown) els.registrationCodeCountdown.textContent = ` (剩餘 ${countdownSeconds} 秒)`;
-        if (els.registrationCodeDisplay) els.registrationCodeDisplay.style.display = 'inline-block';
-        if (els.registrationCodeCountdown) els.registrationCodeCountdown.style.display = 'inline-block';
-        if (els.registrationExpiryDisplay) els.registrationExpiryDisplay.style.display = 'none';
-
-        // 啟動倒數計時器（前端顯示用）
-        registrationCodeTimer = setInterval(() => {
-          countdownSeconds--;
-          if (countdownSeconds >= 0) {
-            if (els.registrationCodeCountdown) els.registrationCodeCountdown.textContent = ` (剩餘 ${countdownSeconds} 秒)`;
-          } else {
-            clearInterval(registrationCodeTimer);
-            registrationCodeTimer = null;
-            if (els.registrationCodeDisplay) els.registrationCodeDisplay.textContent = '註冊碼已過期';
-            if (els.registrationCodeCountdown) els.registrationCodeCountdown.style.display = 'none';
-          }
-        }, 1000);
-
-        // 嘗試複製到剪貼簿（優先使用 navigator.clipboard）
-        try {
-          await navigator.clipboard.writeText(code);
-        } catch (e) {
-          const tempInput = document.createElement('textarea');
-          tempInput.value = code;
-          document.body.appendChild(tempInput);
-          tempInput.select();
-          document.execCommand('copy');
-          document.body.removeChild(tempInput);
+if (auditBtn) {
+    auditBtn.onclick = async () => {
+        // 先執行一次 UI 更新，確保 data-basename 有被寫入 option 屬性中
+        if (typeof window.updateKmlSelectUI === 'function') {
+            window.updateKmlSelectUI();
         }
 
-        window.showMessage?.('成功', `一次性註冊碼已生成並複製到剪貼簿，設定為 ${60} 秒後過期！`);
-      } catch (error) {
-        console.error("生成註冊碼時出錯:", error);
-        window.showMessage?.('錯誤', `生成註冊碼失敗: ${error.message}`);
+        if (typeof window.showAuditActionModal === 'function') {
+            window.showAuditActionModal(); 
+        } else {
+            Swal.fire('錯誤', '清查模組尚未準備就緒', 'error');
+        }
+    };
+}
+  
+// --- [產生一次性註冊碼（英文字母 + 數字）邏輯 ---
+const generateRegistrationAlphanumericCode = () => {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const digits = '013456789';
+  let res = '';
+  for (let i = 0; i < 3; i++) res += letters.charAt(Math.floor(Math.random() * letters.length));
+  for (let i = 0; i < 5; i++) res += digits.charAt(Math.floor(Math.random() * digits.length));
+  return res;
+};
+
+// 生成註冊碼按鈕（僅 owner 可用）
+if (els.generateRegistrationCodeBtn) {
+  els.generateRegistrationCodeBtn.addEventListener('click', async () => {
+    if (window.currentUserRole !== 'owner') {
+      window.showMessage?.('權限不足', '只有管理員才能生成註冊碼。');
+      return;
+    }
+    if (registrationCodeTimer) { clearInterval(registrationCodeTimer); registrationCodeTimer = null; }
+
+    try {
+      const code = generateRegistrationAlphanumericCode();
+      let countdownSeconds = 60;
+      const expiryDate = new Date();
+      expiryDate.setSeconds(expiryDate.getSeconds() + countdownSeconds);
+
+      // 將註冊碼與過期時間寫入 Firestore（server-side 規則亦應強制驗證）
+      await db.collection('settings').doc('registration').set({
+        oneTimeCode: code,
+        oneTimeCodeExpiry: firebase.firestore.Timestamp.fromDate(expiryDate)
+      }, { merge: true });
+
+      if (els.registrationCodeDisplay) els.registrationCodeDisplay.textContent = code;
+      if (els.registrationCodeCountdown) els.registrationCodeCountdown.textContent = ` (剩餘 ${countdownSeconds} 秒)`;
+      if (els.registrationCodeDisplay) els.registrationCodeDisplay.style.display = 'inline-block';
+      if (els.registrationCodeCountdown) els.registrationCodeCountdown.style.display = 'inline-block';
+      if (els.registrationExpiryDisplay) els.registrationExpiryDisplay.style.display = 'none';
+
+      // 啟動倒數計時器（前端顯示用）
+      registrationCodeTimer = setInterval(() => {
+        countdownSeconds--;
+        if (countdownSeconds >= 0) {
+          if (els.registrationCodeCountdown) els.registrationCodeCountdown.textContent = ` (剩餘 ${countdownSeconds} 秒)`;
+        } else {
+          clearInterval(registrationCodeTimer);
+          registrationCodeTimer = null;
+          if (els.registrationCodeDisplay) els.registrationCodeDisplay.textContent = '註冊碼已過期';
+          if (els.registrationCodeCountdown) els.registrationCodeCountdown.style.display = 'none';
+        }
+      }, 1000);
+
+      // 嘗試複製到剪貼簿（優先使用 navigator.clipboard）
+      try {
+        await navigator.clipboard.writeText(code);
+      } catch (e) {
+        const tempInput = document.createElement('textarea');
+        tempInput.value = code;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
       }
-    });
-  }
+
+      window.showMessage?.('成功', `一次性註冊碼已生成並複製到剪貼簿，設定為 ${60} 秒後過期！`);
+    } catch (error) {
+      console.error("生成註冊碼時出錯:", error);
+      window.showMessage?.('錯誤', `生成註冊碼失敗: ${error.message}`);
+    }
+  });
+}
 
 // 刷新使用者列表按鈕（切換顯示、整合快取清除邏輯）
 if (els.refreshUsersBtn) {
@@ -1057,6 +1088,6 @@ if (els.refreshUsersBtn) {
   } else {
     console.error('找不到 id 為 "pinButton" 的圖釘按鈕，釘選功能無法啟用。');
   }
-
+  
   // IIFE 結束
 })();
