@@ -505,12 +505,21 @@
                     localStorage.setItem('audit_status_options', JSON.stringify(formValues.options));
                     Swal.fire({ title: '正在開啟清查...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                     
+                    // 寫入 Firestore
                     await firebase.firestore().collection(APP_PATH).doc(kmlId).set({ 
-                        isAuditing: true, targetPhotos: formValues.count, statusOptions: formValues.options
+                        isAuditing: true, 
+                        targetPhotos: formValues.count, 
+                        statusOptions: formValues.options
                     }, { merge: true });
                     
-                    window.globalAuditConfigs[kmlId] ||= {};
-                    window.globalAuditConfigs[kmlId].isAuditing = true;
+                    // ⬇️ 修正重點：完整更新記憶體狀態，包含張數與選項 ⬇️
+                    window.globalAuditConfigs ||= {};
+                    window.globalAuditConfigs[kmlId] = {
+                        ...window.globalAuditConfigs[kmlId],
+                        isAuditing: true,
+                        targetPhotos: formValues.count,
+                        statusOptions: formValues.options
+                    };
 
                     forceMapRefresh();
                     Swal.fire({ icon: 'success', title: '已成功開啟清查模式', timer: 1200, showConfirmButton: false });
@@ -522,8 +531,12 @@
                 
                 await firebase.firestore().collection(APP_PATH).doc(kmlId).set({ isAuditing: false }, { merge: true });
                 
-                window.globalAuditConfigs[kmlId] ||= {};
-                window.globalAuditConfigs[kmlId].isAuditing = false;
+                // ⬇️ 同步更新記憶體為關閉狀態 ⬇️
+                window.globalAuditConfigs ||= {};
+                window.globalAuditConfigs[kmlId] = {
+                    ...window.globalAuditConfigs[kmlId],
+                    isAuditing: false
+                };
 
                 forceMapRefresh();
                 Swal.fire({ icon: 'success', title: '已關閉清查模式', timer: 1000, showConfirmButton: false });
