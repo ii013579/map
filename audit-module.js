@@ -359,7 +359,8 @@
         };
 
         const photoCount = parseInt(maxPhotos) || 2;
-        let headerArr = ["點名", "經度", "緯度", "設備狀態"];
+        // ⬇️ 表頭加入「敘述」欄位 ⬇️
+        let headerArr = ["點名", "經度", "緯度", "設備狀態", "敘述"];
         for (let i = 1; i <= photoCount; i++) headerArr.push(`照片${i}`);
         headerArr.push("備註");
         
@@ -382,12 +383,17 @@
             rowArr.push(`"${record?.lng ?? feature?.geometry?.coordinates?.[0] ?? ""}"`);
             rowArr.push(`"${record?.lat ?? feature?.geometry?.coordinates?.[1] ?? ""}"`);
 
+            // ⬇️ 提取敘述（優先讀取清查紀錄 record，若無則讀取原 KML 圖層 feature 屬性） ⬇️
+            const pointDesc = record?.description || record?.desc || feature?.properties?.description || feature?.properties?.desc || "";
+
             if (record) {
                 rowArr.push(`"${String(record.deviceStatus || record.status || '正常').replace(/"/g, '""')}"`);
+                rowArr.push(`"${String(pointDesc).replace(/"/g, '""')}"`);
                 for (let i = 0; i < photoCount; i++) rowArr.push(`"${getCleanPhotoName(record.photos?.[i])}"`);
                 rowArr.push(`"${String(record.remark || record.note || "").replace(/"/g, '""')}"`);
             } else {
                 rowArr.push('""');
+                rowArr.push(`"${String(pointDesc).replace(/"/g, '""')}"`);
                 for (let i = 0; i < photoCount; i++) rowArr.push('""');
                 rowArr.push('""');
             }
@@ -618,6 +624,7 @@
         const maxPhotos = config.targetPhotos || 2; 
         const existingPhotos = editData?.photos || [];
         const defaultName = editData?.pointKey || editData?.name || '';
+        const defaultDesc = editData?.description || editData?.desc || '';
         const defaultRemark = editData?.note || editData?.remark || '';
     
         let photoHtml = '';
@@ -641,7 +648,6 @@
         const modalTitle = isEditMode ? '修改點位清查紀錄' : '新增點位清查紀錄';
         const confirmBtnText = isEditMode ? '確認並儲存修改' : '確認並新增上傳';
     
-        // 調整為單行對齊配置 (audit-form-group-inline) 並更名為「點位名稱」
         const modalHtml = `
         <div class="audit-form-container">
             <div class="audit-modal-title">
@@ -662,6 +668,11 @@
                 <label class="audit-form-label">現場照片 (需拍 ${maxPhotos} 張) <span class="required">*必填</span></label>
                 <div class="audit-photo-grid">${photoHtml}</div>
             </div>
+            <!-- ⬇️ 新增：敘述輸入框 ⬇️ -->
+            <div class="audit-form-group" style="margin-top:10px;">
+                <label class="audit-form-label">敘述 <span class="optional">(選填)</span></label>
+                <input type="text" id="add-point-desc" value="${defaultDesc}" placeholder="請輸入點位敘述..." class="audit-form-input">
+            </div>
             <div>
                 <label class="audit-form-label">備註事項 <span class="optional">(選填)</span></label>
                 <textarea id="add-point-remark" placeholder="輸入備註事項..." class="audit-form-textarea">${defaultRemark}</textarea>
@@ -675,6 +686,7 @@
             willClose: () => syncAuditButtonVisibility(),
             preConfirm: () => {
                 const name = document.getElementById('add-point-name').value.trim();
+                const desc = document.getElementById('add-point-desc').value.trim();
                 const remark = document.getElementById('add-point-remark').value.trim();
                 const photosArray = [];
 
@@ -700,7 +712,11 @@
 
                 if (photosArray.length < maxPhotos) return Swal.showValidationMessage(`請上傳完整 ${maxPhotos} 張現場照片！`);
     
-                return { kmlId, kmlLayerName, lat, lng, pointKey: name, name, status: "新增", deviceStatus: "新增", remark, photos: photosArray, isEditMode, oldPointKey: isEditMode ? defaultName : null };
+                return { 
+                    kmlId, kmlLayerName, lat, lng, pointKey: name, name, 
+                    status: "新增", deviceStatus: "新增", description: desc, desc: desc, 
+                    remark, photos: photosArray, isEditMode, oldPointKey: isEditMode ? defaultName : null 
+                };
             }
         });
     
@@ -711,8 +727,9 @@
     };
     
     window.submitNewCustomPoint = async function(formValues) {
-        const { kmlId, kmlLayerName, lat, lng, pointKey, deviceStatus, remark, photos, isEditMode, oldPointKey } = formValues;
+        const { kmlId, kmlLayerName, lat, lng, pointKey, deviceStatus, description, desc, remark, photos, isEditMode, oldPointKey } = formValues;
         const trimmedPointKey = (pointKey || '').trim();
+        const finalDesc = description || desc || '';
         const numLat = parseFloat(lat), numLng = parseFloat(lng);
         if (!trimmedPointKey || isNaN(numLat) || isNaN(numLng)) return Swal.fire('錯誤', '請提供有效的點位名稱與座標', 'error');
     
@@ -730,6 +747,7 @@
     
             const structuredData = {
                 pointName: trimmedPointKey, status: "已完成", deviceStatus: deviceStatus || "新增", auditStatus: deviceStatus || "新增",
+                description: finalDesc, desc: finalDesc,
                 note: remark || "", photos: photoUrls, lat: numLat, lng: numLng, isCustomPoint: true, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
     
@@ -743,6 +761,7 @@
                 properties: {
                     name: trimmedPointKey, title: trimmedPointKey, kmlId, auditPointKey: trimmedPointKey,
                     isCustomPoint: true, isAudited: true, deviceStatus: deviceStatus || "新增", auditStatus: deviceStatus || "新增",
+                    description: finalDesc, desc: finalDesc,
                     auditNote: remark || "", photos: photoUrls, fillColor: "#FCD770", color: "#ffffff", radius: 8, fillOpacity: 0.85
                 }
             };
@@ -856,6 +875,8 @@
         }
     
         const currentStatus = isUserCreatedPoint ? '新增' : (historyRecord.deviceStatus || '');
+        // ⬇️ 讀取敘述資料 ⬇️
+        const currentDesc = historyRecord.description || historyRecord.desc || layerProps.description || layerProps.desc || '';
         const currentNote = historyRecord.note || '';
         const baseStatusOptions = config.statusOptions || ['正常', '損壞', '遺失'];
     
@@ -896,6 +917,13 @@
                 
                 <label class="audit-form-label">現場照片 (需滿 ${maxPhotos} 張) <span class="required">*必填</span></label>
                 <div class="audit-photo-grid-editor">${photoHtml}</div>
+
+                <!-- ⬇️ 新增：敘述輸入框 ⬇️ -->
+                <div class="audit-form-group" style="margin-top:10px;">
+                    <label class="audit-form-label">敘述 <span class="optional">(選填)</span></label>
+                    <input type="text" id="swal-desc" class="swal2-input audit-form-input" value="${safeEscape(currentDesc)}" placeholder="請輸入點位敘述...">
+                </div>
+
                 <label class="audit-form-label">備註事項 <span class="optional">(選填)</span></label>
                 <textarea id="swal-note" class="swal2-textarea audit-form-textarea">${safeEscape(currentNote)}</textarea>
             </div>`,
@@ -943,7 +971,16 @@
                 const validPhotosCount = currentPhotos.filter(p => p && p.trim() !== '').length;
                 if (validPhotosCount < maxPhotos) return Swal.showValidationMessage(`請補滿 ${maxPhotos} 張照片 (目前 ${validPhotosCount}/${maxPhotos})`); 
                 
-                return { status: statusValue, note: document.getElementById('swal-note').value, photos: currentPhotos };
+                // ⬇️ 取得敘述欄位值 ⬇️
+                const descValue = document.getElementById('swal-desc')?.value.trim() || '';
+
+                return { 
+                    status: statusValue, 
+                    description: descValue, 
+                    desc: descValue, 
+                    note: document.getElementById('swal-note').value, 
+                    photos: currentPhotos 
+                };
             }
         });
     
@@ -953,15 +990,29 @@
             Swal.fire({ title: '正在上傳與更新資料...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
             try {
                 const photoUrls = await window.uploadPhotosToStorage(res.photos, kmlId, pointKey, kmlLayerName);
+                
+                // ⬇️ 將 description / desc 加入 structuredData 儲存 ⬇️
                 const structuredData = {
-                    pointName: pointKey, status: "已完成", deviceStatus: res.status, 
-                    note: res.note, photos: photoUrls, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    pointName: pointKey, 
+                    status: "已完成", 
+                    deviceStatus: res.status, 
+                    description: res.description,
+                    desc: res.desc,
+                    note: res.note, 
+                    photos: photoUrls, 
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
     
                 window.auditLayersState ||= {};
                 window.auditLayersState[kmlId] ||= {};
-                window.auditLayersState[kmlId][pointKey] = structuredData;
+                window.auditLayersState[kmlId][pointKey] = { ...window.auditLayersState[kmlId][pointKey], ...structuredData };
     
+                // 同步更新地圖 Feature properties
+                if (layerProps) {
+                    layerProps.description = res.description;
+                    layerProps.desc = res.desc;
+                }
+
                 await firebase.firestore().collection(APP_PATH).doc(kmlId).collection('auditRecords').doc(pointKey).set(structuredData, { merge: true });
                 await generateLayerCsvReport(kmlId, kmlLayerName, maxPhotos);
     
