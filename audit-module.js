@@ -864,8 +864,12 @@
     };
 
     // ---------------------------------------------------------
-    // 6. 清查資料編輯與彈窗
+    // 6. 清查資料彈窗 (編輯與查看)
     // ---------------------------------------------------------
+
+    /**
+     * 6-1. 編輯/填寫清查紀錄彈窗
+     */
     window.openAuditEditor = async function(isModifyMode = false) {
         const activePoint = window.currentSelectedPoint;
         if (!activePoint) return;
@@ -888,7 +892,6 @@
         }
     
         const currentStatus = isUserCreatedPoint ? '新增' : (historyRecord.deviceStatus || '');
-        // ⬇️ 讀取敘述資料 ⬇️
         const currentDesc = historyRecord.description || historyRecord.desc || layerProps.description || layerProps.desc || '';
         const currentNote = historyRecord.note || '';
         const baseStatusOptions = config.statusOptions || ['正常', '損壞', '遺失'];
@@ -923,22 +926,27 @@
         const { value: res, isDenied } = await Swal.fire({
             title: `<div>${isModifyMode ? '修改' : '填寫'}清查紀錄：${safeEscape(pointKey)}</div>`,
             html: `<div class="audit-form-container">
+                <!-- 1. 設備狀態 -->
                 <div class="audit-form-group-inline">
                     <label class="audit-form-label">設備狀態 <span class="required">*必選</span></label>
                     ${statusSelectHtml}
                 </div>
                 
+                <!-- 2. 現場照片 -->
                 <label class="audit-form-label">現場照片 (需滿 ${maxPhotos} 張) <span class="required">*必填</span></label>
                 <div class="audit-photo-grid-editor">${photoHtml}</div>
 
-                <!-- ⬇️ 新增：敘述輸入框 ⬇️ -->
-                <div class="audit-form-group" style="margin-top:10px;">
+                <!-- 3. 敘述 -->
+                <div class="audit-form-group">
                     <label class="audit-form-label">敘述 <span class="optional">(選填)</span></label>
                     <input type="text" id="swal-desc" class="swal2-input audit-form-input" value="${safeEscape(currentDesc)}" placeholder="請輸入點位敘述...">
                 </div>
 
-                <label class="audit-form-label">備註事項 <span class="optional">(選填)</span></label>
-                <textarea id="swal-note" class="swal2-textarea audit-form-textarea">${safeEscape(currentNote)}</textarea>
+                <!-- 4. 備註事項 -->
+                <div class="audit-form-group">
+                    <label class="audit-form-label">備註事項 <span class="optional">(選填)</span></label>
+                    <textarea id="swal-note" class="swal2-textarea audit-form-textarea">${safeEscape(currentNote)}</textarea>
+                </div>
             </div>`,
             showCancelButton: true, showDenyButton: isUserCreatedPoint, denyButtonText: '🗑️ 刪除點位', denyButtonColor: '#e74c3c',
             confirmButtonText: isModifyMode ? '覆蓋更新' : '確認並上傳', cancelButtonText: '取消',
@@ -984,7 +992,6 @@
                 const validPhotosCount = currentPhotos.filter(p => p && p.trim() !== '').length;
                 if (validPhotosCount < maxPhotos) return Swal.showValidationMessage(`請補滿 ${maxPhotos} 張照片 (目前 ${validPhotosCount}/${maxPhotos})`); 
                 
-                // ⬇️ 取得敘述欄位值 ⬇️
                 const descValue = document.getElementById('swal-desc')?.value.trim() || '';
 
                 return { 
@@ -1003,8 +1010,6 @@
             Swal.fire({ title: '正在上傳與更新資料...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
             try {
                 const photoUrls = await window.uploadPhotosToStorage(res.photos, kmlId, pointKey, kmlLayerName);
-                
-                // ⬇️ 將 description / desc 加入 structuredData 儲存 ⬇️
                 const structuredData = {
                     pointName: pointKey, 
                     status: "已完成", 
@@ -1020,7 +1025,6 @@
                 window.auditLayersState[kmlId] ||= {};
                 window.auditLayersState[kmlId][pointKey] = { ...window.auditLayersState[kmlId][pointKey], ...structuredData };
     
-                // 同步更新地圖 Feature properties
                 if (layerProps) {
                     layerProps.description = res.description;
                     layerProps.desc = res.desc;
@@ -1036,7 +1040,92 @@
             }
         }
     };
-      
+
+    /**
+     * 6-2. 僅檢視詳細紀錄彈窗 (唯讀模式 - 排版與修改介面一致)
+     */
+    window.viewAuditDetailOnly = function(pointKeyParam) {
+        const activePoint = window.currentSelectedPoint;
+        const layerProps = activePoint?.feature?.properties || activePoint?.properties || {};
+        const pointKey = pointKeyParam || (typeof getPointKey === 'function' ? getPointKey(layerProps) : null) || layerProps.name || layerProps.id;
+        const kmlId = layerProps.kmlId || window.mapNamespace?.currentKmlLayerId || window.currentActiveKmlId;
+
+        if (!pointKey) {
+            return Swal.fire('提示', '無法辨識點位名稱！', 'warning');
+        }
+
+        const record = window.auditLayersState?.[kmlId]?.[pointKey] || layerProps;
+
+        if (!record || (!record.deviceStatus && !record.status && !record.photos)) {
+            return Swal.fire('提示', `尚無「${safeEscape(pointKey)}」的清查紀錄！`, 'info');
+        }
+
+        const deviceStatus = record.deviceStatus || record.status || '未設定';
+        const description = record.description || record.desc || layerProps.description || layerProps.desc || '';
+        const note = record.note || record.remark || '';
+        const photos = Array.isArray(record.photos) ? record.photos.filter(p => p && p.trim() !== '') : [];
+
+        let photoHtml = '';
+        if (photos.length > 0) {
+            photos.forEach((url, idx) => {
+                const safeUrl = safeEscape(url);
+                photoHtml += `
+                    <div class="audit-photo-item-editor">
+                        <div class="audit-photo-box-editor readonly-clickable" onclick="window.open('${safeUrl}', '_blank')" title="點擊檢視原圖">
+                            <img src="${safeUrl}" class="audit-photo-preview-img">
+                        </div>
+                        <div class="audit-photo-tag-editor" onclick="window.open('${safeUrl}', '_blank')" title="點擊檢視原圖">
+                            <span>🖼️</span> 檢視照片 ${idx + 1}
+                        </div>
+                    </div>`;
+            });
+        } else {
+            photoHtml = `<div class="audit-photo-empty-text">未提供現場照片</div>`;
+        }
+
+        Swal.fire({
+            title: `查看清查紀錄：${safeEscape(pointKey)}`,
+            html: `
+                <div class="audit-form-container">
+                    
+                    <!-- 1. 設備狀態 (唯讀下拉選單) -->
+                    <div class="audit-form-group-inline">
+                        <label class="audit-form-label">設備狀態</label>
+                        <select class="swal2-input audit-form-select" disabled>
+                            <option selected>${safeEscape(deviceStatus)}</option>
+                        </select>
+                    </div>
+
+                    <!-- 2. 現場照片 (與編輯框樣式相同的外框與外觀) -->
+                    <div class="audit-form-group">
+                        <label class="audit-form-label">現場照片 (共 ${photos.length} 張)</label>
+                        <div class="audit-photo-grid-editor">
+                            ${photoHtml}
+                        </div>
+                    </div>
+
+                    <!-- 3. 敘述 (唯讀輸入框) -->
+                    <div class="audit-form-group">
+                        <label class="audit-form-label">敘述 <span class="optional">(選填)</span></label>
+                        <input type="text" class="swal2-input audit-form-input" value="${safeEscape(description)}" readonly placeholder="無敘述">
+                    </div>
+
+                    <!-- 4. 備註事項 (唯讀文字框) -->
+                    <div class="audit-form-group">
+                        <label class="audit-form-label">備註事項 <span class="optional">(選填)</span></label>
+                        <textarea class="swal2-textarea audit-form-textarea" readonly placeholder="無備註事項">${safeEscape(note)}</textarea>
+                    </div>
+
+                </div>`,
+            confirmButtonText: '關閉',
+            confirmButtonColor: '#34495e',
+            showCloseButton: true,
+            focusConfirm: false,
+            didOpen: () => typeof setPointAddBtnVisible === 'function' && setPointAddBtnVisible(false),
+            willClose: () => typeof syncAuditButtonVisibility === 'function' && syncAuditButtonVisibility()
+        });
+    };
+          
     // ---------------------------------------------------------
     // 7. 打包 Firebase Storage 照片
     // ---------------------------------------------------------

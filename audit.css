@@ -520,3 +520,34 @@
     border: 1px solid #e2e8f0;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
+
+/* --------------------------------------------------------------------------
+   10. 查看詳情彈窗專屬樣式 (View Detail Readonly Form Layout)
+   -------------------------------------------------------------------------- */
+
+/* 唯讀狀態下的輸入框與文字域樣式 */
+.audit-form-input:read-only,
+.audit-form-textarea:read-only {
+    background-color: #f8f9fa !important;
+    color: #495057 !important;
+    cursor: default;
+    border-color: #ced4da !important;
+}
+
+/* 唯讀模式下的照片點擊區域 */
+.audit-photo-box-editor.readonly-clickable {
+    cursor: pointer;
+}
+
+.audit-photo-box-editor.readonly-clickable:hover {
+    border-color: #3b82f6;
+}
+
+/* 無照片提示字樣 */
+.audit-photo-empty-text {
+    color: #909399;
+    font-size: 13px;
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 20px 0;
+}
