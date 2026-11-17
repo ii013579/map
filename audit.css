@@ -388,6 +388,20 @@
 .swal2-actions button {
     font-size: 14px !important;
 }
+
+.swal2-popup.swal2-modal {
+    padding: 12px 14px !important;
+}
+
+.swal2-html-container {
+    margin: 8px 4px !important;
+    padding: 0 !important;
+}
+
+.audit-form-container {
+    padding: 0 4px !important; 
+}
+
 /* --------------------------------------------------------------------------
    7. 照片選擇與預覽區域 (Photo Grid - Add Point Modal)
    -------------------------------------------------------------------------- */
