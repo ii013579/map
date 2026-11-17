@@ -163,7 +163,7 @@
                             f.properties.color = isAuditedVisible ? "#ffffff" : "transparent"; 
                         } else {
                             f.properties.auditStatus = null;
-                            f.properties.fillColor = "#2A00D2";
+                            f.properties.fillColor = "#8E44AD";
                             f.properties.fillOpacity = 0.85;
                             f.properties.opacity = 1;
                             f.properties.stroke = true;
@@ -218,7 +218,7 @@
                         layer.options.interactive = true;
                         if (typeof layer.setStyle === 'function') {
                             layer.setStyle({
-                                fillColor: "#2A00D2",
+                                fillColor: "#8E44AD",
                                 fillOpacity: 0.85,
                                 opacity: 1,
                                 stroke: true,
