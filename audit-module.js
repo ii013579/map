@@ -156,7 +156,7 @@
                         if (isAudited) {
                             const status = record.deviceStatus || "正常";
                             const isAlertStatus = (status === "損壞" || status === "遺失");
-                            const pointColor = isAlertStatus ? "#D35400" : "#FCD770"; // 損壞、遺失顯示橘色，其餘維持黃色
+                            const pointColor = isAlertStatus ? "#F39C12" : "#FCD770"; // 損壞、遺失顯示橘色，其餘維持黃色
 
                             f.properties.auditStatus = status;
                             f.properties.fillColor = isAuditedVisible ? pointColor : "transparent";
@@ -167,7 +167,7 @@
                             f.properties.color = isAuditedVisible ? "#ffffff" : "transparent"; 
                         } else {
                             f.properties.auditStatus = null;
-                            f.properties.fillColor = "#000000"; 
+                            f.properties.fillColor = "#000000"; // 未清查點維持純黑[cite: 1]
                             f.properties.fillOpacity = 0.85;
                             f.properties.opacity = 1;
                             f.properties.stroke = true;
@@ -209,7 +209,7 @@
                     if (props.isAudited) {
                         layer.options.interactive = isAuditedVisible;
                         const isAlertStatus = (props.auditStatus === "損壞" || props.auditStatus === "遺失");
-                        const pointColor = isAlertStatus ? "#D35400" : "#FCD770"; // 損壞、遺失顯示橘色，其餘維持黃色
+                        const pointColor = isAlertStatus ? "#F39C12" : "#FCD770"; // 損壞、遺失顯示橘色，其餘維持黃色
 
                         if (typeof layer.setStyle === 'function') {
                             layer.setStyle({
@@ -854,7 +854,7 @@
             </div>
             <div>
                 <label class="audit-form-label">備註事項 <span class="optional">(選填)</span></label>
-                <textarea id="add-point-remark" placeholder="輸入備註事項..." class="audit-form-textarea">${safeEscape(defaultRemark)}</textarea>
+                <input type="text" id="add-point-remark" value="${safeEscape(defaultRemark)}" placeholder="輸入備註事項..." class="audit-form-input">
             </div>
         </div>`;
     
@@ -1159,7 +1159,7 @@
 
                 <div class="audit-form-group">
                     <label class="audit-form-label">備註事項 <span class="optional">(選填)</span></label>
-                    <textarea id="swal-note" class="swal2-textarea audit-form-textarea">${safeEscape(currentNote)}</textarea>
+                    <input type="text" id="swal-note" class="swal2-input audit-form-input" value="${safeEscape(currentNote)}" placeholder="輸入備註事項...">
                 </div>
             </div>`,
             showCancelButton: true, showDenyButton: isUserCreatedPoint, denyButtonText: '🗑️ 刪除點位', denyButtonColor: '#e74c3c',
