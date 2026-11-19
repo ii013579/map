@@ -126,12 +126,14 @@
         const numLng = parseFloat(lng);
 
         if (map && !isNaN(numLat) && !isNaN(numLng)) {
-            map.setView([numLat, numLng], Math.max(map.getZoom(), 18), { animate: true });
+            const targetZoom = typeof map.getZoom === 'function' ? map.getZoom() : undefined;
+            map.setView([numLat, numLng], targetZoom, { animate: true });
 
             let matchedLayer = null;
             map.eachLayer(layer => {
+                if (matchedLayer) return;
                 const props = layer.feature?.properties || layer.options?.properties;
-                if (props && getPointKey(props) === pointKey) {
+                if (props && getPointKey(props, '') === pointKey) {
                     matchedLayer = layer;
                 }
             });
@@ -139,7 +141,7 @@
             if (matchedLayer) {
                 window.currentSelectedPoint = matchedLayer;
                 if (typeof matchedLayer.fire === 'function') {
-                    matchedLayer.fire('click');
+                    matchedLayer.fire('click', { latlng: L.latLng(numLat, numLng), target: matchedLayer });
                 }
             } else {
                 window.currentSelectedPoint = {
@@ -269,7 +271,7 @@
                             f.properties.color = isAuditedVisible ? "#ffffff" : "transparent"; 
                         } else {
                             f.properties.auditStatus = null;
-                            f.properties.fillColor = "#000000"; // 未清查點維持純黑[cite: 1]
+                            f.properties.fillColor = "#000000"; // 未清查點維持純黑
                             f.properties.fillOpacity = 0.85;
                             f.properties.opacity = 1;
                             f.properties.stroke = true;
@@ -327,7 +329,7 @@
                         layer.options.interactive = true;
                         if (typeof layer.setStyle === 'function') {
                             layer.setStyle({
-                                fillColor: "#000000", // 未清查點維持純黑[cite: 1]
+                                fillColor: "#000000", // 未清查點維持純黑
                                 fillOpacity: 0.85,
                                 opacity: 1,
                                 stroke: true,
@@ -346,10 +348,34 @@
         window.addGeoJsonLayers = newAddGeoJsonLayers;
     })();
 
+    function syncSelectedPointLayer(map) {
+        const currentSelected = window.currentSelectedPoint;
+        if (!currentSelected || !map) return;
+
+        const selectedProps = currentSelected.feature?.properties || currentSelected.properties || {};
+        const targetKey = getPointKey(selectedProps, '');
+        if (!targetKey) return;
+
+        let matchedLayer = null;
+        map.eachLayer(layer => {
+            if (matchedLayer) return;
+            const props = layer.feature?.properties || layer.options?.properties;
+            if (props && getPointKey(props, '') === targetKey) {
+                matchedLayer = layer;
+            }
+        });
+
+        if (matchedLayer) {
+            window.currentSelectedPoint = matchedLayer;
+        }
+    }
+
     function initMapResizeObserver() {
         const map = window.mapNamespace?.map;
         if (map && !window._mapResizeObserver) {
-            window._mapResizeObserver = new ResizeObserver(() => map.invalidateSize({ pan: false }));
+            window._mapResizeObserver = new ResizeObserver(() => {
+                try { map.invalidateSize({ pan: false }); } catch {}
+            });
             window._mapResizeObserver.observe(map.getContainer());
         }
     }
@@ -361,17 +387,22 @@
         if (!map || !kmlId) return;
 
         initMapResizeObserver();
-        map.invalidateSize({ pan: false });
+        try { map.invalidateSize({ pan: false }); } catch {}
 
         if (typeof window.addGeoJsonLayers === 'function' && ns.allKmlFeatures) {
             window.addGeoJsonLayers(ns.allKmlFeatures);
         }
 
+        syncSelectedPointLayer(map);
         syncAuditButtonVisibility();
         updateBottomBtnState();
+
+        setTimeout(() => {
+            try { map.invalidateSize({ pan: false }); } catch {}
+        }, 150);
     }
     window.forceMapRefresh = forceMapRefresh;
-
+    
     // ---------------------------------------------------------
     // 2. 底部控制按鈕與元件
     // ---------------------------------------------------------
