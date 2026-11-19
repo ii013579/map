@@ -77,7 +77,7 @@
     window.syncAuditButtonVisibility = syncAuditButtonVisibility;
 
     // ---------------------------------------------------------
-    // 📊 清查進度計算與黃點開關
+    // 📊 清查進度計算與未清查清單
     // ---------------------------------------------------------
     window.getAuditProgress = function() {
         const ns = window.mapNamespace;
@@ -96,6 +96,108 @@
         return { audited: auditedCount, remaining: remainingCount, total: pointFeatures.length, text: `未清查: ${remainingCount} / ${pointFeatures.length}` };
     };
 
+    window.getUnauditedPoints = function() {
+        const ns = window.mapNamespace;
+        const kmlId = ns?.currentKmlLayerId || window.currentActiveKmlId;
+        if (!kmlId || !isAuditActiveForLayer(kmlId)) return [];
+
+        const records = window.auditLayersState?.[kmlId] || {};
+        const features = ns?.allKmlFeatures || [];
+        const pointFeatures = features.filter(f => !f.geometry || f.geometry.type === 'Point');
+
+        return pointFeatures
+            .filter(f => !records[getPointKey(f.properties, f.id)])
+            .map(f => {
+                const key = getPointKey(f.properties, f.id);
+                const coords = f.geometry?.coordinates || [];
+                return {
+                    key,
+                    lng: parseFloat(coords[0]),
+                    lat: parseFloat(coords[1])
+                };
+            });
+    };
+
+    window.focusUnauditedPoint = function(pointKey, lat, lng) {
+        Swal.close();
+        const ns = window.mapNamespace;
+        const map = ns?.map;
+        const numLat = parseFloat(lat);
+        const numLng = parseFloat(lng);
+
+        if (map && !isNaN(numLat) && !isNaN(numLng)) {
+            map.setView([numLat, numLng], Math.max(map.getZoom(), 18), { animate: true });
+
+            let matchedLayer = null;
+            map.eachLayer(layer => {
+                const props = layer.feature?.properties || layer.options?.properties;
+                if (props && getPointKey(props) === pointKey) {
+                    matchedLayer = layer;
+                }
+            });
+
+            if (matchedLayer) {
+                window.currentSelectedPoint = matchedLayer;
+                if (typeof matchedLayer.fire === 'function') {
+                    matchedLayer.fire('click');
+                }
+            } else {
+                window.currentSelectedPoint = {
+                    properties: {
+                        name: pointKey,
+                        title: pointKey,
+                        auditPointKey: pointKey,
+                        kmlId: ns?.currentKmlLayerId || window.currentActiveKmlId
+                    }
+                };
+            }
+
+            setTimeout(updateBottomBtnState, 160);
+        }
+    };
+
+    window.showUnauditedPointsList = function() {
+        const unaudited = window.getUnauditedPoints();
+
+        if (!unaudited.length) {
+            return Swal.fire({
+                icon: 'success',
+                title: '太棒了！目前沒有未清查點位',
+                text: '此圖層的所有點位都已完成清查。',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        }
+
+        const listHtml = `
+            <div style="max-height: 60vh; overflow-y: auto; text-align: left; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
+                ${unaudited.map((pt, idx) => {
+                    const safeKey = safeEscape(pt.key);
+                    const hasCoords = !isNaN(pt.lat) && !isNaN(pt.lng);
+                    return `
+                        <button type="button"
+                            ${hasCoords ? `onclick="window.focusUnauditedPoint('${safeKey}', ${pt.lat}, ${pt.lng})"` : 'disabled'}
+                            style="display:flex; justify-content:space-between; align-items:center; width:100%; padding:8px 12px; border:1px solid #e2e8f0; border-radius:6px; background:#f8fafc; color:#1e293b; font-size:14px; cursor:${hasCoords ? 'pointer' : 'default'}; text-align:left;">
+                            <span><strong>${idx + 1}.</strong> ${safeKey}</span>
+                            <span style="font-size:12px; color:#64748b;">${hasCoords ? '📍 定位' : '無座標'}</span>
+                        </button>`;
+                }).join('')}
+            </div>`;
+
+        Swal.fire({
+            title: `未清查點位清單 (${unaudited.length} 筆)`,
+            html: listHtml,
+            showConfirmButton: false,
+            showCloseButton: true,
+            width: '480px',
+            didOpen: () => typeof setPointAddBtnVisible === 'function' && setPointAddBtnVisible(false),
+            willClose: () => typeof syncAuditButtonVisibility === 'function' && syncAuditButtonVisibility()
+        });
+    };
+
+    // ---------------------------------------------------------
+    // 🟡 已清查黃點顯示開關
+    // ---------------------------------------------------------
     window.toggleAuditedPointsVisibility = function() {
         window.showAuditedPoints = !window.showAuditedPoints;
         forceMapRefresh();
