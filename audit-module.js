@@ -404,14 +404,14 @@
             if (progress) {
                 progressControl._container.style.display = 'block';
                 progressControl._container.innerHTML = `
-                    <div class="audit-progress-card">
+                    <button type="button" onclick="window.showUnauditedPointsList()" title="點擊查看未清查點位清單" class="audit-progress-card" style="cursor:pointer; border:none;">
                         未清查: ${progress.remaining} / ${progress.total}
-                    </div>`;
+                    </button>`;
             } else {
                 progressControl._container.style.display = 'none';
             }
         }
-
+        
         if (bottomControl?._container) {
             const active = window.currentSelectedPoint;
             if (active) {
@@ -1863,6 +1863,7 @@
                 options: { position: 'topright' },
                 onAdd: function() {
                     this._container = L.DomUtil.create('div', 'leaflet-control-audit-progress');
+                    L.DomEvent.disableClickPropagation(this._container);
                     return this._container;
                 }
             });
