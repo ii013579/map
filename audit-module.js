@@ -774,19 +774,6 @@
         syncAuditButtonVisibility();
     })();
     
-    window.handleAddPhotoPreview = function(input, index) {
-        if (input.files?.[0]) {
-            const previewUrl = URL.createObjectURL(input.files[0]);
-            const img = document.getElementById(`add-prev-${index}`);
-            const icon = document.getElementById(`add-icon-${index}`);
-            const tagText = document.getElementById(`add-tag-text-${index}`);
-    
-            if (img) { img.src = previewUrl; img.style.display = 'block'; }
-            if (icon) icon.style.display = 'none';
-            if (tagText) tagText.innerText = '已選取';
-        }
-    };
-    
     window.openAddPointModal = async function(param1, param2, param3) {
         const map = window.mapNamespace?.map;
         if (map) window.preAuditMapState = { center: map.getCenter(), zoom: map.getZoom() };
@@ -799,6 +786,42 @@
         }
 
         if (!isAuditActiveForLayer(kmlId)) return;
+
+        // 追蹤此彈窗產生的 Object URL，避免重複選照或關窗後殘留記憶體
+        const addPhotoUrls = new Map();
+        const setAddPreviewUrl = (index, file) => {
+            const oldUrl = addPhotoUrls.get(index);
+            if (oldUrl) {
+                try { URL.revokeObjectURL(oldUrl); } catch {}
+            }
+            const nextUrl = URL.createObjectURL(file);
+            addPhotoUrls.set(index, nextUrl);
+            return nextUrl;
+        };
+        const clearAllAddPreviewUrls = (modalEl) => {
+            addPhotoUrls.forEach((url) => {
+                try { URL.revokeObjectURL(url); } catch {}
+            });
+            addPhotoUrls.clear();
+            if (modalEl) {
+                modalEl.querySelectorAll('img[id^="add-prev-"]').forEach((imgEl) => {
+                    imgEl.src = '';
+                });
+            }
+        };
+
+        window.handleAddPhotoPreview = function(input, index) {
+            if (input.files?.[0]) {
+                const previewUrl = setAddPreviewUrl(index, input.files[0]);
+                const img = document.getElementById(`add-prev-${index}`);
+                const icon = document.getElementById(`add-icon-${index}`);
+                const tagText = document.getElementById(`add-tag-text-${index}`);
+
+                if (img) { img.src = previewUrl; img.style.display = 'block'; }
+                if (icon) icon.style.display = 'none';
+                if (tagText) tagText.innerText = '已選取';
+            }
+        };
     
         const config = getSafeAuditConfig(kmlId);
         const maxPhotos = config.targetPhotos || 2; 
@@ -819,7 +842,7 @@
                         <input type="file" id="add-photo-input-${i}" accept="image/*" capture="environment" onchange="window.handleAddPhotoPreview(this, ${i})" class="audit-photo-input" title="現場拍照">
                     </div>
                     <label for="add-photo-input-${i}" class="audit-photo-tag">
-                        <span>🖼️️</span> <span id="add-tag-text-${i}">${hasPhoto ? '已選取' : '圖庫'}</span>
+                        <span>🖼</span> <span id="add-tag-text-${i}">${hasPhoto ? '已選取' : '圖庫'}</span>
                     </label>
                 </div>`;
         }
@@ -862,7 +885,10 @@
             html: modalHtml, showCancelButton: true, confirmButtonText: confirmBtnText, cancelButtonText: '取消',
             confirmButtonColor: '#2ecc71', cancelButtonColor: '#707a86', focusConfirm: false,
             didOpen: () => setPointAddBtnVisible(false),
-            willClose: () => syncAuditButtonVisibility(),
+            willClose: (modalEl) => {
+                clearAllAddPreviewUrls(modalEl);
+                syncAuditButtonVisibility();
+            },
             preConfirm: () => {
                 const name = document.getElementById('add-point-name').value.trim();
                 const desc = document.getElementById('add-point-desc').value.trim();
@@ -1009,6 +1035,9 @@
                 ctx.drawImage(img, 0, 0, width, height);
                 
                 canvas.toBlob((blob) => {
+                    canvas.width = 0;
+                    canvas.height = 0;
+                    img.src = '';
                     resolve(blob || source);
                 }, 'image/jpeg', 0.82);
             };
@@ -1086,7 +1115,7 @@
     };
 
     // ---------------------------------------------------------
-    // 6. 清查資料彈窗 (編輯與查看 - 同步極速預覽修復)
+    // 6. 清查資料彈窗 (編輯與查看 - 同步極速預覽與記憶體釋放修復)
     // ---------------------------------------------------------
     window.openAuditEditor = async function(isModifyMode = false) {
         const activePoint = window.currentSelectedPoint;
@@ -1113,6 +1142,20 @@
         const currentDesc = historyRecord.description || historyRecord.desc || '';
         const currentNote = historyRecord.note || '';
         const baseStatusOptions = config.statusOptions || ['正常', '損壞', '遺失'];
+
+        // 追蹤此彈窗產生的 Object URL，避免重複選照或關窗後殘留記憶體
+        const editorPhotoUrls = new Map();
+        const clearAllEditorPhotoUrls = (modalEl) => {
+            editorPhotoUrls.forEach((url) => {
+                try { URL.revokeObjectURL(url); } catch {}
+            });
+            editorPhotoUrls.clear();
+            if (modalEl) {
+                modalEl.querySelectorAll('img[id^="audit-prev-"]').forEach((imgEl) => {
+                    imgEl.src = '';
+                });
+            }
+        };
     
         let statusSelectHtml = isUserCreatedPoint ? `
             <select id="swal-status" class="swal2-input audit-form-select" disabled>
@@ -1169,7 +1212,12 @@
                 const handlePhotoChange = (inputEl, index) => {
                     if (inputEl.files?.[0]) {
                         const file = inputEl.files[0];
+                        const oldUrl = editorPhotoUrls.get(index);
+                        if (oldUrl) {
+                            try { URL.revokeObjectURL(oldUrl); } catch {}
+                        }
                         const previewUrl = URL.createObjectURL(file);
+                        editorPhotoUrls.set(index, previewUrl);
                         
                         const prevEl = document.getElementById(`audit-prev-${index}`);
                         const iconEl = document.getElementById(`audit-icon-${index}`);
@@ -1185,7 +1233,10 @@
                     modalEl.querySelector(`#audit-gallery-input-${i}`)?.addEventListener('change', (e) => handlePhotoChange(e.target, i));
                 }
             },
-            willClose: () => syncAuditButtonVisibility(),
+            willClose: (modalEl) => {
+                clearAllEditorPhotoUrls(modalEl);
+                syncAuditButtonVisibility();
+            },
             preConfirm: () => {
                 const statusValue = document.getElementById('swal-status').value;
                 if (!statusValue) return Swal.showValidationMessage('請選擇設備狀態'); 
@@ -1325,10 +1376,10 @@
                         <input type="text" class="swal2-input audit-form-input" value="${safeEscape(description)}" readonly placeholder="無敘述">
                     </div>
 
-                    <!-- 4. 備註事項 (唯讀文字框) -->
+                    <!-- 4. 備註事項 (唯讀輸入框) -->
                     <div class="audit-form-group">
                         <label class="audit-form-label">備註事項 <span class="optional">(選填)</span></label>
-                        <textarea class="swal2-textarea audit-form-textarea" readonly placeholder="無備註事項">${safeEscape(note)}</textarea>
+                        <input type="text" class="swal2-input audit-form-input" value="${safeEscape(note)}" readonly placeholder="無備註事項">
                     </div>
 
                 </div>`,
@@ -1385,6 +1436,12 @@
                 canvas.height = img.height;
                 const ctx = canvas.getContext('2d');
 
+                const releaseCanvas = () => {
+                    canvas.width = 0;
+                    canvas.height = 0;
+                    img.src = '';
+                };
+
                 // 1. 繪製原圖
                 ctx.drawImage(img, 0, 0);
 
@@ -1398,7 +1455,10 @@
                 }
 
                 if (textLines.length === 0) {
-                    return canvas.toBlob(blob => resolve(blob || imageBlob), 'image/jpeg', 0.85);
+                    return canvas.toBlob(blob => {
+                        releaseCanvas();
+                        resolve(blob || imageBlob);
+                    }, 'image/jpeg', 0.85);
                 }
 
                 // 3. 計算字型大小與邊距 (預設 20px 搭配照片解析度動態縮放)
@@ -1444,177 +1504,22 @@
                     ctx.fillText(line, x + padding, y + padding + (index * lineHeight));
                 });
 
-                // 7. 匯出 JPEG Blob
+                // 7. 匯出 JPEG Blob 並釋放畫布記憶體
                 canvas.toBlob((blob) => {
+                    releaseCanvas();
                     resolve(blob || imageBlob);
                 }, 'image/jpeg', 0.85);
             };
 
             img.onerror = () => {
                 URL.revokeObjectURL(url);
+                img.src = '';
                 resolve(imageBlob);
             };
 
             img.src = url;
         });
     }
-
-    // ---------------------------------------------------------
-    // 7-2. 打包 Firebase Storage 照片 (預設 20px 與無前綴)
-    // ---------------------------------------------------------
-    window.downloadAuditPhotosZip = async function(kmlId) {
-        if (typeof JSZip === 'undefined' || typeof saveAs === 'undefined') {
-            return Swal.fire('套件缺失', '請確保 HTML 已引入 JSZip 與 FileSaver 套件！', 'error');
-        }
-
-        const cleanLayerName = getLayerFolderName(kmlId, kmlId);
-
-        const { value: watermarkSettings } = await Swal.fire({
-            title: '📸 打包照片與水印設定',
-            html: `
-                <div style="text-align: left; font-size: 14px;" class="audit-form-container">
-                    <div style="margin-bottom: 12px;">
-                        <label class="audit-form-label" style="font-weight: bold; display: block; margin-bottom: 6px;">1. 水印內容：</label>
-                        <div style="display: flex; gap: 20px; align-items: center; padding: 2px 0;">
-                            <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                                <input type="checkbox" id="swal-wm-chk-point" checked style="width: 18px; height: 18px; cursor: pointer;">
-                                <span>點號名稱 (例: NVA015)</span>
-                            </label>
-                            <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                                <input type="checkbox" id="swal-wm-chk-time" checked style="width: 18px; height: 18px; cursor: pointer;">
-                                <span>拍攝/上傳時間</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div style="margin-bottom: 12px;">
-                        <label class="audit-form-label" style="font-weight: bold; display: block; margin-bottom: 6px;">2. 水印位置：</label>
-                        <select id="swal-wm-pos" class="swal2-input audit-form-select" style="margin-top: 0; width: 100%;">
-                            <option value="bottom-right" selected>↘ 靠右下角</option>
-                            <option value="bottom-left">↙ 靠左下角</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="audit-form-label" style="font-weight: bold; display: block; margin-bottom: 6px;">3. 水印字體大小 (px)：</label>
-                        <input id="swal-wm-size" type="number" class="swal2-input audit-form-input" value="20" min="10" max="100" step="1" style="margin-top: 0; width: 100%; box-sizing: border-box;">
-                    </div>
-                </div>`,
-            showCancelButton: true,
-            confirmButtonText: '開始打包下載',
-            cancelButtonText: '取消',
-            focusConfirm: false,
-            preConfirm: () => {
-                const fontSize = parseInt(document.getElementById('swal-wm-size').value, 10);
-                if (!fontSize || fontSize < 10 || fontSize > 100) {
-                    Swal.showValidationMessage('字體大小請輸入介於 10 到 100 之間的數字！');
-                    return false;
-                }
-                return {
-                    showPoint: document.getElementById('swal-wm-chk-point').checked,
-                    showTime: document.getElementById('swal-wm-chk-time').checked,
-                    position: document.getElementById('swal-wm-pos').value,
-                    fontSize: fontSize
-                };
-            }
-        });
-
-        if (!watermarkSettings) return;
-
-        Swal.fire({
-            title: '正在搜尋 Storage 照片...',
-            html: `<div id="zip-progress-text" style="font-size:14px; margin-top:10px;">請稍候...</div>`,
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
-
-        const progressEl = document.getElementById('zip-progress-text');
-
-        try {
-            const storageFolderPath = `${STORAGE_ROOT}/${cleanLayerName}`;
-            const listResult = await firebase.storage().ref(storageFolderPath).listAll();
-
-            if (listResult.items.length === 0) {
-                return Swal.fire('提示', `Storage 路徑 [${storageFolderPath}] 下找不到任何檔案。`, 'info');
-            }
-
-            const items = listResult.items;
-            if (progressEl) progressEl.textContent = `找到 ${items.length} 個檔案，準備下載並處理水印...`;
-
-            const zip = new JSZip();
-            const rootFolder = zip.folder(cleanLayerName);
-            
-            const targetPhotosCount = getSafeAuditConfig(kmlId).targetPhotos || 2;
-            const csvData = buildCsvContent(kmlId, cleanLayerName, targetPhotosCount);
-            rootFolder.file(`${cleanLayerName}_清查總表.csv`, csvData);
-
-            const records = window.auditLayersState?.[kmlId] || {};
-            let completedCount = 0, failCount = 0;
-
-            const BATCH_SIZE = 3;
-            for (let i = 0; i < items.length; i += BATCH_SIZE) {
-                const batch = items.slice(i, i + BATCH_SIZE);
-
-                await Promise.all(batch.map(async (fileRef) => {
-                    try {
-                        const downloadUrl = await fileRef.getDownloadURL();
-                        const response = await fetch(downloadUrl);
-                        if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-                        
-                        let imageBlob = await response.blob();
-
-                        if (watermarkSettings.showPoint || watermarkSettings.showTime) {
-                            const fileName = fileRef.name;
-                            const parsedPointKey = fileName.replace(/_\d+\.[^/.]+$/, '').trim();
-                            
-                            const record = records[parsedPointKey] || {};
-                            let fallbackTimeStr = "";
-                            if (record.updatedAt) {
-                                try {
-                                    const dateObj = record.updatedAt.toDate ? record.updatedAt.toDate() : new Date(record.updatedAt);
-                                    if (!isNaN(dateObj.getTime())) {
-                                        fallbackTimeStr = dateObj.toLocaleString('sv', { timeZone: 'Asia/Taipei' });
-                                    }
-                                } catch {}
-                            }
-
-                            const storageTime = await getStoragePhotoTime(fileRef, fallbackTimeStr);
-
-                            imageBlob = await addWatermarkToImage(imageBlob, {
-                                showPoint: watermarkSettings.showPoint,
-                                showTime: watermarkSettings.showTime,
-                                position: watermarkSettings.position,
-                                customFontSize: watermarkSettings.fontSize,
-                                pointName: parsedPointKey,
-                                photoTime: storageTime
-                            });
-                        }
-
-                        rootFolder.file(fileRef.name, imageBlob);
-                    } catch (err) {
-                        failCount++;
-                    } finally {
-                        completedCount++;
-                        if (progressEl) progressEl.textContent = `打包進度: (${completedCount}/${items.length})`;
-                    }
-                }));
-            }
-
-            if (completedCount - failCount === 0) throw new Error('所有檔案下載皆失敗，請確認網路連線或 CORS 設定。');
-            if (progressEl) progressEl.textContent = '檔案下載與水印壓製完成，正在壓縮 ZIP...';
-
-            saveAs(await zip.generateAsync({ type: 'blob' }), `${cleanLayerName}_Storage照片總集.zip`);
-
-            Swal.fire({
-                icon: failCount > 0 ? 'warning' : 'success',
-                title: '打包下載完成！',
-                text: failCount > 0 ? `成功打包 ${completedCount - failCount} 個檔案，失敗 ${failCount} 個` : `已成功壓製水印並下載 ${completedCount} 個照片檔案與 CSV 清冊`,
-                timer: 2500,
-                showConfirmButton: false
-            });
-
-        } catch (error) {
-            Swal.fire({ icon: 'error', title: '打包失敗', text: error.message || '發生未知錯誤' });
-        }
-    };
 
     // ---------------------------------------------------------
     // 7-2. 打包 Firebase Storage 照片 (水印預設不勾選版)
@@ -1626,7 +1531,7 @@
 
         const cleanLayerName = getLayerFolderName(kmlId, kmlId);
 
-        // 💡 點號與時間選項預設不勾選 (未加上 checked)
+        // 點號與時間選項預設不勾選 (未加上 checked)
         const { value: watermarkSettings } = await Swal.fire({
             title: '📸 打包照片與水印設定',
             html: `
