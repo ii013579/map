@@ -1132,7 +1132,120 @@
     };
     
     // ---------------------------------------------------------
-    // 照片壓縮輔助函數：寬度固定 1920，高度按原比例自動縮放 (含自動記憶體釋放)
+    // 記憶體釋放工具區段 (集中管理 Canvas / Image / ObjectURL / 暫存相片)
+    // ---------------------------------------------------------
+    function releaseImageAndCanvas(imgEl, canvasEl) {
+        if (canvasEl) {
+            try {
+                canvasEl.width = 0;
+                canvasEl.height = 0;
+            } catch {}
+        }
+        if (imgEl) {
+            try {
+                imgEl.onload = null;
+                imgEl.onerror = null;
+                imgEl.src = '';
+            } catch {}
+        }
+    }
+
+    function revokeBlobUrlSafe(url) {
+        if (url && String(url).startsWith('blob:')) {
+            try { URL.revokeObjectURL(url); } catch {}
+        }
+    }
+
+    function releasePhotoTempItem(item) {
+        if (!item) return;
+
+        if (typeof item === 'string') {
+            revokeBlobUrlSafe(item);
+            return;
+        }
+
+        ['previewUrl', 'url', 'objectUrl'].forEach((key) => {
+            revokeBlobUrlSafe(item[key]);
+            item[key] = null;
+        });
+
+        releaseImageAndCanvas(item.imgEl, item.canvasEl);
+        item.imgEl = null;
+        item.canvasEl = null;
+
+        item.blob = null;
+        item.file = null;
+        item.base64 = null;
+        item.dataUrl = null;
+    }
+
+    function clearPointAuditTempPhotos(kmlId, pointKey) {
+        const stateContainer = window.auditTempPhotos || window.tempAuditPhotos;
+        if (!stateContainer || typeof stateContainer !== 'object') return;
+
+        const target = stateContainer?.[kmlId]?.[pointKey] || stateContainer?.[pointKey];
+        if (!target) return;
+
+        if (Array.isArray(target)) {
+            target.forEach(releasePhotoTempItem);
+            target.length = 0;
+        } else if (typeof target === 'object') {
+            Object.keys(target).forEach((key) => {
+                releasePhotoTempItem(target[key]);
+                delete target[key];
+            });
+        }
+
+        if (stateContainer[kmlId] && stateContainer[kmlId][pointKey]) {
+            delete stateContainer[kmlId][pointKey];
+        } else if (stateContainer[pointKey]) {
+            delete stateContainer[pointKey];
+        }
+    }
+
+    function createEditorPhotoMemoryManager() {
+        const editorPhotoUrls = new Map();
+
+        const replaceSlotUrl = (index, nextUrl) => {
+            const oldUrl = editorPhotoUrls.get(index);
+            if (oldUrl && oldUrl !== nextUrl) {
+                revokeBlobUrlSafe(oldUrl);
+            }
+            if (nextUrl) {
+                editorPhotoUrls.set(index, nextUrl);
+            } else {
+                editorPhotoUrls.delete(index);
+            }
+        };
+
+        const clearAll = (modalEl) => {
+            editorPhotoUrls.forEach((url) => revokeBlobUrlSafe(url));
+            editorPhotoUrls.clear();
+
+            if (modalEl) {
+                modalEl.querySelectorAll('img[id^="audit-prev-"]').forEach((imgEl) => {
+                    imgEl.src = '';
+                });
+                modalEl.querySelectorAll('input[type="file"]').forEach((inputEl) => {
+                    try { inputEl.value = ''; } catch {}
+                });
+            }
+        };
+
+        return { replaceSlotUrl, clearAll };
+    }
+
+    function clearSubmittedPhotosBuffer(resObj, kmlId, pointKey) {
+        if (resObj && Array.isArray(resObj.photos)) {
+            resObj.photos.forEach(releasePhotoTempItem);
+            resObj.photos.length = 0;
+            resObj.photos = null;
+        }
+        clearPointAuditTempPhotos(kmlId, pointKey);
+    }
+
+    // ---------------------------------------------------------
+    // 照片壓縮與上傳區段 (寬度固定 1920 等比縮放 + 循序上傳釋放)
     // ---------------------------------------------------------
     async function compressImageToCanvas(source) {
         return new Promise((resolve) => {
@@ -1143,50 +1256,53 @@
             const img = new Image();
             const isObjectUrl = typeof source !== 'string';
             const url = isObjectUrl ? URL.createObjectURL(source) : source;
+            let canvas = null;
 
             const cleanup = () => {
                 if (isObjectUrl) {
-                    try { URL.revokeObjectURL(url); } catch {}
+                    revokeBlobUrlSafe(url);
                 }
+                releaseImageAndCanvas(img, canvas);
+                canvas = null;
             };
-            
+
             img.onload = () => {
-                cleanup();
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-                const targetWidth = 1920;
+                try {
+                    canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const targetWidth = 1920;
 
-                if (width > targetWidth) {
-                    height = Math.round(height * (targetWidth / width));
-                    width = targetWidth;
+                    if (width > targetWidth) {
+                        height = Math.round(height * (targetWidth / width));
+                        width = targetWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => {
+                        const resultBlob = blob || source;
+                        cleanup();
+                        resolve(resultBlob);
+                    }, 'image/jpeg', 0.82);
+                } catch {
+                    cleanup();
+                    resolve(source);
                 }
-
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-                
-                canvas.toBlob((blob) => {
-                    canvas.width = 0;
-                    canvas.height = 0;
-                    img.src = '';
-                    resolve(blob || source);
-                }, 'image/jpeg', 0.82);
             };
-            
+
             img.onerror = () => {
                 cleanup();
-                resolve(source); 
+                resolve(source);
             };
-            
+
             img.src = url;
         });
     }
 
-    // ---------------------------------------------------------
-    // 照片上傳與點位刪除
-    // ---------------------------------------------------------
     window.uploadPhotosToStorage = async function(photos, kmlId, pointKey, kmlLayerName) {
         if (!photos || !Array.isArray(photos) || !photos.length) return [];
         if (!firebase?.storage) throw new Error("Firebase Storage SDK 未載入");
@@ -1194,22 +1310,43 @@
         const targetLayerName = kmlLayerName || getLayerFolderName(kmlId);
         const storageRef = firebase.storage().ref();
         const safePointKey = String(pointKey || 'point').replace(/[/\\?%*:|"<>]/g, '_');
+        const photoUrls = new Array(photos.length).fill('');
 
-        return Promise.all(photos.map(async (photoData, index) => {
-            if (!photoData) return '';
-            if (typeof photoData === 'string' && !photoData.startsWith('data:image') && !photoData.startsWith('blob:') && !(photoData instanceof File || photoData instanceof Blob)) {
-                return photoData;
+        for (let index = 0; index < photos.length; index++) {
+            let photoData = photos[index];
+            if (!photoData) continue;
+
+            if (
+                typeof photoData === 'string' &&
+                !photoData.startsWith('data:image') &&
+                !photoData.startsWith('blob:') &&
+                !(photoData instanceof File || photoData instanceof Blob)
+            ) {
+                photoUrls[index] = photoData;
+                photos[index] = null;
+                continue;
             }
 
             const customStoragePath = `${STORAGE_ROOT}/${targetLayerName}/${safePointKey}_${String(index + 1).padStart(2, '0')}.jpg`;
             const ref = storageRef.child(customStoragePath);
 
-            const compressedBlob = await compressImageToCanvas(photoData);
-            await ref.put(compressedBlob);
-            return await ref.getDownloadURL();
-        }));
+            let compressedBlob = await compressImageToCanvas(photoData);
+            try {
+                await ref.put(compressedBlob);
+                photoUrls[index] = await ref.getDownloadURL();
+            } finally {
+                compressedBlob = null;
+                photoData = null;
+                photos[index] = null;
+            }
+        }
+
+        return photoUrls;
     };
-    
+
+    // ---------------------------------------------------------
+    // 點位刪除區段
+    // ---------------------------------------------------------
     window.deleteCustomPoint = async function(kmlId, pointKey, kmlLayerName) {
         if (!kmlId || !pointKey || !isAuditActiveForLayer(kmlId)) return;
 
@@ -1233,6 +1370,7 @@
 
             await firebase.firestore().collection(APP_PATH).doc(kmlId).collection('auditRecords').doc(pointKey).delete();
             delete window.auditLayersState?.[kmlId]?.[pointKey];
+            clearPointAuditTempPhotos(kmlId, pointKey);
 
             const ns = window.mapNamespace;
             if (ns?.allKmlFeatures) ns.allKmlFeatures = ns.allKmlFeatures.filter(f => getPointKey(f.properties) !== pointKey);
@@ -1253,43 +1391,31 @@
     window.openAuditEditor = async function(isModifyMode = false) {
         const activePoint = window.currentSelectedPoint;
         if (!activePoint) return;
-    
+
         const layerProps = activePoint.feature?.properties || activePoint.properties || {};
         const pointKey = getPointKey(layerProps);
         const kmlId = layerProps.kmlId || window.mapNamespace?.currentKmlLayerId || window.currentActiveKmlId;
-    
+
         if (!isAuditActiveForLayer(kmlId)) return;
-    
+
         const config = getSafeAuditConfig(kmlId);
         const maxPhotos = config.targetPhotos || 2;
         const kmlLayerName = getLayerFolderName(kmlId);
         const historyRecord = isModifyMode ? (window.auditLayersState?.[kmlId]?.[pointKey] || {}) : {};
-    
+
         const isUserCreatedPoint = !!(historyRecord.deviceStatus === '新增' || layerProps.deviceStatus === '新增');
         const currentPhotos = new Array(maxPhotos).fill('');
         if (isModifyMode && Array.isArray(historyRecord.photos)) {
             historyRecord.photos.forEach((url, idx) => { if (idx < maxPhotos) currentPhotos[idx] = url || ''; });
         }
-    
+
         const currentStatus = isUserCreatedPoint ? '新增' : (historyRecord.deviceStatus || '');
         const currentDesc = historyRecord.description || historyRecord.desc || '';
         const currentNote = historyRecord.note || '';
         const baseStatusOptions = config.statusOptions || ['正常', '損壞', '遺失'];
 
-        // 追蹤此彈窗產生的 Object URL，避免重複選照或關窗後殘留記憶體
-        const editorPhotoUrls = new Map();
-        const clearAllEditorPhotoUrls = (modalEl) => {
-            editorPhotoUrls.forEach((url) => {
-                try { URL.revokeObjectURL(url); } catch {}
-            });
-            editorPhotoUrls.clear();
-            if (modalEl) {
-                modalEl.querySelectorAll('img[id^="audit-prev-"]').forEach((imgEl) => {
-                    imgEl.src = '';
-                });
-            }
-        };
-    
+        const photoMemory = createEditorPhotoMemoryManager();
+
         let statusSelectHtml = isUserCreatedPoint ? `
             <select id="swal-status" class="swal2-input audit-form-select" disabled>
                 <option value="新增" selected>新增</option>
@@ -1298,7 +1424,7 @@
                 <option value="" ${!currentStatus ? 'selected' : ''}>--- 請選擇設備狀態 ---</option>
                 ${baseStatusOptions.filter(opt => opt !== '新增').map(opt => `<option value="${opt}" ${currentStatus === opt ? 'selected' : ''}>${opt}</option>`).join('')}
             </select>`;
-    
+
         let photoHtml = '';
         for (let i = 0; i < maxPhotos; i++) {
             const photoData = currentPhotos[i] || '';
@@ -1316,7 +1442,7 @@
                     </label>
                 </div>`;
         }
-    
+
         const { value: res, isDenied } = await Swal.fire({
             title: `<div>${isModifyMode ? '修改' : '填寫'}清查紀錄：${safeEscape(pointKey)}</div>`,
             html: `<div class="audit-form-container">
@@ -1324,7 +1450,7 @@
                     <label class="audit-form-label">設備狀態 <span class="required">*必選</span></label>
                     ${statusSelectHtml}
                 </div>
-                
+
                 <label class="audit-form-label">現場照片 (需滿 ${maxPhotos} 張) <span class="required">*必填</span></label>
                 <div class="audit-photo-grid-editor">${photoHtml}</div>
 
@@ -1345,17 +1471,13 @@
                 const handlePhotoChange = (inputEl, index) => {
                     if (inputEl.files?.[0]) {
                         const file = inputEl.files[0];
-                        const oldUrl = editorPhotoUrls.get(index);
-                        if (oldUrl) {
-                            try { URL.revokeObjectURL(oldUrl); } catch {}
-                        }
                         const previewUrl = URL.createObjectURL(file);
-                        editorPhotoUrls.set(index, previewUrl);
-                        
+                        photoMemory.replaceSlotUrl(index, previewUrl);
+
                         const prevEl = document.getElementById(`audit-prev-${index}`);
                         const iconEl = document.getElementById(`audit-icon-${index}`);
                         const tagEl = document.getElementById(`audit-tag-${index}`);
-                        
+
                         if (prevEl) { prevEl.src = previewUrl; prevEl.style.display = 'block'; }
                         if (iconEl) iconEl.style.display = 'none';
                         if (tagEl) tagEl.innerHTML = '<span>🖼️</span> 新選擇';
@@ -1367,13 +1489,13 @@
                 }
             },
             willClose: (modalEl) => {
-                clearAllEditorPhotoUrls(modalEl);
+                photoMemory.clearAll(modalEl);
                 syncAuditButtonVisibility();
             },
             preConfirm: () => {
                 const statusValue = document.getElementById('swal-status').value;
-                if (!statusValue) return Swal.showValidationMessage('請選擇設備狀態'); 
-                
+                if (!statusValue) return Swal.showValidationMessage('請選擇設備狀態');
+
                 const finalPhotos = [];
                 for (let i = 0; i < maxPhotos; i++) {
                     const cameraInput = document.getElementById(`audit-file-input-${i}`);
@@ -1392,41 +1514,41 @@
                 if (finalPhotos.length < maxPhotos) {
                     return Swal.showValidationMessage(`請補滿 ${maxPhotos} 張照片 (目前 ${finalPhotos.length}/${maxPhotos})`);
                 }
-                
+
                 const descValue = document.getElementById('swal-desc')?.value.trim() || '';
 
-                return { 
-                    status: statusValue, 
-                    description: descValue, 
-                    desc: descValue, 
-                    note: document.getElementById('swal-note')?.value.trim() || '', 
-                    photos: finalPhotos 
+                return {
+                    status: statusValue,
+                    description: descValue,
+                    desc: descValue,
+                    note: document.getElementById('swal-note')?.value.trim() || '',
+                    photos: finalPhotos
                 };
             }
         });
-    
+
         if (isDenied) return window.deleteCustomPoint(kmlId, pointKey, kmlLayerName);
-    
+
         if (res) {
             Swal.fire({ title: '正在上傳與更新資料...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
             try {
                 const photoUrls = await window.uploadPhotosToStorage(res.photos, kmlId, pointKey, kmlLayerName);
-                const nowTime = new Date(); 
+                const nowTime = new Date();
                 const structuredData = {
-                    pointName: pointKey, 
-                    status: "已完成", 
-                    deviceStatus: res.status, 
+                    pointName: pointKey,
+                    status: "已完成",
+                    deviceStatus: res.status,
                     description: res.description,
                     desc: res.desc,
-                    note: res.note, 
-                    photos: photoUrls, 
-                    updatedAt: nowTime 
+                    note: res.note,
+                    photos: photoUrls,
+                    updatedAt: nowTime
                 };
-    
+
                 window.auditLayersState ||= {};
                 window.auditLayersState[kmlId] ||= {};
                 window.auditLayersState[kmlId][pointKey] = { ...window.auditLayersState[kmlId][pointKey], ...structuredData };
-    
+
                 if (layerProps) {
                     layerProps.description = res.description;
                     layerProps.desc = res.desc;
@@ -1434,11 +1556,13 @@
 
                 await firebase.firestore().collection(APP_PATH).doc(kmlId).collection('auditRecords').doc(pointKey).set(structuredData, { merge: true });
                 await generateLayerCsvReport(kmlId, kmlLayerName, maxPhotos);
-    
+
+                clearSubmittedPhotosBuffer(res, kmlId, pointKey);
+
                 await Swal.fire({ icon: 'success', title: '更新成功', timer: 800, showConfirmButton: false });
                 forceMapRefresh();
-            } catch (e) { 
-                Swal.fire('錯誤', e.message || '儲存失敗', 'error'); 
+            } catch (e) {
+                Swal.fire('錯誤', e.message || '儲存失敗', 'error');
             }
         }
     };
@@ -1486,7 +1610,7 @@
             title: `查看清查紀錄：${safeEscape(pointKey)}`,
             html: `
                 <div class="audit-form-container">
-                    
+
                     <!-- 1. 設備狀態 (唯讀下拉選單) -->
                     <div class="audit-form-group-inline">
                         <label class="audit-form-label">設備狀態</label>
