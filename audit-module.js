@@ -1134,6 +1134,8 @@
     // ---------------------------------------------------------
     // 記憶體釋放工具區段 (集中管理 Canvas / Image / ObjectURL / 暫存相片)
     // ---------------------------------------------------------
+    const AUDIT_UPLOAD_TIMEOUT_MS = 20000; // 單張上傳與整體連線逾時上限 (毫秒)
+
     function releaseImageAndCanvas(imgEl, canvasEl) {
         if (canvasEl) {
             try {
@@ -1235,11 +1237,8 @@
         return { replaceSlotUrl, clearAll };
     }
 
-    function scheduleBackgroundPhotoCleanup(resObj, kmlId, pointKey) {
-        const pendingPhotosBuffer = resObj && Array.isArray(resObj.photos) ? resObj.photos : null;
-        if (resObj) {
-            resObj.photos = null;
-        }
+    function scheduleBackgroundPhotoCleanup(photosBuffer, kmlId, pointKey) {
+        const pendingPhotosBuffer = Array.isArray(photosBuffer) ? photosBuffer : null;
 
         setTimeout(() => {
             try {
@@ -1252,8 +1251,79 @@
         }, 50);
     }
 
+    function createUploadCancelController() {
+        let cancelled = false;
+        const listeners = new Set();
+        return {
+            get cancelled() { return cancelled; },
+            cancel() {
+                if (cancelled) return;
+                cancelled = true;
+                listeners.forEach((fn) => {
+                    try { fn(); } catch {}
+                });
+                listeners.clear();
+            },
+            onCancel(fn) {
+                if (cancelled) {
+                    try { fn(); } catch {}
+                    return;
+                }
+                listeners.add(fn);
+            },
+            throwIfCancelled() {
+                if (cancelled) {
+                    const err = new Error('已取消上傳');
+                    err.code = 'AUDIT_UPLOAD_CANCELLED';
+                    throw err;
+                }
+            }
+        };
+    }
+
+    function runWithTimeoutAndCancel(promiseFactory, timeoutMs, cancelCtrl, label = '連線逾時') {
+        cancelCtrl?.throwIfCancelled();
+
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            const timer = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                const err = new Error(`${label}（超過 ${Math.round(timeoutMs / 1000)} 秒無回應）`);
+                err.code = 'AUDIT_UPLOAD_TIMEOUT';
+                reject(err);
+            }, timeoutMs);
+
+            const onAbort = () => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                const err = new Error('已取消上傳');
+                err.code = 'AUDIT_UPLOAD_CANCELLED';
+                reject(err);
+            };
+
+            cancelCtrl?.onCancel(onAbort);
+
+            Promise.resolve()
+                .then(promiseFactory)
+                .then((val) => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+                    resolve(val);
+                })
+                .catch((err) => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+                    reject(err);
+                });
+        });
+    }
+
     // ---------------------------------------------------------
-    // 照片壓縮與上傳區段 (寬度固定 1920 等比縮放 + 先逐張壓縮釋放再平行上傳)
+    // 照片壓縮與上傳區段 (寬度固定 1920 等比縮放 + 先逐張壓縮釋放再平行上傳 + 逾時/取消)
     // ---------------------------------------------------------
     async function compressImageToCanvas(source) {
         return new Promise((resolve) => {
@@ -1311,9 +1381,11 @@
         });
     }
 
-    window.uploadPhotosToStorage = async function(photos, kmlId, pointKey, kmlLayerName) {
+    window.uploadPhotosToStorage = async function(photos, kmlId, pointKey, kmlLayerName, cancelCtrl = null) {
         if (!photos || !Array.isArray(photos) || !photos.length) return [];
         if (!firebase?.storage) throw new Error("Firebase Storage SDK 未載入");
+
+        cancelCtrl?.throwIfCancelled();
 
         const targetLayerName = kmlLayerName || getLayerFolderName(kmlId);
         const storageRef = firebase.storage().ref();
@@ -1322,6 +1394,7 @@
         // 1. 先逐張壓縮並釋放畫布，避免多張原圖同時解碼造成記憶體尖峰
         const preparedItems = [];
         for (let index = 0; index < photos.length; index++) {
+            cancelCtrl?.throwIfCancelled();
             const photoData = photos[index];
             if (!photoData) {
                 preparedItems.push({ index, type: 'empty', value: '' });
@@ -1335,16 +1408,16 @@
                 !(photoData instanceof File || photoData instanceof Blob)
             ) {
                 preparedItems.push({ index, type: 'existingUrl', value: photoData });
-                photos[index] = null;
                 continue;
             }
 
             const compressedBlob = await compressImageToCanvas(photoData);
             preparedItems.push({ index, type: 'upload', blob: compressedBlob });
-            photos[index] = null;
         }
 
-        // 2. 壓縮完成後再平行上傳至 Firebase Storage
+        cancelCtrl?.throwIfCancelled();
+
+        // 2. 壓縮完成後平行上傳至 Firebase Storage（每張皆受逾時與取消控制）
         const results = await Promise.all(
             preparedItems.map(async (item) => {
                 if (item.type === 'empty') return { index: item.index, url: '' };
@@ -1353,14 +1426,23 @@
                 const customStoragePath = `${STORAGE_ROOT}/${targetLayerName}/${safePointKey}_${String(item.index + 1).padStart(2, '0')}.jpg`;
                 const ref = storageRef.child(customStoragePath);
                 try {
-                    await ref.put(item.blob);
-                    const downloadUrl = await ref.getDownloadURL();
+                    const downloadUrl = await runWithTimeoutAndCancel(
+                        async () => {
+                            await ref.put(item.blob);
+                            return await ref.getDownloadURL();
+                        },
+                        AUDIT_UPLOAD_TIMEOUT_MS,
+                        cancelCtrl,
+                        `第 ${item.index + 1} 張照片上傳逾時`
+                    );
                     return { index: item.index, url: downloadUrl };
                 } finally {
                     item.blob = null;
                 }
             })
         );
+
+        cancelCtrl?.throwIfCancelled();
 
         const photoUrls = new Array(photos.length).fill('');
         results.forEach(({ index, url }) => {
@@ -1413,7 +1495,11 @@
     // ---------------------------------------------------------
     // 6. 清查資料彈窗 (編輯與查看 - 同步極速預覽與記憶體釋放修復)
     // ---------------------------------------------------------
-    window.openAuditEditor = async function(isModifyMode = false) {
+    /**
+     * draftOverride: 若從上傳取消或連線逾時退回，可帶入先前已拍好/選好的草稿：
+     * { status, description, note, photos: Array<File|Blob|string> }
+     */
+    window.openAuditEditor = async function(isModifyMode = false, draftOverride = null) {
         const activePoint = window.currentSelectedPoint;
         if (!activePoint) return;
 
@@ -1430,16 +1516,22 @@
 
         const isUserCreatedPoint = !!(historyRecord.deviceStatus === '新增' || layerProps.deviceStatus === '新增');
         const currentPhotos = new Array(maxPhotos).fill('');
-        if (isModifyMode && Array.isArray(historyRecord.photos)) {
+        if (draftOverride && Array.isArray(draftOverride.photos)) {
+            draftOverride.photos.forEach((p, idx) => { if (idx < maxPhotos) currentPhotos[idx] = p || ''; });
+        } else if (isModifyMode && Array.isArray(historyRecord.photos)) {
             historyRecord.photos.forEach((url, idx) => { if (idx < maxPhotos) currentPhotos[idx] = url || ''; });
         }
 
-        const currentStatus = isUserCreatedPoint ? '新增' : (historyRecord.deviceStatus || '');
-        const currentDesc = historyRecord.description || historyRecord.desc || '';
-        const currentNote = historyRecord.note || '';
+        const currentStatus = isUserCreatedPoint
+            ? '新增'
+            : (draftOverride?.status ?? historyRecord.deviceStatus ?? '');
+        const currentDesc = draftOverride?.description ?? draftOverride?.desc ?? historyRecord.description ?? historyRecord.desc ?? '';
+        const currentNote = draftOverride?.note ?? historyRecord.note ?? '';
         const baseStatusOptions = config.statusOptions || ['正常', '損壞', '遺失'];
 
         const photoMemory = createEditorPhotoMemoryManager();
+        // 保存每個格位對應的 File 或 Blob，避免關窗清空 input.value 後遺失已拍照片
+        const slotFileMap = new Map();
 
         let statusSelectHtml = isUserCreatedPoint ? `
             <select id="swal-status" class="swal2-input audit-form-select" disabled>
@@ -1453,17 +1545,34 @@
         let photoHtml = '';
         for (let i = 0; i < maxPhotos; i++) {
             const photoData = currentPhotos[i] || '';
-            const isUrl = photoData.startsWith('http');
+            const isFileOrBlob = photoData instanceof File || photoData instanceof Blob;
+            let initSrc = '';
+            let tagText = '<span>📁</span> 開啟舊檔';
+
+            if (isFileOrBlob) {
+                slotFileMap.set(i, photoData);
+                initSrc = URL.createObjectURL(photoData);
+                photoMemory.replaceSlotUrl(i, initSrc);
+                tagText = '<span>🖼️</span> 新選擇';
+            } else if (typeof photoData === 'string' && photoData) {
+                initSrc = photoData;
+                if (photoData.startsWith('blob:')) {
+                    photoMemory.replaceSlotUrl(i, photoData);
+                }
+                tagText = photoData.startsWith('http') ? '<span>🖼️</span> 舊照片' : '<span>🖼️</span> 新選擇';
+            }
+
+            const safeInitSrc = safeEscape(initSrc);
             photoHtml += `
                 <div class="audit-photo-item-editor">
                     <div class="audit-photo-box-editor">
-                        <img id="audit-prev-${i}" src="${photoData}" class="audit-photo-preview-img" style="display:${photoData ? 'block' : 'none'};">
-                        <span id="audit-icon-${i}" class="audit-photo-icon" style="display:${photoData ? 'none' : 'block'};">📷</span>
+                        <img id="audit-prev-${i}" src="${safeInitSrc}" class="audit-photo-preview-img" style="display:${initSrc ? 'block' : 'none'};">
+                        <span id="audit-icon-${i}" class="audit-photo-icon" style="display:${initSrc ? 'none' : 'block'};">📷</span>
                         <input type="file" id="audit-file-input-${i}" accept="image/*" capture="environment" class="audit-photo-input" title="直接拍照">
                     </div>
                     <input type="file" id="audit-gallery-input-${i}" accept="image/*" style="display:none;">
                     <label for="audit-gallery-input-${i}" id="audit-tag-${i}" class="audit-photo-tag-editor">
-                        ${isUrl ? '<span>🖼️</span> 舊照片' : (photoData ? '<span>🖼️</span> 新選擇' : '<span>📁</span> 開啟舊檔')}
+                        ${tagText}
                     </label>
                 </div>`;
         }
@@ -1496,6 +1605,7 @@
                 const handlePhotoChange = (inputEl, index) => {
                     if (inputEl.files?.[0]) {
                         const file = inputEl.files[0];
+                        slotFileMap.set(index, file);
                         const previewUrl = URL.createObjectURL(file);
                         photoMemory.replaceSlotUrl(index, previewUrl);
 
@@ -1531,6 +1641,8 @@
                         finalPhotos.push(cameraInput.files[0]);
                     } else if (galleryInput?.files?.[0]) {
                         finalPhotos.push(galleryInput.files[0]);
+                    } else if (slotFileMap.has(i)) {
+                        finalPhotos.push(slotFileMap.get(i));
                     } else if (imgEl?.src && (imgEl.src.startsWith('http') || imgEl.src.startsWith('data:'))) {
                         finalPhotos.push(imgEl.src);
                     }
@@ -1555,9 +1667,35 @@
         if (isDenied) return window.deleteCustomPoint(kmlId, pointKey, kmlLayerName);
 
         if (res) {
-            Swal.fire({ title: '正在上傳與更新資料...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+            // 備份已拍/已選照片與欄位，供「取消上傳」或「連線逾時」時原封不動退回編輯器
+            const draftForRetry = {
+                status: res.status,
+                description: res.description,
+                desc: res.desc,
+                note: res.note,
+                photos: [...res.photos]
+            };
+
+            const cancelCtrl = createUploadCancelController();
+
+            Swal.fire({
+                title: '正在上傳與更新資料...',
+                text: '若訊號不佳可按取消返回已拍照片',
+                showCancelButton: true,
+                showConfirmButton: false,
+                cancelButtonText: '取消',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            }).then((uploadingSwalRes) => {
+                if (uploadingSwalRes.dismiss === Swal.DismissReason.cancel) {
+                    cancelCtrl.cancel();
+                }
+            });
+
             try {
-                const photoUrls = await window.uploadPhotosToStorage(res.photos, kmlId, pointKey, kmlLayerName);
+                const photoUrls = await window.uploadPhotosToStorage(res.photos, kmlId, pointKey, kmlLayerName, cancelCtrl);
+                cancelCtrl.throwIfCancelled();
+
                 const nowTime = new Date();
                 const structuredData = {
                     pointName: pointKey,
@@ -1579,8 +1717,23 @@
                     layerProps.desc = res.desc;
                 }
 
-                await firebase.firestore().collection(APP_PATH).doc(kmlId).collection('auditRecords').doc(pointKey).set(structuredData, { merge: true });
-                await generateLayerCsvReport(kmlId, kmlLayerName, maxPhotos);
+                await runWithTimeoutAndCancel(
+                    () => firebase.firestore().collection(APP_PATH).doc(kmlId).collection('auditRecords').doc(pointKey).set(structuredData, { merge: true }),
+                    AUDIT_UPLOAD_TIMEOUT_MS,
+                    cancelCtrl,
+                    '紀錄寫入逾時'
+                );
+
+                await runWithTimeoutAndCancel(
+                    () => generateLayerCsvReport(kmlId, kmlLayerName, maxPhotos),
+                    AUDIT_UPLOAD_TIMEOUT_MS,
+                    cancelCtrl,
+                    '報表更新逾時'
+                );
+
+                cancelCtrl.throwIfCancelled();
+
+                if (Swal.isVisible()) Swal.close();
 
                 // 1. 確實全部完成後才顯示「更新成功」
                 await Swal.fire({ icon: 'success', title: '更新成功', timer: 800, showConfirmButton: false });
@@ -1589,8 +1742,24 @@
                 forceMapRefresh();
 
                 // 3. 返回地圖後背景清除拍照暫存記憶體
-                scheduleBackgroundPhotoCleanup(res, kmlId, pointKey);
+                scheduleBackgroundPhotoCleanup(draftForRetry.photos, kmlId, pointKey);
             } catch (e) {
+                if (Swal.isVisible()) Swal.close();
+
+                if (e?.code === 'AUDIT_UPLOAD_CANCELLED') {
+                    return window.openAuditEditor(isModifyMode, draftForRetry);
+                }
+
+                if (e?.code === 'AUDIT_UPLOAD_TIMEOUT') {
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: '連線逾時',
+                        text: e.message || '目前無網路或訊號不穩，已為您保留已拍照片，返回編輯畫面。',
+                        confirmButtonText: '返回編輯'
+                    });
+                    return window.openAuditEditor(isModifyMode, draftForRetry);
+                }
+
                 Swal.fire('錯誤', e.message || '儲存失敗', 'error');
             }
         }
