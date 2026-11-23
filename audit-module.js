@@ -1235,17 +1235,25 @@
         return { replaceSlotUrl, clearAll };
     }
 
-    function clearSubmittedPhotosBuffer(resObj, kmlId, pointKey) {
-        if (resObj && Array.isArray(resObj.photos)) {
-            resObj.photos.forEach(releasePhotoTempItem);
-            resObj.photos.length = 0;
+    function scheduleBackgroundPhotoCleanup(resObj, kmlId, pointKey) {
+        const pendingPhotosBuffer = resObj && Array.isArray(resObj.photos) ? resObj.photos : null;
+        if (resObj) {
             resObj.photos = null;
         }
-        clearPointAuditTempPhotos(kmlId, pointKey);
+
+        setTimeout(() => {
+            try {
+                if (pendingPhotosBuffer) {
+                    pendingPhotosBuffer.forEach(releasePhotoTempItem);
+                    pendingPhotosBuffer.length = 0;
+                }
+                clearPointAuditTempPhotos(kmlId, pointKey);
+            } catch {}
+        }, 50);
     }
 
     // ---------------------------------------------------------
-    // 照片壓縮與上傳區段 (寬度固定 1920 等比縮放 + 循序上傳釋放)
+    // 照片壓縮與上傳區段 (寬度固定 1920 等比縮放 + 先逐張壓縮釋放再平行上傳)
     // ---------------------------------------------------------
     async function compressImageToCanvas(source) {
         return new Promise((resolve) => {
@@ -1287,7 +1295,7 @@
                         const resultBlob = blob || source;
                         cleanup();
                         resolve(resultBlob);
-                    }, 'image/jpeg', 0.82);
+                    }, 'image/jpeg', 0.75);
                 } catch {
                     cleanup();
                     resolve(source);
@@ -1310,11 +1318,15 @@
         const targetLayerName = kmlLayerName || getLayerFolderName(kmlId);
         const storageRef = firebase.storage().ref();
         const safePointKey = String(pointKey || 'point').replace(/[/\\?%*:|"<>]/g, '_');
-        const photoUrls = new Array(photos.length).fill('');
 
+        // 1. 先逐張壓縮並釋放畫布，避免多張原圖同時解碼造成記憶體尖峰
+        const preparedItems = [];
         for (let index = 0; index < photos.length; index++) {
-            let photoData = photos[index];
-            if (!photoData) continue;
+            const photoData = photos[index];
+            if (!photoData) {
+                preparedItems.push({ index, type: 'empty', value: '' });
+                continue;
+            }
 
             if (
                 typeof photoData === 'string' &&
@@ -1322,25 +1334,38 @@
                 !photoData.startsWith('blob:') &&
                 !(photoData instanceof File || photoData instanceof Blob)
             ) {
-                photoUrls[index] = photoData;
+                preparedItems.push({ index, type: 'existingUrl', value: photoData });
                 photos[index] = null;
                 continue;
             }
 
-            const customStoragePath = `${STORAGE_ROOT}/${targetLayerName}/${safePointKey}_${String(index + 1).padStart(2, '0')}.jpg`;
-            const ref = storageRef.child(customStoragePath);
-
-            let compressedBlob = await compressImageToCanvas(photoData);
-            try {
-                await ref.put(compressedBlob);
-                photoUrls[index] = await ref.getDownloadURL();
-            } finally {
-                compressedBlob = null;
-                photoData = null;
-                photos[index] = null;
-            }
+            const compressedBlob = await compressImageToCanvas(photoData);
+            preparedItems.push({ index, type: 'upload', blob: compressedBlob });
+            photos[index] = null;
         }
 
+        // 2. 壓縮完成後再平行上傳至 Firebase Storage
+        const results = await Promise.all(
+            preparedItems.map(async (item) => {
+                if (item.type === 'empty') return { index: item.index, url: '' };
+                if (item.type === 'existingUrl') return { index: item.index, url: item.value };
+
+                const customStoragePath = `${STORAGE_ROOT}/${targetLayerName}/${safePointKey}_${String(item.index + 1).padStart(2, '0')}.jpg`;
+                const ref = storageRef.child(customStoragePath);
+                try {
+                    await ref.put(item.blob);
+                    const downloadUrl = await ref.getDownloadURL();
+                    return { index: item.index, url: downloadUrl };
+                } finally {
+                    item.blob = null;
+                }
+            })
+        );
+
+        const photoUrls = new Array(photos.length).fill('');
+        results.forEach(({ index, url }) => {
+            photoUrls[index] = url;
+        });
         return photoUrls;
     };
 
@@ -1557,10 +1582,14 @@
                 await firebase.firestore().collection(APP_PATH).doc(kmlId).collection('auditRecords').doc(pointKey).set(structuredData, { merge: true });
                 await generateLayerCsvReport(kmlId, kmlLayerName, maxPhotos);
 
-                clearSubmittedPhotosBuffer(res, kmlId, pointKey);
-
+                // 1. 確實全部完成後才顯示「更新成功」
                 await Swal.fire({ icon: 'success', title: '更新成功', timer: 800, showConfirmButton: false });
+
+                // 2. 返回／刷新地圖
                 forceMapRefresh();
+
+                // 3. 返回地圖後背景清除拍照暫存記憶體
+                scheduleBackgroundPhotoCleanup(res, kmlId, pointKey);
             } catch (e) {
                 Swal.fire('錯誤', e.message || '儲存失敗', 'error');
             }
@@ -1826,7 +1855,7 @@
                     canvas.height = 0;
                     img.src = '';
                     resolve(blob || imageBlob);
-                }, 'image/jpeg', 0.85);
+                }, 'image/jpeg', 0.75);
             };
 
             img.onerror = () => {
