@@ -1677,8 +1677,9 @@
             };
 
             const cancelCtrl = createUploadCancelController();
+            let modalClosedByUserCancel = false;
 
-            Swal.fire({
+            const uploadModalPromise = Swal.fire({
                 title: '正在上傳與更新資料...',
                 text: '若訊號不佳可按取消返回已拍照片',
                 showCancelButton: true,
@@ -1686,54 +1687,91 @@
                 cancelButtonText: '取消',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
-            }).then((uploadingSwalRes) => {
-                if (uploadingSwalRes.dismiss === Swal.DismissReason.cancel) {
+            }).then((result) => {
+                if (result.dismiss === Swal.DismissReason.cancel) {
+                    modalClosedByUserCancel = true;
                     cancelCtrl.cancel();
                 }
             });
 
+            const reopenEditorWithDraft = (showTimeoutNotice = false, timeoutMsg = '') => {
+                setTimeout(async () => {
+                    if (showTimeoutNotice) {
+                        await Swal.fire({
+                            icon: 'warning',
+                            title: '連線逾時',
+                            text: timeoutMsg || '目前無網路或訊號不穩，已為您保留已拍照片，返回編輯畫面。',
+                            confirmButtonText: '返回編輯'
+                        });
+                    }
+                    await window.openAuditEditor(isModifyMode, draftForRetry);
+                }, 30);
+            };
+
             try {
-                const photoUrls = await window.uploadPhotosToStorage(res.photos, kmlId, pointKey, kmlLayerName, cancelCtrl);
-                cancelCtrl.throwIfCancelled();
+                const uploadTask = (async () => {
+                    const photoUrls = await window.uploadPhotosToStorage(
+                        res.photos,
+                        kmlId,
+                        pointKey,
+                        kmlLayerName,
+                        cancelCtrl
+                    );
+                    cancelCtrl.throwIfCancelled();
 
-                const nowTime = new Date();
-                const structuredData = {
-                    pointName: pointKey,
-                    status: "已完成",
-                    deviceStatus: res.status,
-                    description: res.description,
-                    desc: res.desc,
-                    note: res.note,
-                    photos: photoUrls,
-                    updatedAt: nowTime
-                };
+                    const nowTime = new Date();
+                    const structuredData = {
+                        pointName: pointKey,
+                        status: "已完成",
+                        deviceStatus: res.status,
+                        description: res.description,
+                        desc: res.desc,
+                        note: res.note,
+                        photos: photoUrls,
+                        updatedAt: nowTime
+                    };
 
-                window.auditLayersState ||= {};
-                window.auditLayersState[kmlId] ||= {};
-                window.auditLayersState[kmlId][pointKey] = { ...window.auditLayersState[kmlId][pointKey], ...structuredData };
+                    window.auditLayersState ||= {};
+                    window.auditLayersState[kmlId] ||= {};
+                    window.auditLayersState[kmlId][pointKey] = {
+                        ...window.auditLayersState[kmlId][pointKey],
+                        ...structuredData
+                    };
 
-                if (layerProps) {
-                    layerProps.description = res.description;
-                    layerProps.desc = res.desc;
-                }
+                    if (layerProps) {
+                        layerProps.description = res.description;
+                        layerProps.desc = res.desc;
+                    }
 
-                await runWithTimeoutAndCancel(
-                    () => firebase.firestore().collection(APP_PATH).doc(kmlId).collection('auditRecords').doc(pointKey).set(structuredData, { merge: true }),
-                    AUDIT_UPLOAD_TIMEOUT_MS,
-                    cancelCtrl,
-                    '紀錄寫入逾時'
-                );
+                    await runWithTimeoutAndCancel(
+                        () => firebase.firestore().collection(APP_PATH).doc(kmlId).collection('auditRecords').doc(pointKey).set(structuredData, { merge: true }),
+                        AUDIT_UPLOAD_TIMEOUT_MS,
+                        cancelCtrl,
+                        '紀錄寫入逾時'
+                    );
 
-                await runWithTimeoutAndCancel(
-                    () => generateLayerCsvReport(kmlId, kmlLayerName, maxPhotos),
-                    AUDIT_UPLOAD_TIMEOUT_MS,
-                    cancelCtrl,
-                    '報表更新逾時'
-                );
+                    await runWithTimeoutAndCancel(
+                        () => generateLayerCsvReport(kmlId, kmlLayerName, maxPhotos),
+                        AUDIT_UPLOAD_TIMEOUT_MS,
+                        cancelCtrl,
+                        '報表更新逾時'
+                    );
 
-                cancelCtrl.throwIfCancelled();
+                    cancelCtrl.throwIfCancelled();
+                })();
+
+                const cancelWatcher = new Promise((_, reject) => {
+                    cancelCtrl.onCancel(() => {
+                        const err = new Error('已取消上傳');
+                        err.code = 'AUDIT_UPLOAD_CANCELLED';
+                        reject(err);
+                    });
+                });
+
+                await Promise.race([uploadTask, cancelWatcher]);
 
                 if (Swal.isVisible()) Swal.close();
+                await uploadModalPromise;
 
                 // 1. 確實全部完成後才顯示「更新成功」
                 await Swal.fire({ icon: 'success', title: '更新成功', timer: 800, showConfirmButton: false });
@@ -1745,19 +1783,16 @@
                 scheduleBackgroundPhotoCleanup(draftForRetry.photos, kmlId, pointKey);
             } catch (e) {
                 if (Swal.isVisible()) Swal.close();
+                await uploadModalPromise;
 
-                if (e?.code === 'AUDIT_UPLOAD_CANCELLED') {
-                    return window.openAuditEditor(isModifyMode, draftForRetry);
+                if (modalClosedByUserCancel || e?.code === 'AUDIT_UPLOAD_CANCELLED') {
+                    reopenEditorWithDraft(false);
+                    return;
                 }
 
                 if (e?.code === 'AUDIT_UPLOAD_TIMEOUT') {
-                    await Swal.fire({
-                        icon: 'warning',
-                        title: '連線逾時',
-                        text: e.message || '目前無網路或訊號不穩，已為您保留已拍照片，返回編輯畫面。',
-                        confirmButtonText: '返回編輯'
-                    });
-                    return window.openAuditEditor(isModifyMode, draftForRetry);
+                    reopenEditorWithDraft(true, e.message);
+                    return;
                 }
 
                 Swal.fire('錯誤', e.message || '儲存失敗', 'error');
@@ -1846,7 +1881,7 @@
             willClose: () => typeof syncAuditButtonVisibility === 'function' && syncAuditButtonVisibility()
         });
     };
-          
+    
     // ---------------------------------------------------------
     // 7-1. 水印壓製工具函數 (預覽與匯出共用同一渲染核心)
     // ---------------------------------------------------------
